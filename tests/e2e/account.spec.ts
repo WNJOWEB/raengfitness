@@ -540,7 +540,7 @@ test.describe("member accounts", () => {
 
   test("the menu and footer link to member sign-in, and robots keep /account out", async ({ page, request }) => {
     await page.goto(PROD);
-    await expect(page.locator("footer").getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", "/account/sign-in");
+    await expect(page.locator("footer").getByRole("link", { name: "Member Login", exact: true })).toHaveAttribute("href", "/account/sign-in");
     const robots = await (await request.get(`${PROD}/robots.txt`)).text();
     expect(robots).toContain("Disallow: /account");
     const sitemap = await (await request.get(`${PROD}/sitemap.xml`)).text();

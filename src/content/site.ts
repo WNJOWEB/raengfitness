@@ -87,11 +87,11 @@ export const mainNav = [
 /** Extra pages listed in the phone menu and footer, after mainNav (none now: Contact is in mainNav). */
 export const pageNav: readonly { label: string; href: string }[] = [];
 
-/** Sign-in for members and anyone who has booked (2026-10-26; "Sign in" since 2026-10-28): in the menu and the footer, before Alex's. */
-export const memberSignInNav = { label: "Sign in", href: "/account/sign-in" } as const;
+/** Sign-in for members and anyone who has booked (2026-10-26; "Member Login" since 2026-11-02, owner): the menu's main button, and in the footer, before Alex's. */
+export const memberSignInNav = { label: "Member Login", href: "/account/sign-in" } as const;
 
-/** Alex's sign-in: last in the phone menu and the footer. */
-export const coachLoginNav = { label: "Coach login", href: "/coach/login" } as const;
+/** Alex's sign-in ("Coach Portal" since 2026-11-02, owner): a small text link under Member Login in the menu, and last in the footer. */
+export const coachLoginNav = { label: "Coach Portal", href: "/coach/login" } as const;
 
 /** Footer links: every page except Home (the logo links home), plus the member and coach sign-ins. */
 export const footerNav = [

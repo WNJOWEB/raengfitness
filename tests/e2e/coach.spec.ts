@@ -17,7 +17,7 @@ test("the coach area redirects to the login page when signed out", async ({ page
 
 test("the footer links to the coach login, which is not indexed", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("contentinfo").getByRole("link", { name: "Coach login" }).click();
+  await page.getByRole("contentinfo").getByRole("link", { name: "Coach Portal" }).click();
   await expect(page).toHaveURL(/\/coach\/login$/);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   const sitemap = await (await page.request.get("/sitemap.xml")).text();

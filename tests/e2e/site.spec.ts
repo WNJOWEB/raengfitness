@@ -868,6 +868,26 @@ test("home: the class times as simple rows; a row and View classes and book open
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
+test("menu: Member Login is the main button, Coach Portal a small text link under it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: /menu/i }).first().click();
+  const nav = page.getByRole("navigation", { name: "Main" });
+  const member = nav.getByRole("link", { name: "Member Login" });
+  const coach = nav.getByRole("link", { name: "Coach Portal" });
+  await expect(member).toHaveAttribute("href", "/account/sign-in");
+  await expect(coach).toHaveAttribute("href", "/coach/login");
+  await page.waitForTimeout(1200); // the menu's entrance
+  // Member Login: a solid black button; Coach Portal: plain text, smaller, below it.
+  expect(await member.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(23, 23, 23)");
+  expect(await coach.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  const size = (l: typeof member) => l.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(await size(coach)).toBeLessThan(await size(member));
+  const [mb, cb] = await Promise.all([member.boundingBox(), coach.boundingBox()]);
+  expect(cb!.y).toBeGreaterThan(mb!.y + mb!.height - 1);
+  expect(cb!.height).toBeGreaterThanOrEqual(43); // still a comfortable tap target
+});
+
 test("home: tapping a class row turns it ink, then opens the calendar on that class", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");

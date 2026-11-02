@@ -90,7 +90,7 @@ export function MobileNav() {
             style={{ "--i": mainNav.length + pageNav.length } as CSSProperties}
             onClick={() => setOpen(false)}
             aria-current={currentFor(pathname, "/account")}
-            className="menu-rise mt-6 flex min-h-12 items-center justify-center rounded-full border border-ink px-6 text-base font-semibold hover:bg-ink hover:text-white"
+            className="menu-rise mt-6 flex min-h-12 items-center justify-center rounded-full border border-ink bg-ink px-6 text-base font-semibold text-white hover:bg-white hover:text-ink"
           >
             {memberSignInNav.label}
           </Link>
@@ -99,7 +99,7 @@ export function MobileNav() {
             style={{ "--i": mainNav.length + pageNav.length + 1 } as CSSProperties}
             onClick={() => setOpen(false)}
             aria-current={currentFor(pathname, coachLoginNav.href)}
-            className="menu-rise mt-4 flex min-h-12 items-center justify-center rounded-full border border-grey px-6 text-base font-semibold hover:border-ink"
+            className="menu-rise mt-2 flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4 hover:no-underline"
           >
             {coachLoginNav.label}
           </Link>
