@@ -3,6 +3,7 @@ import { memberLinkOrigin } from "../member-auth";
 import { toLondon } from "../coach/time";
 import { createPaymentSession, getCheckoutSession, getPaymentIntent, getPaymentMethod, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
 import type { StripeConfig, StripeWebhookConfig } from "./config";
+import { directDebitEnabled } from "./config";
 import { ensureStripeCustomer, renewalConsent } from "./customer";
 import { verifyStripeSignature } from "./signature";
 
@@ -336,7 +337,7 @@ export async function createChargeLink(
   // A membership payment keeps the card for the renewals; if the customer can't be made, it is still just a payment.
   const renewal = options.renewal?.email ? options.renewal : null;
   const customer = renewal ? await ensureStripeCustomer(db, stripe, renewal, fetchImpl) : null;
-  const keepCard = renewal && customer?.ok ? { customerId: customer.customerId, clientReference: renewal.clientId, consent: renewalConsent(link.amount_pence) } : null;
+  const keepCard = renewal && customer?.ok ? { customerId: customer.customerId, clientReference: renewal.clientId, consent: renewalConsent(link.amount_pence, directDebitEnabled()) } : null;
   const made = await createPaymentSession(
     stripe,
     {

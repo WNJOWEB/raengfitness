@@ -9,7 +9,7 @@ import { ACCOUNT_PATH, SIGN_IN_PATH, memberLinkOrigin } from "./member-auth";
 import { formatPenceShort } from "./membership";
 import { describeFirstClass, type MembershipRequest } from "./membership-request";
 import { sendEmail } from "./send-email";
-import { stripeConfig, type StripeConfig } from "./stripe/config";
+import { directDebitEnabled, stripeConfig, type StripeConfig } from "./stripe/config";
 import { createChargeLink } from "./stripe/sync";
 
 /**
@@ -181,7 +181,7 @@ export async function notifyNewMembers(db: Db, classes: PublishedClass[], env: E
     const how = await rpc<{ status: string; method: string; label: string }>(db, "akb_payment_method_info", { p_client: row.client_id });
     const renewalLine =
       how.ok && how.data.status === "active" && how.data.method === "card"
-        ? `Your membership renews automatically every ${BILLING_WEEKS} weeks until you cancel: ${formatPenceShort(s.price_pence)} is charged to your ${how.data.label || "card"} on each renewal date. We'll email you 5 days before each payment. To stop it, cancel from your account at any time.`
+        ? `Your membership renews automatically every ${BILLING_WEEKS} weeks until you cancel: ${formatPenceShort(s.price_pence)} is charged to your ${how.data.label || "card"} on each renewal date. We'll email you 5 days before each payment. To stop it, cancel from your account at any time.${directDebitEnabled(env) ? `\n\nPrefer a Direct Debit? Set it up from your account and renewals are collected from your bank instead: ${memberLinkOrigin(env)}${ACCOUNT_PATH}/plan` : ""}`
         : `Your membership renews every ${BILLING_WEEKS} weeks; you'll get a payment link by email each time.`;
     const slot = classes.find((c) => c.id === s.class_slot);
     const firstClass = s.class_date && slot ? describeFirstClass({ session: slot.label, classDate: s.class_date }) : null;

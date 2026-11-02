@@ -71,11 +71,19 @@ test.describe("joining and paying online", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're in.", { timeout: 15_000 });
     await expect(page.getByRole("link", { name: "Sign in to your account" })).toHaveAttribute("href", "/account/sign-in");
 
-    // The payment kept the card (the member agreed on Stripe's page): their membership renews by card, and no Direct Debit is pushed.
-    await expect(page.getByText("Your membership renews automatically.")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("your Visa ending 4242 is charged for the next period, and we email you 5 days before each payment")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toHaveCount(0);
+    // Direct Debit is the first option: the payment also kept the card (the member agreed on Stripe's page), which is the fallback.
+    await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Your bank details go straight to Stripe, not to us.")).toBeVisible();
+    await expect(page.getByText("Prefer to pay by card? There's nothing more to do: your Visa ending 4242 is charged automatically every 4 weeks")).toBeVisible();
     expect(await sql(request, "select d.dd_status, d.method, d.card_label, d.environment from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", method: "card", card_label: "Visa ending 4242", environment: "sandbox" }]);
+    await page.getByRole("button", { name: "Set up Direct Debit" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    await expect(page.getByRole("heading", { name: "Set up Direct Debit" })).toBeVisible();
+    await page.getByRole("button", { name: "Authorise Direct Debit" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=`));
+    await expect(page.getByText("Direct Debit is set up.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toHaveCount(0);
+    expect(await sql(request, "select d.dd_status, d.method, d.card_label from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", method: "bacs", card_label: "" }]);
 
     // In the database: an online-paying membership on the paid charge, and a card payment from Stripe.
     const [m] = await sql(request, "select m.pay_online, m.plan, m.credits from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email]);
@@ -92,6 +100,7 @@ test.describe("joining and paying online", () => {
     expect(welcome.payload.subject).toBe("Welcome to RAENG: your Regular membership has started");
     expect(welcome.payload.text).toContain("renews automatically every 4 weeks until you cancel");
     expect(welcome.payload.text).toContain("Visa ending 4242");
+    expect(welcome.payload.text).toContain("Prefer a Direct Debit? Set it up from your account");
   });
 
   test("the member's plan page shows the card their renewals are charged to; they change it on Stripe's page and can cancel", async ({ page, request }) => {
@@ -101,7 +110,7 @@ test.describe("joining and paying online", () => {
     await page.getByLabel(/I've read and agree to the membership terms/).check();
     await page.getByRole("button", { name: "Pay £65" }).click();
     await page.getByRole("button", { name: "Pay £65.00" }).click();
-    await expect(page.getByText("Your membership renews automatically.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
 
     // Sign in with the emailed link, as a member does.
     await page.goto(`${PAY}/account/sign-in`);
@@ -118,11 +127,11 @@ test.describe("joining and paying online", () => {
     await expect(page).toHaveURL(/\/account$/);
 
     await page.goto(`${PAY}/account/plan`);
-    await expect(page.getByText("Your membership renews automatically.")).toBeVisible();
-    await expect(page.getByText(/£65 is charged to your Visa ending 4242 every 4 weeks, on the day each new period starts\. We email you 5 days before each payment\./)).toBeVisible();
-    // Direct Debit isn't offered until Stripe has approved it.
+    // Direct Debit is the first option; the saved card is what's charged until it's set up.
+    await expect(page.getByText("Pay by Direct Debit.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toBeVisible();
+    await expect(page.getByText(/Until then, your Visa ending 4242 is charged every 4 weeks, on the day each new period starts\. We email you 5 days before each payment\./)).toBeVisible();
     await expect(page.getByRole("button", { name: "Switch to Direct Debit" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toHaveCount(0);
 
     // Change card: Stripe's page carries the agreement and takes no money; coming back, the new card shows.
     await page.getByRole("button", { name: "Change card" }).click();
@@ -132,7 +141,7 @@ test.describe("joining and paying online", () => {
     await page.getByRole("button", { name: "Save card" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/account/plan\\?done=card_updated`));
     await expect(page.getByText("Thanks, your card is saved. Your renewals will be charged to it.")).toBeVisible();
-    await expect(page.getByText(/charged to your Mastercard ending 4444/)).toBeVisible();
+    await expect(page.getByText(/Until then, your Mastercard ending 4444 is charged every 4 weeks/)).toBeVisible();
     expect(await sql(request, "select d.method, d.card_label from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ method: "card", card_label: "Mastercard ending 4444" }]);
     // Phone first (390 px): nothing overflows sideways.
     await page.setViewportSize({ width: 390, height: 844 });

@@ -32,6 +32,8 @@ const stripeEnv = {
   STRIPE_SECRET_KEY: "sk_test_e2e_not_real",
   STRIPE_API_URL: `http://localhost:${mockStripePort}`,
   STRIPE_WEBHOOK_SECRET: "whsec_e2e_not_real",
+  // Bacs is approved on the live account (2026-11-02): Direct Debit is offered first.
+  DIRECT_DEBIT_ENABLED: "true",
 };
 
 export default defineConfig({

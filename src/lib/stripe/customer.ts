@@ -32,6 +32,6 @@ export async function ensureStripeCustomer(
  * payment also saves the card for the renewals. It is the member's agreement
  * to be charged again, so it states the amount, the rhythm and how to stop.
  */
-export function renewalConsent(pricePence: number): string {
-  return `Your membership renews every ${BILLING_WEEKS} weeks until you cancel. By paying, you agree that ${formatPenceShort(pricePence)} will be charged to this card every ${BILLING_WEEKS} weeks. We email you 5 days before each payment. Cancel any time from your account.`;
+export function renewalConsent(pricePence: number, directDebit = false): string {
+  return `Your membership renews every ${BILLING_WEEKS} weeks until you cancel. By paying, you agree that ${formatPenceShort(pricePence)} will be charged to this card every ${BILLING_WEEKS} weeks${directDebit ? ", unless you set up a Direct Debit instead" : ""}. We email you 5 days before each card payment. Cancel any time from your account.`;
 }

@@ -78,6 +78,7 @@ export const membershipCancellation = {
   lines: [
     "You can cancel your membership at any time from your account, or by messaging Alex.",
     "Your first four weeks are paid by card, which we save with your agreement. After that your membership renews automatically every four weeks, and the payment is taken on the day the new period starts, until you cancel. We email you 5 days before each payment, so cancel before then to stop the next one.",
+    "You can pay by Direct Debit instead of card: set it up from your account and each four weeks is collected from your bank a few days before the new period starts, so cancel before then to stop the next one.",
     "Once a period is paid you get its credits and keep them until the period ends. Cancelling stops further payments and new periods; it doesn't refund a period you've already paid for.",
   ],
 } as const;

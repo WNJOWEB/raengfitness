@@ -112,13 +112,6 @@ function Body({ signup, signupId, ddMessage, directDebitOffered }: { signup: Sig
             Your membership continues every {BILLING_WEEKS} weeks and each payment is collected by Direct Debit. You can cancel at any time from your account: you keep the credits you&apos;ve paid for until the end of the period.
           </p>
         </div>
-      ) : signup.card ? (
-        <div className="mt-6 rounded-[1.25rem] bg-white p-5">
-          <p className="font-semibold">Your membership renews automatically.</p>
-          <p className="mt-1">
-            Every {BILLING_WEEKS} weeks your {signup.card} is charged for the next period, and we email you 5 days before each payment. You can cancel at any time from your account: you keep the credits you&apos;ve paid for until the end of the period.
-          </p>
-        </div>
       ) : directDebitOffered && signupId ? (
         <div className="mt-6 rounded-[1.25rem] bg-white p-5">
           <p className="font-semibold">Set up your Direct Debit.</p>
@@ -136,7 +129,18 @@ function Body({ signup, signupId, ddMessage, directDebitOffered }: { signup: Sig
               Set up Direct Debit
             </button>
           </form>
-          <p className="mt-3 text-sm">Until it&apos;s set up, we&apos;ll email you a payment link when your membership renews.</p>
+          <p className="mt-3 text-sm">
+            {signup.card
+              ? `Prefer to pay by card? There's nothing more to do: your ${signup.card} is charged automatically every ${BILLING_WEEKS} weeks, and we email you 5 days before each payment.`
+              : "Until it's set up, we'll email you a payment link when your membership renews."}
+          </p>
+        </div>
+      ) : signup.card ? (
+        <div className="mt-6 rounded-[1.25rem] bg-white p-5">
+          <p className="font-semibold">Your membership renews automatically.</p>
+          <p className="mt-1">
+            Every {BILLING_WEEKS} weeks your {signup.card} is charged for the next period, and we email you 5 days before each payment. You can cancel at any time from your account: you keep the credits you&apos;ve paid for until the end of the period.
+          </p>
         </div>
       ) : null}
       <Link href={SIGN_IN_PATH} className={buttonClasses(signup.dd === "active" || signup.card ? "action" : "secondary", "mt-6 w-full px-6 sm:w-auto")}>

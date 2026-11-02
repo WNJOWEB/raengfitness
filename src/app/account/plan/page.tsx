@@ -108,7 +108,49 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                 Payments
               </h2>
               <div className="flex flex-col gap-2 rounded-3xl bg-white p-5">
-                {d.dd.status === "active" && d.dd.method === "card" ? (
+                {d.dd.status === "active" && d.dd.method === "bacs" ? (
+                  <>
+                    <p className="font-semibold">Direct Debit is set up.</p>
+                    <p className="text-ink">
+                      {formatPenceShort(m.price_pence)} is collected by Direct Debit every {BILLING_WEEKS} weeks, a few days before each new period starts.
+                    </p>
+                  </>
+                ) : d.ddAvailable ? (
+                  <>
+                    <p className="font-semibold">Pay by Direct Debit.</p>
+                    <p className="text-ink">
+                      Set up a Direct Debit and your membership continues every {BILLING_WEEKS} weeks without you doing anything: {formatPenceShort(m.price_pence)} is collected a few days before each new period starts. Your bank details go straight to Stripe, not to us. You can cancel at any time.
+                    </p>
+                    <form action={setUpDirectDebit}>
+                      <button type="submit" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
+                        Set up Direct Debit
+                      </button>
+                    </form>
+                    <div className="mt-3 border-t border-line pt-3">
+                      {d.dd.status === "active" && d.dd.method === "card" ? (
+                        <>
+                          <p className="text-ink">
+                            Until then, your {d.dd.label || "card"} is charged every {BILLING_WEEKS} weeks, on the day each new period starts. We email you 5 days before each payment.
+                          </p>
+                          <form action={updateRenewalCard}>
+                            <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                              Change card
+                            </button>
+                          </form>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-ink">Or pay by card: save a card and {formatPenceShort(m.price_pence)} is charged to it every {BILLING_WEEKS} weeks.</p>
+                          <form action={updateRenewalCard}>
+                            <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                              Save a card
+                            </button>
+                          </form>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : d.dd.status === "active" && d.dd.method === "card" ? (
                   <>
                     <p className="font-semibold">Your membership renews automatically.</p>
                     <p className="text-ink">
@@ -119,21 +161,6 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                         Change card
                       </button>
                     </form>
-                    {d.ddAvailable ? (
-                      <form action={setUpDirectDebit} className="mt-3 border-t border-line pt-3">
-                        <p className="text-ink">Prefer to pay by Direct Debit instead? Your bank details go straight to Stripe, not to us.</p>
-                        <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
-                          Switch to Direct Debit
-                        </button>
-                      </form>
-                    ) : null}
-                  </>
-                ) : d.dd.status === "active" && d.dd.method === "bacs" ? (
-                  <>
-                    <p className="font-semibold">Direct Debit is set up.</p>
-                    <p className="text-ink">
-                      {formatPenceShort(m.price_pence)} is collected by Direct Debit every {BILLING_WEEKS} weeks, a few days before each new period starts.
-                    </p>
                   </>
                 ) : !d.cardAvailable ? (
                   <p className="text-ink">We&apos;ll email you a payment link when your membership renews. Payments are made on Stripe&apos;s secure page.</p>
@@ -148,14 +175,6 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                         Save a card
                       </button>
                     </form>
-                    {d.ddAvailable ? (
-                      <form action={setUpDirectDebit} className="mt-3 border-t border-line pt-3">
-                        <p className="text-ink">Or set up a Direct Debit instead.</p>
-                        <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
-                          Set up Direct Debit
-                        </button>
-                      </form>
-                    ) : null}
                   </>
                 )}
               </div>
