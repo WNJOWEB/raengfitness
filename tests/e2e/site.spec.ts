@@ -240,14 +240,14 @@ test("contact details: email shown, phone number hidden until tapped and never i
   await page.goto("/contact");
   const ways = page.locator("#ways");
   await expect(ways.getByRole("link", { name: /hello@raengfitness\.co\.uk/ })).toHaveAttribute("href", "mailto:hello@raengfitness.co.uk");
-  // Instagram (RAENG's own account) sits beside the email, each with its icon, and opens in a new tab.
+  // Instagram (RAENG's own account) sits beside the email, each with its icon, and opens in a new tab (2×2 tiles).
   const instagram = ways.getByRole("link", { name: /@raeng\.fitness on Instagram/ });
   await expect(instagram).toHaveAttribute("href", "https://www.instagram.com/raeng.fitness/");
   await expect(instagram).toHaveAttribute("target", "_blank");
   await expect(ways).toContainText("@raeng.fitness");
   await expect(ways.locator("svg")).toHaveCount(4); // Email, Instagram, Phone and the address each have an icon
   await expect(ways).not.toContainText("07452");
-  await ways.getByRole("button", { name: "Show number" }).click();
+  await ways.getByRole("button", { name: /show the number/i }).click();
   await expect(ways).toContainText("07452 825256");
   await expect(ways.getByRole("link", { name: /Call/ })).toHaveAttribute("href", "tel:07452825256");
   // The footer hides it too.
@@ -255,6 +255,29 @@ test("contact details: email shown, phone number hidden until tapped and never i
   await expect(footer).not.toContainText("07452");
   await footer.getByRole("button", { name: "Show phone number" }).click();
   await expect(footer.getByRole("link", { name: "07452 825256" })).toHaveAttribute("href", "tel:07452825256");
+});
+
+test("contact tiles: a 2×2 grid on phones, one column under 360px, nothing overflows", async ({ page }) => {
+  const tops = async () => page.locator("#ways > li").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top + window.scrollY) }; }));
+  const settle = async () => {
+    await page.waitForTimeout(3300); // the opening logo screen
+    await page.addStyleTag({ content: "*,*::before,*::after{transition:none!important;animation:none!important}[data-reveal]{opacity:1!important;transform:none!important}" });
+  };
+  await page.setViewportSize({ width: 430, height: 900 });
+  await page.goto("/contact");
+  await settle();
+  let t = await tops();
+  expect(t).toHaveLength(4);
+  expect(t[0].y).toBe(t[1].y); // Email beside Instagram
+  expect(t[2].y).toBe(t[3].y); // Call beside Directions
+  expect(t[2].y).toBeGreaterThan(t[0].y);
+  expect(t[1].x).toBeGreaterThan(t[0].x);
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/contact");
+  await settle();
+  t = await tops();
+  expect(new Set(t.map((x) => x.x)).size).toBe(1); // one column
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
 test("header: menu at the left, logo centred, nothing at the right, no overlap", async ({ page }) => {
