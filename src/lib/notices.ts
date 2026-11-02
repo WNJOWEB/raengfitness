@@ -28,7 +28,8 @@ export async function sendNotice(notice: Notice, env: Env = process.env, fetchIm
   const config = bookingDeliveryConfig(env);
   if (!config) return { customer: null, alex: null };
   const result: { customer: boolean | null; alex: boolean | null } = { customer: null, alex: null };
-  if (notice.customer) {
+  // A customer with no email on file simply isn't emailed (the coach portal allows clients without one).
+  if (notice.customer?.email) {
     const sent = await sendEmail(
       config,
       {

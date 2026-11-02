@@ -62,18 +62,23 @@ export async function notifyChargePayments(db: Db, env: Env = process.env, fetch
     const what = charges.data.find((c) => c.id === chargeId)?.description || "your payment";
     const amount = formatPence(p.amount_pence);
     const test = p.provider.includes("test");
+    const hasEmail = Boolean(person.email);
     const result = await sendNotice(
       {
         label: "payment-receipt",
         key: `payment-receipt/${p.id}`,
-        customer: { email: person.email, subject: `We've received your payment: ${amount}`, text: `Thank you. We've received your card payment of ${amount} for ${what}.` },
-        alex: { subject: `Payment received: ${person.full_name}, ${amount}`, text: `${person.full_name} (${person.email}) paid ${amount} by card for ${what}${test ? " (Stripe test payment)" : ""}. It's recorded against their charge.` },
+        customer: hasEmail ? { email: person.email, subject: `We've received your payment: ${amount}`, text: `Thank you. We've received your card payment of ${amount} for ${what}.` } : undefined,
+        alex: {
+          subject: `Payment received: ${person.full_name}, ${amount}`,
+          text: `${person.full_name}${hasEmail ? ` (${person.email})` : ""} paid ${amount} by card for ${what}${test ? " (Stripe test payment)" : ""}. It's recorded against their charge.${hasEmail ? "" : "\n\nThey have no email address on file, so no receipt was sent to them. Add one to their client record to send receipts."}`,
+          replyTo: hasEmail ? person.email : undefined,
+        },
       },
       env,
       fetchImpl,
     );
-    // Marked only when both emails went, so a failed one is tried again (the key stops a repeat of the one that did).
-    if (result.customer && result.alex) {
+    // Marked only when every email that could go did, so a failed one is tried again (the key stops a repeat of the one that did).
+    if ((result.customer || !hasEmail) && result.alex) {
       const marked = await insert(db, "akb_events", { client_id: p.client_id, entity: "payment", entity_id: p.id, action: "receipt_sent", detail: {} });
       if (marked.ok) sent += 1;
     }

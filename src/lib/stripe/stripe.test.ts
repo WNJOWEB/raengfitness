@@ -339,6 +339,23 @@ describe("receipts for payments on a coach Card link", () => {
     expect(m.sent).toHaveLength(count);
   });
 
+  it("a client with no email on file: Alex is told (and told why no receipt went), nothing is sent to the customer, and it isn't retried forever", async () => {
+    const a = api();
+    const m = mailer();
+    const { client, sessionId } = await openLink(a, 300);
+    await sql("update akb_clients set email = '' where id = $1", [client]);
+    a.pay(sessionId, 300);
+    await completed(a, sessionId);
+    expect(await notifyChargePayments(db, mailEnv, m.fetchImpl)).toBeGreaterThanOrEqual(1);
+    const mine = m.sent.filter((e) => e.subject.includes("£3.00"));
+    expect(mine).toHaveLength(1);
+    expect(mine[0].to).toEqual(["alex@example.com"]);
+    expect(mine[0].text).toContain("no email address on file");
+    const count = m.sent.length;
+    expect(await notifyChargePayments(db, mailEnv, m.fetchImpl)).toBe(0);
+    expect(m.sent).toHaveLength(count);
+  });
+
   it("sends nothing without email settings, and nothing for a payment that isn't recorded", async () => {
     const a = api();
     const m = mailer();
