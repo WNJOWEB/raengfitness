@@ -105,7 +105,8 @@ Blocked on (history): provider choice (Stripe chosen 2026-10-30, live 2026-11-02
 - [x] Supabase project `Alexkbells` connected (env config only; see ARCHITECTURE.md)
 - [x] Coach login (`/coach/login`) with Supabase Auth, limited to `COACH_EMAIL`
 - [ ] Create Alex's coach account in Supabase, turn off public sign-ups, set `COACH_EMAIL` in Vercel (DEPLOYMENT.md → Coach login)
-- [ ] Resolve the other app's tables found in the Supabase project's `public` schema (clear or new project) before any migration
+- [x] The other app's data was removed from the Supabase project (2026-11-02, owner's instruction): 47 leftover tables and 26 types in `public`, the `lodge` and `fystay_preview` schemas and the `backup_snapshot_20261011` schema (about 900 rows, newest dated 11 October). The project now holds only RAENG's 37 `akb_*` tables. That data was not copied anywhere first.
+- [ ] **P0** Backups: the Free plan has none (Supabase shows "No backups"), and the project now holds real payment and client records. Upgrade to Pro (daily backups) or schedule regular exports before launch
 - [ ] If B: Supabase schema + RLS, idempotent booking endpoint, verified webhooks, emails
 - [ ] Tests: last-place race, duplicate requests, payment success/failure/pending, refunds, webhook retries, cross-user access
 - [x] Booking request form with server validation, spam protection, privacy notice (general contact form still not built)
@@ -127,7 +128,7 @@ See Coach portal below.
 - [x] Migration applied to Supabase 2026-10-18 (all but three functions; DEPLOYMENT.md → Coach portal)
 - [x] Applied `20261020000000_akb_payment_functions.sql` (2026-10-28) (DEPLOYMENT.md → Coach portal)
 - [x] Public sign-ups off in Supabase (verified 2026-10-20)
-- [ ] **P0** Turn on leaked-password protection (Auth → Providers → Email; affects the shared project's other app too); change the temporary coach password; set `COACH_EMAIL` to Alex's at handover
+- [ ] P3 Leaked-password protection is a paid-plan Supabase feature (the security scan flags it as off on the Free plan); the coach logs in with a long, unique password instead; change the temporary coach password; set `COACH_EMAIL` to Alex's at handover
 - [x] Email alerts to Alex: outcome recorded per request, one immediate retry, daily cron retry inside the provider's idempotency window, shown in the portal (2026-10-20, code only)
 - [x] `20261020000100_akb_request_alerts.sql` applied to the live database (2026-10-23)
 - [ ] **P0** Turn alerts on: Resend account + verified domain, Vercel env (`RESEND_API_KEY`, `BOOKING_NOTIFY_EMAIL`, `BOOKING_FROM_EMAIL`, `CRON_SECRET`) (DEPLOYMENT.md → Email alerts)

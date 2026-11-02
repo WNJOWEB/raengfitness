@@ -96,7 +96,7 @@ automatically.
 
 The portal uses the same settings as the coach login (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `COACH_EMAIL`); no new environment variables. It needs one database migration:
 
-1. **Back up first** (Supabase → Database → Backups, or `pg_dump`). The project also holds another app's tables; the migration touches only `akb_*` objects. On 2026-10-19 `akb_booking_requests` was the only `akb_` table and held no rows.
+1. **Back up first** (Supabase → Database → Backups, or `pg_dump`). (The other app's tables that used to share this project were removed on 2026-11-02.) The migration touches only `akb_*` objects. On 2026-10-19 `akb_booking_requests` was the only `akb_` table and held no rows.
 2. Apply `supabase/migrations/20261019000000_akb_coach_portal.sql`, either with the CLI (`npx supabase link --project-ref sqkpixwvugrxllrxlexs` then `npx supabase db push`) or by pasting it into the SQL editor. It is safe to run again. It ends with `notify pgrst, 'reload schema'` so the API sees the new tables at once.
 3. Check: Supabase → Advisors (security) shows no new warnings for `akb_*`; `/coach` shows the dashboard instead of "tables aren't set up yet".
 4. Turn off public sign-ups (Authentication → Sign In / Providers) if not done: only `COACH_EMAIL` accounts get in either way, but this stops strangers creating accounts. **Verified off 2026-10-20** (`/auth/v1/settings` reports `disable_signup: true`; one Auth user, confirmed). Leaked-password protection was still **off** (Advisors). Note the project's Auth is shared with the other app whose tables live here.
