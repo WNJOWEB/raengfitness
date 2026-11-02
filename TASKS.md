@@ -99,8 +99,8 @@ Priority: P0 blocks launch · P1 before/at launch · P2 later.
 - No horizontal scroll at 320 px; axe reports no WCAG A/AA violations.
 
 ## Phase 2 — Booking & payments (blocked)
-Blocked on: provider choice, Square capabilities, class price/capacity/duration, cancellation & refund policy.
-- [ ] Verify Square products enabled on Alex's account and current fees (official docs/dashboard)
+Blocked on: provider choice (Stripe chosen 2026-11-02), Stripe account details, class price/capacity/duration, cancellation & refund policy.
+- [ ] Verify current Stripe UK card fees in the Dashboard
 - [ ] Choose option A (hosted) or B (custom) — see ARCHITECTURE.md
 - [x] Supabase project `Alexkbells` connected (env config only; see ARCHITECTURE.md)
 - [x] Coach login (`/coach/login`) with Supabase Auth, limited to `COACH_EMAIL`
@@ -134,11 +134,12 @@ See Coach portal below.
 - [ ] **P1** Real-device pass of the portal on Alex's phone
 - [ ] **P2** Default class capacity per timetable slot (now set per date); public calendar showing full dates once capacities exist
 - [ ] **P2** Anonymise-on-request for former clients with financial history (now: set to Former)
-- [x] Square card payments built (2026-10-21): payment links per charge, signed webhooks re-read from Square, duplicate-event table, idempotent ledger functions, refunds mirrored from Square, daily reconciliation, sandbox/production guard (code + migration `20261021000000_akb_square.sql`, not applied)
+- [x] Square card payments built (2026-10-21), then **replaced by Stripe (2026-11-02)**: Checkout Sessions per charge, `Stripe-Signature`-verified webhooks re-read from Stripe, duplicate-event table, idempotent ledger functions, refunds mirrored from Stripe, daily reconciliation, test/live guard (code + migration `20261102000000_akb_stripe.sql`, not applied)
 - [x] Test-environment options and costs checked; database + app safeguards against Sandbox records in the live database (2026-10-21)
-- [x] Sandbox test environment decided: local Supabase + HTTPS tunnel + webhook-only gateway; verified locally without Square credentials (2026-10-21)
-- [ ] **P0** Owner: Square Sandbox access token, location id and webhook subscription; run the local setup and Sandbox test plan (DEPLOYMENT.md → Square Sandbox test environment)
-- [ ] **P1** Owner: Square Developer Console app, Sandbox credentials + webhook subscription; run the Sandbox test plan (DEPLOYMENT.md → Square); then live credentials
-- [ ] **P2** Delete a cancelled charge's payment link at Square automatically (today: Dashboard)
+- [x] Test environment decided: local Supabase + Stripe CLI event forwarding (no tunnel, no gateway); the Square gateway script was removed (2026-11-02)
+- [ ] **P0** Owner: create a Stripe test-mode restricted key (Checkout Sessions: write; Refunds: read; PaymentIntents: read) and run the local setup and test plan (DEPLOYMENT.md → Stripe test environment)
+- [ ] **P1** Owner: in the live Stripe account create the restricted live key and the webhook endpoint `https://<site>/api/stripe/webhook`; confirm the business name shown on Checkout, card fees and payout details (DEPLOYMENT.md → Stripe)
+- [ ] **P1** Choose a real page for Stripe's `success_url` (today the home page) if a "thanks, Alex will confirm" page is wanted
+- [ ] **P2** Expire a cancelled charge's Checkout Session at Stripe automatically (today it lapses within 24 hours)
 - [ ] **P2** Emails to clients from the site (needs a verified sending domain); today Alex sends the prepared message himself
 

@@ -7,7 +7,7 @@
       "schedule": "17 7 * * *"
     },
     {
-      "path": "/api/cron/square-reconcile",
+      "path": "/api/cron/stripe-reconcile",
       "schedule": "23 7 * * *"
     }
   ]

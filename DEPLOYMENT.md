@@ -118,51 +118,42 @@ Retries: a transient failure (no answer, 429, 5xx) is retried once straight away
 
 Data kept: client details, bookings, payments and notes, all in Supabase (EU West). Alex should add retention to the privacy notice (e.g. delete former clients' records after N years; financial records are usually kept six years in the UK). A former client with no bookings or payments can be deleted from their record; anyone with history is kept (set them to Former).
 
-### Square card payments (2026-10-21, not live; needs the owner)
+### Stripe card payments (2026-11-02, not live; needs the owner)
 
-Built and tested against a Square stand-in only. **Not verified against Square Sandbox yet**: no Sandbox credentials exist in this project. Nothing here is active until the settings below are added.
+Replaces Square. Built and tested against a Stripe stand-in only. **Not yet verified against Stripe test mode with real credentials.** Nothing here is active until the settings below are added. The Stripe account is "RAENG Fitness"; check that this is the name clients should see on Checkout (Dashboard → Settings → Business → Public details).
 
 | Variable | Where | Notes |
 |---|---|---|
-| `SQUARE_ENVIRONMENT` | `sandbox` only in the local test environment (`.env.local`); `production` on Vercel Production only | Any other value, or a mismatch with the deployment, keeps Square off |
-| `SQUARE_ACCESS_TOKEN` | Sensitive. Sandbox token for testing; the live token only in Production | Square Developer Console → the app → Credentials. Server only |
-| `SQUARE_LOCATION_ID` | Alex's location (Sandbox has its own test location) | Square Dashboard → Locations, or Developer Console |
-| `SQUARE_WEBHOOK_SIGNATURE_KEY` | Sensitive, per subscription | Developer Console → Webhooks → the subscription |
-| `SQUARE_WEBHOOK_URL` | Exactly the subscription's notification URL, e.g. `https://alexkbells.vercel.app/api/square/webhook` | Part of what Square signs; must match character for character |
-| `CRON_SECRET` | Already needed for alerts | Also authorises `/api/cron/square-reconcile` |
+| `STRIPE_SECRET_KEY` | Sensitive. Test-mode key (`sk_test_`/`rk_test_`) only in the local test environment (`.env.local`); live key (`sk_live_`/`rk_live_`) on Vercel Production only | A restricted key is best: **Checkout Sessions: write, Refunds: read, PaymentIntents: read**. A key whose mode doesn't fit the deployment keeps Stripe off |
+| `STRIPE_WEBHOOK_SECRET` | Sensitive, per endpoint and per mode (`whsec_…`) | Dashboard → Developers → Webhooks → the endpoint → Signing secret; locally, the one `stripe listen` prints |
+| `CRON_SECRET` | Already needed for alerts | Also authorises `/api/cron/stripe-reconcile` |
 
-Owner steps (Square account holder):
-1. Square Developer Console: create (or open) the application; confirm **Online Checkout / payment links** are available on Alex's account and the current UK card fee.
-2. Sandbox first: note the Sandbox access token and Sandbox location id; add a Sandbox webhook subscription for `payment.created`, `payment.updated`, `refund.created`, `refund.updated` pointing at the local tunnel URL (next section).
-3. **Use the local test environment** (next section), never the live project. Sandbox mode refuses to start against the live project, and the live database refuses Sandbox records (see the safeguard below).
-4. On the **test** database only: apply all five migrations in order, then mark it: `insert into public.akb_database_role (role) values ('test');`. (Production later gets the same migrations and **no** marker.)
-5. Sandbox test plan (no real money): create a card link for a test charge; pay it with Square's documented Sandbox test card; check the charge shows paid and the payment says "Card (Square test)"; send the same webhook again from the Console (no second payment); refund in the Sandbox Dashboard (refund appears once, charge owed again); a declined test card (nothing recorded, link still open); a forged call to the webhook URL (403).
-6. Only after that passes: live token, live location, live webhook subscription to the production URL, `SQUARE_ENVIRONMENT=production` in Production, redeploy.
+Live setup (Stripe account holder), only after the test plan below passes:
+1. Dashboard (live mode) → Developers → API keys → create a **restricted key** with the permissions above; add it to Vercel **Production** as `STRIPE_SECRET_KEY`.
+2. Developers → Webhooks → add endpoint `https://<production site>/api/stripe/webhook` listening to exactly: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `refund.created`, `refund.updated`, `refund.failed`. Add its signing secret to Vercel Production as `STRIPE_WEBHOOK_SECRET`.
+3. Apply the migrations to the live project with the owner's approval (**no** `akb_database_role` marker), then redeploy.
+4. Place a real £1 card payment on a test charge, check it appears once as "Card (Stripe)" and the charge is paid, then refund it in the Dashboard and check the refund appears once.
 
-### Square Sandbox test environment: local Supabase + HTTPS tunnel (decided 2026-10-21)
+Checkout is card-only, GBP, and each link lasts 24 hours (Stripe's maximum); after that the portal makes a new link on request. Clients land on the site's home page after paying (Stripe requires a return URL); only the verified webhook records a payment.
 
-The owner's constraint: use the existing `Alexkbells` project in the FYStay account, no new Supabase account or project, no extra cost, live database untouched. Checked on the live project (read-only):
+### Stripe test environment: local Supabase + Stripe CLI (2026-11-02)
 
-- **No isolated database is available inside it on the Free plan.** Branching needs Pro ($25/month plus about $0.01344/hour per branch). The project has one Postgres database (`postgres`).
-- **A separate schema is not isolation.** It would share the instance, the one secret key (`service_role` bypasses RLS in every schema), Auth users, backups and restores, project-wide event triggers (e.g. `ensure_rls`), API settings and the 500 MB Free disk with the live data. Our migrations also name `public.` throughout. A mistake would reach live records.
-- A second database on the same instance isn't reachable through the API (PostgREST/Auth serve `postgres` only), and shares everything else.
-
-**Setup: Supabase running locally (Docker), the site running locally in Sandbox mode, and an HTTPS tunnel that forwards only Square's webhook.** $0, nothing in the hosted project changes. Verified in a cloud container on 2026-10-21 with Supabase CLI 2.121.0: all five migrations apply in order; with no marker, Sandbox records are refused through the real API; the server key can't set the marker; the publishable key can't read portal tables or run the payment functions; after marking `test`, Sandbox records are accepted and live ones refused; the site's webhook rejects a forged signature (403), records a signed event, calls Square's Sandbox API (401 with a placeholder token, so 500 for redelivery) and logs no secrets; the gateway passes only the webhook through. **A real Sandbox payment has not been made**: that needs the owner's Sandbox credentials.
+The constraint that shaped this: the hosted `Alexkbells` project holds live data and the previews share it, so test-mode money must never touch it. A separate schema or branch isn't real isolation on the Free plan (see the reasoning kept in git history under the Square section of this file). Test mode therefore runs against a **local** Supabase stack, and Stripe's CLI forwards test events to the local site, so **no public tunnel or gateway is needed**.
 
 Steps (on the developer's machine; nothing here touches production):
-1. Install Docker and Node 24. Bind published ports to localhost so the local database (password `postgres`) isn't reachable from the network: Docker → daemon settings `{"ip": "127.0.0.1"}` (Docker Desktop: Settings → Docker Engine), restart Docker.
-2. In a copy of the repo: `npx supabase@2.121.0 init` (creates `supabase/config.toml`, not committed), then `npx supabase@2.121.0 start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta`. It applies `supabase/migrations/` and prints the local API URL and keys (fixed development keys, not secrets).
+1. Install Docker, Node 24 and the [Stripe CLI](https://docs.stripe.com/stripe-cli). Bind Docker's published ports to localhost (Docker daemon setting `{"ip": "127.0.0.1"}`).
+2. In a copy of the repo: `npx supabase@2.121.0 init`, then `npx supabase@2.121.0 start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta`. It applies `supabase/migrations/` and prints the local API URL and keys.
 3. Mark it as a test database: `docker exec -i supabase_db_<folder> psql -U postgres -c "insert into public.akb_database_role (role) values ('test');"`.
-4. Create a coach login: Supabase local Auth (`http://localhost:54321`, e.g. the CLI's Studio or the Auth admin API) with an email you then put in `COACH_EMAIL`.
-5. Start a tunnel to the gateway port and note its HTTPS URL, e.g. Cloudflare quick tunnel `cloudflared tunnel --url http://127.0.0.1:3401` (free, no account; the `trycloudflare.com` URL changes each run) or an ngrok free static domain (free account). Your webhook URL is `<tunnel URL>/api/square/webhook`.
-6. `.env.local` (ignored by Git; never commit): `SUPABASE_URL=http://localhost:54321`, `SUPABASE_SECRET_KEY=<local secret key>`, `COACH_EMAIL=<step 4>`, `CRON_SECRET=<32+ random chars>`, `SQUARE_ENVIRONMENT=sandbox`, `SQUARE_ACCESS_TOKEN=<Sandbox token>`, `SQUARE_LOCATION_ID=<Sandbox location>`, `SQUARE_WEBHOOK_SIGNATURE_KEY=<from the subscription>`, `SQUARE_WEBHOOK_URL=<step 5 URL, exactly>`. Do not set `VERCEL_ENV` or `SQUARE_API_URL`.
-7. `npm run build && npx next start -p 3400`, and in another terminal `node scripts/square-webhook-gateway.mjs` (127.0.0.1:3401 → 3400; only `POST /api/square/webhook`, raw body and signature unchanged, 64 KB limit; everything else 404, so the coach area and cron endpoints aren't exposed).
-8. Square Developer Console → Sandbox → Webhooks: subscription to the step 5 URL for `payment.created`, `payment.updated`, `refund.created`, `refund.updated`; copy its signature key into step 6. If the tunnel URL changes, update both the subscription and `SQUARE_WEBHOOK_URL`, then restart the site.
-9. Run the Sandbox test plan (above) at `http://localhost:3400/coach`. Stop afterwards: `npx supabase stop --no-backup`, stop the tunnel, delete `.env.local`.
+4. Create a coach login in the local Auth and put its email in `COACH_EMAIL`.
+5. `stripe login`, then `stripe listen --forward-to localhost:3400/api/stripe/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.expired,refund.created,refund.updated,refund.failed` and note the `whsec_…` it prints.
+6. `.env.local` (ignored by Git; never commit): `SUPABASE_URL=http://localhost:54321`, `SUPABASE_SECRET_KEY=<local secret key>`, `COACH_EMAIL=<step 4>`, `CRON_SECRET=<32+ random chars>`, `STRIPE_SECRET_KEY=<test-mode restricted key>`, `STRIPE_WEBHOOK_SECRET=<step 5>`. Do not set `VERCEL_ENV` or `STRIPE_API_URL`.
+7. `npm run build && npx next start -p 3400`; sign in at `http://localhost:3400/coach/login`.
+8. Test plan (no real money): create a charge and press **Card link** (shows "(test)"); pay it with Stripe's test card `4242 4242 4242 4242` (any future expiry, any CVC); check the charge shows paid and the payment says "Card (Stripe test)"; resend the event (`stripe events resend <evt_id>`): no second payment; use card `4000 0000 0000 0002` (declined): nothing recorded, the link stays open; refund in the test Dashboard: the refund appears once and the charge is owed again; post a forged request to the endpoint: 403.
+9. Stop afterwards: `npx supabase stop --no-backup`, stop `stripe listen`, delete `.env.local`.
 
-**Safeguards against test money in the live ledger** (`20261021000000_akb_square.sql`, `lib/square/config.ts`):
-- Database: `akb_database_role` marker. No row = production. Triggers on `akb_square_payment_links`, `akb_square_events` and `akb_payments` refuse Sandbox records unless the database is marked `test`, and refuse live Square records in a `test` database, whichever route writes them (app, RPC or SQL Editor). The app's server role can read the marker but not set it; anon/authenticated can't see it.
-- App: `SQUARE_ENVIRONMENT=sandbox` is ignored on Vercel production and whenever `SUPABASE_URL` is the live project (`PRODUCTION_SUPABASE_REF`), so the webhook returns 404 and no link can be created. Sandbox variables are never added to Vercel.
+**Safeguards against test money in the live ledger** (`20261021000000_akb_square.sql`, `20261102000000_akb_stripe.sql`, `lib/stripe/config.ts`):
+- Database: `akb_database_role` marker. No row = production. Triggers on `akb_stripe_payment_links`, `akb_stripe_events` and `akb_payments` refuse test-mode records unless the database is marked `test`, and refuse live records in a `test` database, whichever route writes them (app, RPC or SQL Editor). The app's server role can read the marker but not set it; anon/authenticated can't see it.
+- App: a test-mode key is ignored on Vercel production and whenever `SUPABASE_URL` is the live project (`PRODUCTION_SUPABASE_REF`), so the webhook returns 404 and no link can be created. Test keys are never added to Vercel.
 - Never run the marker statement on the live project. If the live database ever moves (handover), update `PRODUCTION_SUPABASE_REF`; the database guard still holds regardless.
 
 ## Safety built into the code

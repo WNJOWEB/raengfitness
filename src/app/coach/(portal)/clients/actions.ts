@@ -20,8 +20,8 @@ import {
 import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
 import { addCharge, getCharge, SERVICE_KEYS, voidCharge } from "@/lib/coach/ledger";
-import { squareConfig } from "@/lib/square/config";
-import { createChargeLink } from "@/lib/square/sync";
+import { stripeConfig } from "@/lib/stripe/config";
+import { createChargeLink } from "@/lib/stripe/sync";
 import type { ConsentKind } from "@/lib/coach/types";
 import { FormReader } from "@/lib/coach/validate";
 
@@ -188,27 +188,27 @@ export async function voidChargeAction(_prev: ActionState, formData: FormData): 
   return success(charge.data.paid_pence > 0 ? "Charge cancelled. The money paid towards it is now their credit." : "Charge cancelled.");
 }
 
-/** A Square-hosted card payment link for what's owed on a charge. Recorded as paid only when Square confirms it. */
-export async function squareLinkAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+/** A Stripe-hosted card payment link for what's owed on a charge. Recorded as paid only when Stripe confirms it. */
+export async function cardLinkAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const ctx = await actionContext();
   if ("error" in ctx) return ctx.error;
-  const square = squareConfig();
-  if (!square) return failure("Card payments aren't set up (see DEPLOYMENT.md → Square).");
+  const stripe = stripeConfig();
+  if (!stripe) return failure("Card payments aren't set up (see DEPLOYMENT.md → Stripe).");
   const form = new FormReader(formData);
   const id = form.id("charge", { label: "a charge", required: true });
   if (!form.ok) return failure(CHECK, form.errors);
-  const result = await createChargeLink(ctx.db, square, id);
+  const result = await createChargeLink(ctx.db, stripe, id);
   if (!result.ok) {
     const message = {
       "not-found": "That charge no longer exists.",
       "nothing-owed": "Nothing is owed on this charge.",
-      square: "Square didn't create the link. Nothing was charged; try again in a moment.",
+      stripe: "Stripe didn't create the link. Nothing was charged; try again in a moment.",
       db: "The database isn't responding, so nothing was saved. Try again in a moment.",
     }[result.reason];
     return failure(message);
   }
   refresh();
-  return success("Payment link ready. Send it to the client; the payment shows here once Square confirms it.");
+  return success("Payment link ready. Send it to the client; the payment shows here once Stripe confirms it. The link works for 24 hours.");
 }
 
 export async function addPackageAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

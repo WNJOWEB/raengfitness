@@ -15,8 +15,8 @@ import { listCheckIns, listSubscriptions } from "@/lib/coach/online";
 import { listRequests } from "@/lib/coach/requests";
 import { PAYMENT_STATE_LABEL, paymentState } from "@/lib/coach/revenue";
 import { addDays, formatDate, formatDateTime, formatStamp } from "@/lib/coach/time";
-import { squareConfig } from "@/lib/square/config";
-import { listOpenLinks } from "@/lib/square/sync";
+import { stripeConfig } from "@/lib/stripe/config";
+import { listOpenLinks } from "@/lib/stripe/sync";
 import type { ActivityEvent, Client } from "@/lib/coach/types";
 import { ClientFields } from "@/components/coach/ClientFields";
 import { ActionForm, Field, MoneyField, SelectField, SubmitButton, TextArea } from "@/components/coach/form";
@@ -30,7 +30,7 @@ import {
   cancelPackageAction,
   deleteClientAction,
   toggleFollowUpAction,
-  squareLinkAction,
+  cardLinkAction,
   updateClientAction,
   voidChargeAction,
   withdrawConsentAction,
@@ -352,9 +352,9 @@ async function Payments({ db, client, today }: TabProps) {
   if (!loaded.ok) return <LoadError message={loadMessage(loaded.error)} />;
   const [charges, payments] = loaded.data;
   const sorted = [...charges].sort((a, b) => b.due_on.localeCompare(a.due_on));
-  // Card payments by Square link, only when Square is configured for this deployment.
-  const square = squareConfig();
-  const links = square ? new Map((await listOpenLinks(db, client.id)).map((l) => [l.charge_id, l])) : new Map<string, never>();
+  // Card payments by Stripe link, only when Stripe is configured for this deployment.
+  const stripe = stripeConfig();
+  const links = stripe ? new Map((await listOpenLinks(db, client.id)).map((l) => [l.charge_id, l])) : new Map<string, never>();
   return (
     <>
       <Panel title="Charges" id="charges-heading" actions={<TextLink href={`/coach/finances/payments/new?client=${client.id}`}>Record a payment</TextLink>}>
@@ -380,14 +380,14 @@ async function Payments({ db, client, today }: TabProps) {
                     {!c.voided_at ? (
                       <>
                         {c.outstanding_pence > 0 ? <TextLink href={`/coach/finances/payments/new?client=${client.id}&charge=${c.id}`}>Pay</TextLink> : null}
-                        {square && c.outstanding_pence > 0 ? (
+                        {stripe && c.outstanding_pence > 0 ? (
                           links.get(c.id) ? (
                             <a href={links.get(c.id)!.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">
-                              Card link{square.environment === "sandbox" ? " (test)" : ""}
-                              <span className="sr-only"> for {formatPence(links.get(c.id)!.amount_pence)} (opens Square in a new tab)</span>
+                              Card link{stripe.environment === "sandbox" ? " (test)" : ""}
+                              <span className="sr-only"> for {formatPence(links.get(c.id)!.amount_pence)} (opens Stripe in a new tab)</span>
                             </a>
                           ) : (
-                            <ActionForm action={squareLinkAction} label="Create a card payment link">
+                            <ActionForm action={cardLinkAction} label="Create a card payment link">
                               <input type="hidden" name="charge" value={c.id} />
                               <SubmitButton variant="secondary">Card link</SubmitButton>
                             </ActionForm>
@@ -438,7 +438,7 @@ async function Payments({ db, client, today }: TabProps) {
             {payments.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
-                  <TextLink href={`/coach/finances/payments/${p.id}`}>{formatPence(p.amount_pence)}</TextLink> · {formatDate(p.paid_on)} · {PAYMENT_METHOD[p.method]}{p.provider === "square" ? " (Square)" : p.provider === "square_sandbox" ? " (Square test)" : ""} · {SERVICE[p.service]}
+                  <TextLink href={`/coach/finances/payments/${p.id}`}>{formatPence(p.amount_pence)}</TextLink> · {formatDate(p.paid_on)} · {PAYMENT_METHOD[p.method]}{p.provider === "stripe" || p.provider === "square" ? ` (${p.provider === "stripe" ? "Stripe" : "Square"})` : p.provider === "stripe_sandbox" || p.provider === "square_sandbox" ? ` (${p.provider === "stripe_sandbox" ? "Stripe" : "Square"} test)` : ""} · {SERVICE[p.service]}
                   {p.refunded_pence ? <span className="block text-muted">{formatPence(p.refunded_pence)} refunded</span> : null}
                   {p.status === "received" && p.unallocated_pence > 0 ? <span className="block text-muted">{formatPence(p.unallocated_pence)} not yet set against a charge</span> : null}
                 </span>

@@ -29,7 +29,7 @@ export function siteUrl(env: Env = process.env): string {
 
 export type SupabaseConfig = Readonly<{ url: string; secretKey: string }>;
 
-/** The live Supabase project's ref. Test-only features (Square Sandbox) refuse to run against it. */
+/** The live Supabase project's ref. Test-only features (Stripe test mode) refuse to run against it. */
 export const PRODUCTION_SUPABASE_REF = "sqkpixwvugrxllrxlexs";
 
 /** True when SUPABASE_URL points at the live project (or can't be read, to fail safe). */
