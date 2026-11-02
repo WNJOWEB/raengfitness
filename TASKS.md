@@ -255,3 +255,12 @@ See Coach portal below.
 - [x] Class size: 15 places (already set; the coach portal can change a single class). On the FAQ "How many people are in a class?".
 - [ ] **P1** Photo consent, option A: each person visible in the hero video and photos sends a short written OK (a text or WhatsApp screenshot, kept by Alex). Anyone who hasn't agreed is blurred or replaced before launch.
 - [ ] **P1** Alex's bio, portrait, qualifications with certificates, and 3 to 5 testimonials with written permission (nothing added until supplied).
+
+## Speed (owner, 2026-11-02: buttons and taps feel slow in the coach and members dashboards)
+- [x] Audit done: `docs/SPEED_AUDIT_2026-11-02.md` (server in Washington DC, database in Ireland; no loading screens; emails sent before buttons reply; no pending state on member buttons; coach pages check sign-in twice and write on every Today view).
+- [ ] **P0** Run the functions in Dublin (`"regions": ["dub1"]` in `vercel.json`), then redeploy
+- [ ] **P0** Loading screens for `/account` and `/coach` (and prefetching on the tab bars)
+- [ ] **P1** Send emails after the reply (`after()`) in the member and coach actions
+- [ ] **P1** A shared pending button for the members' Book and cancel buttons
+- [ ] **P1** Coach: one sign-in check per request, no database write on the Today page load, independent loads together
+
