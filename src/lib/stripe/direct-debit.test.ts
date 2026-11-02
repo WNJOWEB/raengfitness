@@ -62,6 +62,12 @@ async function setUpDirectDebit(s: ReturnType<typeof services>, m: Awaited<Retur
   return sessionId;
 }
 
+/** The payment-intent calls made for this member's periods (the test database is shared, so other members' collections are left out). */
+async function intentCalls(s: ReturnType<typeof services>, m: { membership: string }) {
+  const periods = (await sql("select id from akb_membership_periods where membership_id = $1", [m.membership])).map((r) => String(r.id));
+  return s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST" && periods.includes(c.form.get("metadata[period]") ?? ""));
+}
+
 /** Moves the member's next period to `days` from today and lets the first period end before it. */
 async function dueIn(m: { membership: string }, days: number) {
   await sql("update akb_membership_periods set period_start = $2::date - 28, period_end = $2::date - 1 where membership_id = $1", [m.membership, addDays(londonToday(), days)]);
@@ -77,7 +83,8 @@ describe("setting up the Direct Debit", () => {
   it("opens Stripe's Bacs set-up page for a customer, and records the mandate only from Stripe's signed word", async () => {
     const s = services();
     const m = await paidMember(s);
-    expect(await rpc(db, "akb_dd_state", { p_client: m.client })).toMatchObject({ ok: true, data: "none" });
+    // The first payment kept the member's card, so a method is already on file: it is a card until the Direct Debit replaces it.
+    expect(await rpc(db, "akb_payment_method_info", { p_client: m.client })).toMatchObject({ ok: true, data: { status: "active", method: "card" } });
     const res = await startDirectDebitSetup(db, stripe, { clientId: m.client, email: m.email, name: m.name }, "https://raeng.example/account", s.fetchImpl);
     expect(res.ok && res.url).toMatch(/^https:\/\/checkout\.stripe\.test\/c\/setup\/cs_test_\d+$/);
     const setup = s.api.calls.filter((c) => c.method === "POST" && c.path === "/v1/checkout/sessions").pop()!.form;
@@ -87,24 +94,24 @@ describe("setting up the Direct Debit", () => {
     expect(setup.get("client_reference_id")).toBe(m.client);
     expect(setup.get("customer")).toMatch(/^cus_test_/);
     expect(s.api.calls.find((c) => c.path === "/v1/customers")?.form.get("email")).toBe(m.email);
-    // Opening the page isn't set-up: nothing is active until Stripe says so.
-    expect(await rpc(db, "akb_dd_state", { p_client: m.client })).toMatchObject({ data: "pending" });
+    // Opening the page isn't set-up: the card stays the method until Stripe says the Direct Debit is.
+    expect(await rpc(db, "akb_payment_method_info", { p_client: m.client })).toMatchObject({ data: { method: "card" } });
 
     const sessionId = (res.ok ? res.url : "").split("/").pop()!;
     s.api.completeSetup(sessionId);
     expect((await deliverStripeEvent(db, s.api, "checkout.session.completed", { id: sessionId })).body).toEqual({ outcome: "active" });
-    expect(await rpc(db, "akb_dd_state", { p_client: m.client })).toMatchObject({ data: "active" });
+    expect(await rpc(db, "akb_payment_method_info", { p_client: m.client })).toMatchObject({ data: { status: "active", method: "bacs", label: "" } });
     // Already set up: no second page.
     expect(await startDirectDebitSetup(db, stripe, { clientId: m.client, email: m.email, name: m.name }, "https://raeng.example/account", s.fetchImpl)).toEqual({ ok: false, reason: "already_set_up" });
   });
 
-  it("a set-up page left unfinished leaves the member without a Direct Debit", async () => {
+  it("a set-up page left unfinished leaves the member on their card", async () => {
     const s = services();
     const m = await paidMember(s);
     const res = await startDirectDebitSetup(db, stripe, { clientId: m.client, email: m.email, name: m.name }, "https://raeng.example/account", s.fetchImpl);
     const sessionId = (res.ok ? res.url : "").split("/").pop()!;
     expect((await deliverStripeEvent(db, s.api, "checkout.session.completed", { id: sessionId })).body).toEqual({ outcome: "pending" });
-    expect(await rpc(db, "akb_dd_state", { p_client: m.client })).toMatchObject({ data: "pending" });
+    expect(await rpc(db, "akb_payment_method_info", { p_client: m.client })).toMatchObject({ data: { method: "card" } });
   });
 });
 
@@ -118,7 +125,7 @@ describe("collecting each later period", () => {
     const first = await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
     expect(first).toMatchObject({ ok: true, periodsCreated: 1 });
     expect(first.submitted).toBeGreaterThanOrEqual(1);
-    const post = s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST").pop()!;
+    const post = (await intentCalls(s, m)).pop()!;
     expect(post.form.get("amount")).toBe("8500");
     expect(post.form.get("currency")).toBe("gbp");
     expect(post.form.get("payment_method_types[0]")).toBe("bacs_debit");
@@ -129,7 +136,7 @@ describe("collecting each later period", () => {
     // In flight: running again submits nothing more.
     const calls = s.api.calls.length;
     await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
-    expect(s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST")).toHaveLength(1);
+    expect(await intentCalls(s, m)).toHaveLength(1);
     expect(s.api.calls.length).toBeGreaterThanOrEqual(calls);
 
     // Nothing is recorded until Stripe says it cleared.
@@ -144,7 +151,7 @@ describe("collecting each later period", () => {
     // A repeated event records nothing twice, and nothing more is collected.
     expect((await deliverStripeEvent(db, s.api, "payment_intent.succeeded", { id: intent })).body).toEqual({ outcome: "duplicate" });
     await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
-    expect(s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST")).toHaveLength(1);
+    expect(await intentCalls(s, m)).toHaveLength(1);
   });
 
   it("a Direct Debit member isn't sent a card pay link", async () => {
@@ -189,7 +196,7 @@ describe("failed collections", () => {
     expect((await sql("select status from akb_memberships where id = $1", [m.membership]))[0].status).toBe("paused");
     // Nothing more is collected from a paused membership.
     await collectDirectDebits(db, stripe, addDays(today, 12), s.fetchImpl);
-    expect(s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST")).toHaveLength(3);
+    expect(await intentCalls(s, m)).toHaveLength(3);
 
     expect(await notifyDirectDebitFailures(db, env, s.fetchImpl)).toBeGreaterThanOrEqual(1);
     const mail = s.emails.find((e) => e.to[0] === m.email && e.subject === "Your RAENG membership is paused");
@@ -210,7 +217,7 @@ describe("failed collections", () => {
     const [col] = await sql("select payment_intent_id from akb_dd_collections c join akb_membership_periods p on p.id = c.period_id where p.membership_id = $1", [m.membership]);
     await deliverStripeEvent(db, s.api, "payment_intent.payment_failed", { id: String(col.payment_intent_id) });
     await collectDirectDebits(db, stripe, addDays(today, 1), s.fetchImpl);
-    expect(s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST")).toHaveLength(1);
+    expect(await intentCalls(s, m)).toHaveLength(1);
     // Stripe refuses the next one outright (say the mandate was cancelled at the bank).
     s.api.refuseIntents(400);
     await collectDirectDebits(db, stripe, addDays(today, 3), s.fetchImpl);
@@ -233,7 +240,7 @@ describe("cancelling", () => {
     const res = await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
     expect(res).toMatchObject({ ok: true, periodsCreated: 0, submitted: 0 });
     expect(await sql("select count(*)::int as n from akb_membership_periods where membership_id = $1", [m.membership])).toEqual([{ n: 1 }]);
-    expect(s.api.calls.filter((c) => c.path === "/v1/payment_intents" && c.method === "POST")).toHaveLength(0);
+    expect(await intentCalls(s, m)).toHaveLength(0);
   });
 });
 

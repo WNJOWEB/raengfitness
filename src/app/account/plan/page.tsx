@@ -10,7 +10,7 @@ import { AccountUnavailable, ClassCredits, PayAsYouGo, PaymentDue } from "@/comp
 import { PlanCoaching } from "@/components/members/CoachingCards";
 import { MembersShell } from "@/components/members/MembersShell";
 import { BILLING_WEEKS } from "@/content/memberships";
-import { cancelMembership, setUpDirectDebit } from "../actions";
+import { cancelMembership, setUpDirectDebit, updateRenewalCard } from "../actions";
 import { loadMembers } from "../data";
 
 export const metadata: Metadata = pageMetadata({
@@ -25,8 +25,8 @@ const external = { target: "_blank", rel: "noopener noreferrer" } as const;
 /**
  * Members Plan (owner's members design, 2026-10-28): the plan card with how
  * far through the credit period today is, credits used, the renewal, and
- * where to change plan or ask about it. Memberships are paid by Direct Debit
- * after the first period (set up here), and the member can cancel at any time:
+ * where to change plan or ask about it. Memberships renew by saved card
+ * (the first payment keeps it; changed here), or by Direct Debit once offered, and the member can cancel at any time:
  * nothing more is taken and the credits already given stay until the period
  * ends (owner, 2026-10-30). Pausing or changing plan stays with Alex.
  * Pay-as-you-go customers see their plan instead.
@@ -108,27 +108,55 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                 Payments
               </h2>
               <div className="flex flex-col gap-2 rounded-3xl bg-white p-5">
-                {d.dd === "active" ? (
+                {d.dd.status === "active" && d.dd.method === "card" ? (
+                  <>
+                    <p className="font-semibold">Your membership renews automatically.</p>
+                    <p className="text-ink">
+                      {formatPenceShort(m.price_pence)} is charged to your {d.dd.label || "card"} every {BILLING_WEEKS} weeks, on the day each new period starts. We email you 5 days before each payment.
+                    </p>
+                    <form action={updateRenewalCard}>
+                      <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                        Change card
+                      </button>
+                    </form>
+                    {d.ddAvailable ? (
+                      <form action={setUpDirectDebit} className="mt-3 border-t border-line pt-3">
+                        <p className="text-ink">Prefer to pay by Direct Debit instead? Your bank details go straight to Stripe, not to us.</p>
+                        <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                          Switch to Direct Debit
+                        </button>
+                      </form>
+                    ) : null}
+                  </>
+                ) : d.dd.status === "active" && d.dd.method === "bacs" ? (
                   <>
                     <p className="font-semibold">Direct Debit is set up.</p>
                     <p className="text-ink">
                       {formatPenceShort(m.price_pence)} is collected by Direct Debit every {BILLING_WEEKS} weeks, a few days before each new period starts.
                     </p>
                   </>
-                ) : d.ddAvailable ? (
+                ) : !d.cardAvailable ? (
+                  <p className="text-ink">We&apos;ll email you a payment link when your membership renews. Payments are made on Stripe&apos;s secure page.</p>
+                ) : (
                   <>
-                    <p className="font-semibold">Set up your Direct Debit.</p>
+                    <p className="font-semibold">Turn on automatic renewals.</p>
                     <p className="text-ink">
-                      Your first {BILLING_WEEKS} weeks are paid. Set up a Direct Debit and your membership continues every {BILLING_WEEKS} weeks without you doing anything. Your bank details go straight to Stripe, not to us.
+                      Save a card and your membership renews every {BILLING_WEEKS} weeks without you doing anything: {formatPenceShort(m.price_pence)} is charged to it each time, and we email you 5 days before. You can cancel at any time. Your card details go straight to Stripe, not to us.
                     </p>
-                    <form action={setUpDirectDebit}>
+                    <form action={updateRenewalCard}>
                       <button type="submit" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
-                        Set up Direct Debit
+                        Save a card
                       </button>
                     </form>
+                    {d.ddAvailable ? (
+                      <form action={setUpDirectDebit} className="mt-3 border-t border-line pt-3">
+                        <p className="text-ink">Or set up a Direct Debit instead.</p>
+                        <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                          Set up Direct Debit
+                        </button>
+                      </form>
+                    ) : null}
                   </>
-                ) : (
-                  <p className="text-ink">Payments are made on Stripe&apos;s secure page. Alex will let you know when Direct Debit is ready.</p>
                 )}
               </div>
               <details className="rounded-3xl bg-white p-5">

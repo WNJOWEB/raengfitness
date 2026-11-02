@@ -220,6 +220,8 @@ Owner steps (Stripe account holder):
 
 Not built yet: a coach-portal button to retry or end a Direct Debit by hand (Alex asks the member or pauses/cancels the membership in the portal), automatic detach of a cancelled mandate in Stripe (the membership just stops being collected), and an email reminding the member before each collection (Stripe's mandate emails and the Direct Debit Guarantee cover advance notice; check Stripe's Bacs settings).
 
+**Renewals by saved card (owner, 2026-11-02):** members' memberships now renew by the card they paid the first 4 weeks with (the agreement is on Stripe's page), charged on the day each period starts, with a reminder email 5 days before and a receipt after; failures retry on day 3 and day 7, then pause. Apply `20261106000000_akb_card_renewals.sql` (additive; safe before or after the code deploy). Set `DIRECT_DEBIT_ENABLED=true` on Vercel Production only once Stripe has approved Bacs Direct Debit: until then no Direct Debit button is shown. Details: ARCHITECTURE.md → "Renewals by saved card".
+
 ### (Superseded by Stripe, kept as history) Square card payments (2026-10-21, not live; needs the owner)
 
 Built and tested against a Square stand-in only. **Not verified against Square Sandbox yet**: no Sandbox credentials exist in this project. Nothing here is active until the settings below are added.

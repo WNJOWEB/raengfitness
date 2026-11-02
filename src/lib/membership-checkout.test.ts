@@ -92,7 +92,10 @@ describe("joining and paying online", () => {
     expect(form.get("line_items[0][price_data][product_data][name]")).toBe("Regular membership, first 4 weeks");
     expect(form.get("line_items[0][price_data][unit_amount]")).toBe("6500");
     expect(form.get("line_items[0][price_data][currency]")).toBe("gbp");
-    expect(form.get("customer_email")).toBe(data.email);
+    // The payment is made as the member's Stripe customer so the card can be kept for the renewals (with their agreement on the page).
+    expect(form.get("customer")).toMatch(/^cus_test_/);
+    expect(form.get("payment_intent_data[setup_future_usage]")).toBe("off_session");
+    expect(form.get("custom_text[submit][message]")).toContain("renews every 4 weeks until you cancel");
     expect(form.get("success_url")).toBe(`https://raeng.example/memberships/join/done?signup=${out.signupId}`);
     // Nothing starts before Stripe confirms.
     expect(await signupStatus(db, out.signupId)).toMatchObject({ status: "awaiting_payment", plan_name: "Regular", payUrl: out.url });
@@ -148,6 +151,8 @@ describe("joining and paying online", () => {
     const [{ membership_id: mid, client_id: cid }] = (await sql("select membership_id, client_id from akb_membership_signups where id = $1", [out.signupId])) as { membership_id: string; client_id: string }[];
     await sql("update akb_membership_periods set period_start = period_start - 28, period_end = period_end - 28 where membership_id = $1", [mid]);
     await sql("update akb_memberships set next_period_on = $2 where id = $1", [mid, londonToday()]);
+    // This member has no card on file (as members from before saved cards): they are sent a pay link. A member with a saved card is charged instead (card-renewals.test.ts).
+    await sql("update akb_stripe_customers set dd_status = 'pending', payment_method_id = null, card_label = '' where client_id = $1", [cid]);
     expect(await rpc(db, "akb_renew_memberships", { p_today: londonToday() })).toMatchObject({ ok: true });
     expect(await rpc(db, "akb_member_payment_due", { p_client: cid })).toMatchObject({ ok: true, data: { outstanding_pence: 8500 } });
 

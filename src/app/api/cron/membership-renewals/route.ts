@@ -5,7 +5,7 @@ import { rpc } from "@/lib/coach/db";
 import { renewMemberships } from "@/lib/coach/memberships";
 import { londonToday } from "@/lib/coach/time";
 import { sendRenewalLinks } from "@/lib/membership-checkout";
-import { collectDirectDebits, notifyDirectDebitFailures } from "@/lib/stripe/direct-debit";
+import { collectDirectDebits, notifyDirectDebitFailures, notifyRenewalPayments, sendRenewalReminders } from "@/lib/stripe/direct-debit";
 import { stripeConfig } from "@/lib/stripe/config";
 
 /**
@@ -18,9 +18,10 @@ import { stripeConfig } from "@/lib/stripe/config";
  * sessions after 30 days); a failure there is logged and never stops renewals.
  * Then, for members who joined and pay online, emails a Stripe pay link for
  * each new period still to pay (once each; needs Stripe and email settings).
- * Members with a Direct Debit are not sent a link: their next period is created
- * a few days early and its collection submitted to Stripe (lib/stripe/direct-debit.ts);
- * members are told if a collection fails.
+ * Members with a saved card or a Direct Debit are not sent a link: a card is
+ * charged on the day its period starts, a Direct Debit is submitted a few days
+ * early (lib/stripe/direct-debit.ts); card members get a reminder 5 days before,
+ * every member a receipt when it is paid and an email if a payment fails.
  * And releases class places held for online payment that ran out
  * (akb_release_class_holds; an unpaid charge is cancelled a day later).
  */
@@ -45,8 +46,10 @@ export async function GET(request: Request) {
   if (links?.failed) console.error(`Membership pay links: ${links.failed} couldn't be sent`);
   const collections = stripe ? await collectDirectDebits(db, stripe, londonToday()) : null;
   const ddNotified = stripe ? await notifyDirectDebitFailures(db).catch(() => 0) : null;
+  const renewedNotices = stripe ? await notifyRenewalPayments(db).catch(() => 0) : null;
+  const reminders = stripe ? await sendRenewalReminders(db, stripe, londonToday()).catch(() => 0) : null;
   return NextResponse.json(
-    { ok: true, periodsCreated: result.data, signInsRemoved: tidied.ok ? tidied.data : null, payLinksSent: links ? links.sent : null, directDebitsSubmitted: collections ? collections.submitted : null, directDebitFailures: ddNotified, classHoldsReleased: holds.ok ? holds.data : null },
+    { ok: true, periodsCreated: result.data, signInsRemoved: tidied.ok ? tidied.data : null, payLinksSent: links ? links.sent : null, directDebitsSubmitted: collections ? collections.submitted : null, directDebitFailures: ddNotified, renewalReceipts: renewedNotices, renewalReminders: reminders, classHoldsReleased: holds.ok ? holds.data : null },
     { headers: noStore },
   );
 }

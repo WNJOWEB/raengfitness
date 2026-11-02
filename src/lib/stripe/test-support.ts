@@ -31,6 +31,7 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
   const setupIntents = new Map<string, Record<string, unknown>>();
   const intents = new Map<string, Record<string, unknown>>();
   const intentByKey = new Map<string, string>();
+  const methods = new Map<string, Record<string, unknown>>(); // payment method id -> payment method
   let intentStatus = 0; // when set, creating a payment intent is refused with this status
   const calls: StripeCall[] = [];
   let down = false;
@@ -56,11 +57,18 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
       const key = headers["Idempotency-Key"];
       if (!intentByKey.has(key)) {
         const id = `pi_test_${++ids}`;
-        intents.set(id, { id, object: "payment_intent", status: "processing", amount: Number(form.get("amount")), currency: form.get("currency"), created: created() });
+        // A card answers at once; a Direct Debit is "processing" until Bacs clears.
+        const card = form.get("payment_method_types[0]") === "card";
+        intents.set(id, {
+          id, object: "payment_intent", status: card ? "succeeded" : "processing", amount: Number(form.get("amount")), currency: form.get("currency"), created: created(),
+          customer: form.get("customer"), payment_method: form.get("payment_method"),
+        });
         intentByKey.set(key, id);
       }
       return Response.json(intents.get(intentByKey.get(key)!));
     }
+    const oneMethod = path.match(/^\/v1\/payment_methods\/([\w-]+)$/);
+    if (init.method !== "POST" && oneMethod) return methods.has(oneMethod[1]) ? Response.json(methods.get(oneMethod[1])) : Response.json({ error: {} }, { status: 404 });
     const oneIntent = path.match(/^\/v1\/payment_intents\/([\w-]+)$/);
     if (init.method !== "POST" && oneIntent) return intents.has(oneIntent[1]) ? Response.json(intents.get(oneIntent[1])) : Response.json({ error: {} }, { status: 404 });
     const oneSetup = path.match(/^\/v1\/setup_intents\/([\w-]+)$/);
@@ -71,6 +79,7 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
       setupIntents.set(setup, { id: setup, status: "requires_payment_method", customer: form.get("customer"), payment_method: null, mandate: null });
       sessions.set(id, {
         id, object: "checkout.session", mode: "setup", status: "open", payment_status: "no_payment_required", setup_intent: setup,
+        method_type: form.get("payment_method_types[0]"), consent: form.get("custom_text[submit][message]"),
         customer: form.get("customer"), client_reference_id: form.get("client_reference_id"), amount_total: null, currency: null,
         created: created(), url: `https://checkout.stripe.test/c/setup/${id}`,
       });
@@ -90,6 +99,10 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
           amount_total: Number(form.get("line_items[0][price_data][unit_amount]") ?? 0),
           currency: "gbp",
           created: created(),
+          customer: form.get("customer"),
+          client_reference_id: form.get("client_reference_id"),
+          keeps_card: form.get("payment_intent_data[setup_future_usage]") === "off_session",
+          consent: form.get("custom_text[submit][message]"),
           url: `https://checkout.stripe.test/c/pay/${id}`,
         });
         if (key) byKey.set(key, id);
@@ -120,6 +133,9 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
     pay(sessionId: string, amountPence?: number, extra: Record<string, unknown> = {}) {
       const intent = `pi_test_${++ids}`;
       const s = sessions.get(sessionId)!;
+      const method = s.keeps_card ? `pm_test_${++ids}` : null;
+      if (method) methods.set(method, { id: method, object: "payment_method", type: "card", card: { brand: "visa", last4: "4242" } });
+      intents.set(intent, { id: intent, object: "payment_intent", status: "succeeded", amount: amountPence ?? s.amount_total, currency: "gbp", created: created(), customer: s.customer ?? null, payment_method: method });
       sessions.set(sessionId, { ...s, status: "complete", payment_status: "paid", payment_intent: intent, ...(amountPence === undefined ? {} : { amount_total: amountPence }), ...extra });
       return intent;
     },
@@ -135,7 +151,10 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
     completeSetup(sessionId: string) {
       const s = sessions.get(sessionId)!;
       const seti = String(s.setup_intent);
-      setupIntents.set(seti, { ...setupIntents.get(seti)!, status: "succeeded", payment_method: `pm_test_${++ids}`, mandate: `mandate_test_${++ids}` });
+      const card = s.method_type === "card";
+      const method = `pm_test_${++ids}`;
+      methods.set(method, card ? { id: method, object: "payment_method", type: "card", card: { brand: "mastercard", last4: "4444" } } : { id: method, object: "payment_method", type: "bacs_debit" });
+      setupIntents.set(seti, { ...setupIntents.get(seti)!, status: "succeeded", payment_method: method, mandate: card ? null : `mandate_test_${++ids}` });
       sessions.set(sessionId, { ...s, status: "complete" });
       return setupIntents.get(seti)!;
     },

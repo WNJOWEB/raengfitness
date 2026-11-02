@@ -59,3 +59,12 @@ export function stripeWebhookConfig(env: Env = process.env): StripeWebhookConfig
   if (!name || !signingSecret || !signingSecret.startsWith("whsec_")) return null;
   return { environment: name, signingSecret };
 }
+
+/**
+ * Whether members are offered a Direct Debit (Bacs). Off until Stripe has
+ * approved Bacs for the account (DIRECT_DEBIT_ENABLED=true on Vercel): until
+ * then renewals are charged to the member's saved card.
+ */
+export function directDebitEnabled(env: Env = process.env): boolean {
+  return env.DIRECT_DEBIT_ENABLED?.trim() === "true" && stripeConfig(env) !== null;
+}

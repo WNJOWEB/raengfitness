@@ -61,23 +61,21 @@ test.describe("joining and paying online", () => {
     // Stripe's (stand-in) checkout: the plan and the price come from the server, not the form.
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await expect(page.getByRole("heading", { name: "Regular membership, first 4 weeks" })).toBeVisible();
+    // The agreement to be charged again sits beside the pay button: the amount, the rhythm and how to stop.
+    await expect(page.locator(".consent")).toContainText("renews every 4 weeks until you cancel");
+    await expect(page.locator(".consent")).toContainText("£65 will be charged to this card every 4 weeks");
+    await expect(page.locator(".consent")).toContainText("Cancel any time from your account");
     await page.getByRole("button", { name: "Pay £65.00" }).click();
 
     await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're in.", { timeout: 15_000 });
     await expect(page.getByRole("link", { name: "Sign in to your account" })).toHaveAttribute("href", "/account/sign-in");
 
-    // Next the Direct Debit (owner, 2026-10-30): set up on Stripe's page, which brings the member back; only Stripe's signed word makes it active.
-    await expect(page.getByText("Set up your Direct Debit.")).toBeVisible();
-    await expect(page.getByText("Your bank details go straight to Stripe, not to us.")).toBeVisible();
-    await page.getByRole("button", { name: "Set up Direct Debit" }).click();
-    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
-    await expect(page.getByRole("heading", { name: "Set up Direct Debit" })).toBeVisible();
-    await page.getByRole("button", { name: "Authorise Direct Debit" }).click();
-    await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=`));
-    await expect(page.getByText("Direct Debit is set up.")).toBeVisible({ timeout: 15_000 });
+    // The payment kept the card (the member agreed on Stripe's page): their membership renews by card, and no Direct Debit is pushed.
+    await expect(page.getByText("Your membership renews automatically.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("your Visa ending 4242 is charged for the next period, and we email you 5 days before each payment")).toBeVisible();
     await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toHaveCount(0);
-    expect(await sql(request, "select d.dd_status, d.environment from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", environment: "sandbox" }]);
+    expect(await sql(request, "select d.dd_status, d.method, d.card_label, d.environment from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", method: "card", card_label: "Visa ending 4242", environment: "sandbox" }]);
 
     // In the database: an online-paying membership on the paid charge, and a card payment from Stripe.
     const [m] = await sql(request, "select m.pay_online, m.plan, m.credits from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email]);
@@ -92,6 +90,54 @@ test.describe("joining and paying online", () => {
     expect(alex.payload.text).toContain("nothing to confirm");
     const [welcome] = await emailsTo(request, email);
     expect(welcome.payload.subject).toBe("Welcome to RAENG: your Regular membership has started");
+    expect(welcome.payload.text).toContain("renews automatically every 4 weeks until you cancel");
+    expect(welcome.payload.text).toContain("Visa ending 4242");
+  });
+
+  test("the member's plan page shows the card their renewals are charged to; they change it on Stripe's page and can cancel", async ({ page, request }) => {
+    test.slow();
+    const email = `renewer-${Date.now()}@example.com`;
+    await toCheckStep(page, "regular", "Card Renewer", email);
+    await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByRole("button", { name: "Pay £65" }).click();
+    await page.getByRole("button", { name: "Pay £65.00" }).click();
+    await expect(page.getByText("Your membership renews automatically.")).toBeVisible({ timeout: 15_000 });
+
+    // Sign in with the emailed link, as a member does.
+    await page.goto(`${PAY}/account/sign-in`);
+    await page.getByRole("textbox", { name: "Your email" }).fill(email);
+    await page.waitForTimeout(3100);
+    await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+    await expect(page.getByRole("status")).toContainText("Check your email");
+    await expect.poll(async () => (await emailsTo(request, email)).filter((e) => e.payload.subject === "Your RAENG sign-in link").length).toBe(1);
+    const [signIn] = (await emailsTo(request, email)).filter((e) => e.payload.subject === "Your RAENG sign-in link");
+    const link = new URL(/https?:\/\/\S+\/account\/confirm\?token=[A-Za-z0-9_-]{43}/.exec(signIn.payload.text)![0]);
+    await page.goto(`${PAY}${link.pathname}${link.search}`);
+    // Opening the link doesn't sign in on its own (email scanners open links): the button does.
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page).toHaveURL(/\/account$/);
+
+    await page.goto(`${PAY}/account/plan`);
+    await expect(page.getByText("Your membership renews automatically.")).toBeVisible();
+    await expect(page.getByText(/£65 is charged to your Visa ending 4242 every 4 weeks, on the day each new period starts\. We email you 5 days before each payment\./)).toBeVisible();
+    // Direct Debit isn't offered until Stripe has approved it.
+    await expect(page.getByRole("button", { name: "Switch to Direct Debit" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toHaveCount(0);
+
+    // Change card: Stripe's page carries the agreement and takes no money; coming back, the new card shows.
+    await page.getByRole("button", { name: "Change card" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    await expect(page.getByRole("heading", { name: "Save your card" })).toBeVisible();
+    await expect(page.locator(".consent")).toContainText("£65 will be charged to this card every 4 weeks");
+    await page.getByRole("button", { name: "Save card" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/account/plan\\?done=card_updated`));
+    await expect(page.getByText("Thanks, your card is saved. Your renewals will be charged to it.")).toBeVisible();
+    await expect(page.getByText(/charged to your Mastercard ending 4444/)).toBeVisible();
+    expect(await sql(request, "select d.method, d.card_label from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ method: "card", card_label: "Mastercard ending 4444" }]);
+    // Phone first (390 px): nothing overflows sideways.
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath("plan-card.png"), fullPage: true });
   });
 
   test("leaving Stripe's page without paying starts nothing, and the page says it's waiting", async ({ page, request }) => {

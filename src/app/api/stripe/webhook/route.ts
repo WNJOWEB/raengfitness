@@ -6,7 +6,7 @@ import { handleStripeWebhook, MAX_WEBHOOK_BYTES } from "@/lib/stripe/sync";
 import { publishedClasses } from "@/lib/class-sessions";
 import { notifyNewMembers } from "@/lib/membership-checkout";
 import { notifyClassBookings } from "@/lib/class-checkout";
-import { notifyDirectDebitFailures } from "@/lib/stripe/direct-debit";
+import { notifyDirectDebitFailures, notifyRenewalPayments } from "@/lib/stripe/direct-debit";
 
 /**
  * Stripe webhook endpoint (checkout.session.*, refund.*, charge.refunded).
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     await notifyNewMembers(db, publishedClasses()).catch(() => 0);
     await notifyClassBookings(db, publishedClasses()).catch(() => 0);
     await notifyDirectDebitFailures(db).catch(() => 0);
+    await notifyRenewalPayments(db).catch(() => 0);
     await notifyChargePayments(db).catch(() => 0);
   }
   return NextResponse.json(result.body, { status: result.status, headers: noStore });

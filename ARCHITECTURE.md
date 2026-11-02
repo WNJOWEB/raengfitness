@@ -252,10 +252,24 @@ Rule: a page or email says "paid", "booked" or "confirmed" only once the databas
 | Coach confirms a request | Coach page shows "Told …" | Person gets Alex's own "Let them know" wording ("You're booked in: …"); request marked told |
 | Coach declines / cancels a confirmed request | Coach page shows "Told …" | Person gets the decline wording (incl. Alex's note) or a cancellation note; marked told |
 | Membership joined and paid (`/memberships/join`) | `/memberships/join/done` states | Welcome email + Alex, once (`notifyNewMembers`) |
-| Membership renewed (card link) / Direct Debit failed or paused | Account page | "Your plan has renewed" / DD failure, pause emails + Alex (existing) |
+| Membership renewal coming (card members) | Plan page shows the card ("Visa ending 4242") | Member "Your RAENG membership renews on …" 5 days before, once per renewal date (`sendRenewalReminders`, `akb_stripe_customers.reminded_for`) |
+| Membership renewed (saved card or Direct Debit) | Plan page | Member "Your RAENG membership has renewed" + Alex "Membership renewed: …", once (`notifyRenewalPayments`, `akb_dd_collections.paid_notified_at`) |
+| Renewal payment failed / membership paused | Plan page (change card) | Member "Your RAENG membership payment didn't go through" (says when the next try is, and to change the card) or "…is paused"; Alex when paused (`notifyDirectDebitFailures`) |
+| Renewal by pay link (members with no saved card) | Account page | "Your RAENG … membership has renewed" with the Stripe link, which also saves the card |
 | Member cancels membership (`/account/plan`) | Toast | Member "Your RAENG membership is cancelled" + Alex |
 | Card link made in the coach portal, paid | `/pay/done?link=…`: waiting → "Payment received" / closed / not found | Customer "We've received your payment" + Alex, once per payment (`notifyChargePayments`, marked by a `receipt_sent` event) |
 | Class reminders | n/a | Morning-of reminder (cron) |
 | Member sign-in link | Sign-in page states | The link, one-time |
 
 Known gaps (owner decisions, not built): a refund made in the Stripe Dashboard emails nobody (Stripe's own refund email depends on its customer-email settings); Alex cancelling a whole class says "please message Alex" to anyone who paid, because the refund policy isn't recorded; coach-side membership pause/cancel and manual payments send no email; Stripe's own receipts to customers and its payment notifications to Alex are switched on in the Stripe Dashboard (Settings → Customer emails; Settings → Personal details → Email notifications), not by this code.
+
+
+### Renewals by saved card (owner, 2026-11-02; migration `20261106000000_akb_card_renewals.sql`)
+
+Like Spotify: the membership's first 4 weeks are paid on Stripe's page, which keeps the card (`setup_future_usage=off_session`, with the agreement shown beside the pay button: amount, every 4 weeks, until you cancel, cancel any time). The verified payment (webhook or reconcile) saves the card on the member's Stripe customer (`akb_card_set_method`; label like "Visa ending 4242", brand and last 4 only). It reuses the Direct Debit machinery (`akb_stripe_customers` now has `method` card|bacs; `akb_dd_collections`, `akb_dd_due`, `akb_dd_record_attempt`, `akb_dd_mark`, `lib/stripe/direct-debit.ts`):
+- **Timing:** a card is charged on the day its period starts (daily cron, 06:11 UTC); a Direct Debit is still submitted 6 days ahead. A card answers at once, so the collection is synced immediately (the webhook can arrive before the attempt was noted); the webhook and the daily reconcile (`pi_…` links) record it idempotently.
+- **Failure:** retried 3 days after the first try and 4 days after the second (day 3, day 7), then the membership pauses (Alex restarts it; a paid-link payment does not resume it automatically). A declined or "needs the bank" card is a failed try; a Stripe outage (5xx) is not.
+- **Changing or adding a card:** `/account/plan` → Change card / Save a card opens Stripe's setup page (card mode, same agreement). A new card makes a failed (not paused) charge retry at the next daily run. Members from before this (no saved card) keep getting an emailed pay link, and paying it saves their card.
+- **Cancel:** unchanged: no more periods or charges; credits stay until the period ends.
+- **Direct Debit** is only offered when `DIRECT_DEBIT_ENABLED=true` (set after Stripe approves Bacs). A card saved from a payment never replaces an active Direct Debit.
+- Tests: `src/lib/stripe/card-renewals.test.ts` (database + Stripe stand-in), `tests/e2e/join-pay.spec.ts`.

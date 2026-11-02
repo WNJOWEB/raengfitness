@@ -7,6 +7,7 @@ import { formatLongDate, type DateKey } from "@/lib/coach/time";
 import { SIGN_IN_PATH } from "@/lib/member-auth";
 import { startSignupDirectDebit } from "../direct-debit-actions";
 import { signupStatus, type SignupStatus } from "@/lib/membership-checkout";
+import { directDebitEnabled } from "@/lib/stripe/config";
 import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
 import { Section } from "@/components/ui/Section";
@@ -38,13 +39,13 @@ export default async function JoinDonePage({ searchParams }: { searchParams: Pro
     <Section labelledBy="done-heading">
       {signup?.status === "awaiting_payment" ? <meta httpEquiv="refresh" content="4" /> : null}
       <div className="max-w-xl" role="status">
-        <Body signup={signup} signupId={id} ddMessage={ddMessage} />
+        <Body signup={signup} signupId={id} ddMessage={ddMessage} directDebitOffered={directDebitEnabled()} />
       </div>
     </Section>
   );
 }
 
-function Body({ signup, signupId, ddMessage }: { signup: SignupStatus | null; signupId: string | null; ddMessage: string | null }) {
+function Body({ signup, signupId, ddMessage, directDebitOffered }: { signup: SignupStatus | null; signupId: string | null; ddMessage: string | null; directDebitOffered: boolean }) {
   const heading = "mt-3 font-display text-h1 text-balance";
   if (!signup || signup.status === "replaced") {
     return (
@@ -111,7 +112,14 @@ function Body({ signup, signupId, ddMessage }: { signup: SignupStatus | null; si
             Your membership continues every {BILLING_WEEKS} weeks and each payment is collected by Direct Debit. You can cancel at any time from your account: you keep the credits you&apos;ve paid for until the end of the period.
           </p>
         </div>
-      ) : signupId ? (
+      ) : signup.card ? (
+        <div className="mt-6 rounded-[1.25rem] bg-white p-5">
+          <p className="font-semibold">Your membership renews automatically.</p>
+          <p className="mt-1">
+            Every {BILLING_WEEKS} weeks your {signup.card} is charged for the next period, and we email you 5 days before each payment. You can cancel at any time from your account: you keep the credits you&apos;ve paid for until the end of the period.
+          </p>
+        </div>
+      ) : directDebitOffered && signupId ? (
         <div className="mt-6 rounded-[1.25rem] bg-white p-5">
           <p className="font-semibold">Set up your Direct Debit.</p>
           <p className="mt-1">
@@ -131,7 +139,7 @@ function Body({ signup, signupId, ddMessage }: { signup: SignupStatus | null; si
           <p className="mt-3 text-sm">Until it&apos;s set up, we&apos;ll email you a payment link when your membership renews.</p>
         </div>
       ) : null}
-      <Link href={SIGN_IN_PATH} className={buttonClasses(signup.dd === "active" ? "action" : "secondary", "mt-6 w-full px-6 sm:w-auto")}>
+      <Link href={SIGN_IN_PATH} className={buttonClasses(signup.dd === "active" || signup.card ? "action" : "secondary", "mt-6 w-full px-6 sm:w-auto")}>
         Sign in to your account
       </Link>
     </>

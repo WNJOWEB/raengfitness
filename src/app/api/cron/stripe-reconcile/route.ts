@@ -7,6 +7,7 @@ import { reconcileOpenLinks } from "@/lib/stripe/sync";
 import { publishedClasses } from "@/lib/class-sessions";
 import { notifyNewMembers } from "@/lib/membership-checkout";
 import { notifyClassBookings } from "@/lib/class-checkout";
+import { notifyDirectDebitFailures, notifyRenewalPayments } from "@/lib/stripe/direct-debit";
 
 /** Daily safety net for missed Stripe webhooks (vercel.json "crons"). Same CRON_SECRET check as request alerts. */
 export async function GET(request: Request) {
@@ -22,5 +23,7 @@ export async function GET(request: Request) {
   const welcomed = await notifyNewMembers(db, publishedClasses()).catch(() => 0);
   const classBookings = await notifyClassBookings(db, publishedClasses()).catch(() => 0);
   const receipts = await notifyChargePayments(db).catch(() => 0);
-  return NextResponse.json({ ...summary, welcomed, classBookings, receipts }, { status: summary.ok ? 200 : 503, headers: noStore });
+  const renewed = await notifyRenewalPayments(db).catch(() => 0);
+  const failures = await notifyDirectDebitFailures(db).catch(() => 0);
+  return NextResponse.json({ ...summary, welcomed, classBookings, receipts, renewed, failures }, { status: summary.ok ? 200 : 503, headers: noStore });
 }

@@ -76,12 +76,20 @@ export async function startCheckout(
   });
   if (!created.ok) return { ok: false, reason: ruleReason(created.error) };
   const signupId = created.data.signup_id;
+  // The payment also keeps the member's card for the renewals (they agree to that on Stripe's page).
+  const clientId = await signupClient(db, signupId);
   const link = await createChargeLink(db, stripe, created.data.charge_id, options.fetchImpl, {
     buyerEmail: data.email,
     redirectUrl: `${memberLinkOrigin(options.env)}${JOIN_DONE_PATH}?signup=${signupId}`,
+    renewal: clientId ? { clientId, email: data.email, name: data.name } : undefined,
   });
   if (!link.ok) return { ok: false, reason: "unavailable" };
   return { ok: true, url: link.url, signupId };
+}
+
+async function signupClient(db: Db, signupId: string): Promise<string | null> {
+  const rows = await select<{ client_id: string }>(db, "akb_membership_signups", [["select", "client_id"], ["id", `eq.${signupId}`]]);
+  return rows.ok ? (rows.data[0]?.client_id ?? null) : null;
 }
 
 function ruleReason(error: DbError): "already_member" | "payment_in_progress" | "unavailable" {
@@ -99,6 +107,8 @@ export interface SignupStatus {
   payUrl: string | null;
   /** The member's Direct Debit: "none" until they set it up on Stripe's page. */
   dd: "none" | "pending" | "active" | "ended";
+  /** The card their renewals are charged to (e.g. "Visa ending 4242"), once saved; empty otherwise. */
+  card: string;
 }
 
 /** The member behind an active sign-up, for opening their Direct Debit set-up. */
@@ -125,8 +135,10 @@ export async function signupStatus(db: Db, signupId: string): Promise<SignupStat
     const links = await select<{ url: string }>(db, "akb_square_payment_links", [["select", "url"], ["charge_id", `eq.${row.charge_id}`], ["status", "eq.open"]]);
     payUrl = links.ok ? (links.data[0]?.url ?? null) : null;
   }
-  const state = await rpc<SignupStatus["dd"]>(db, "akb_dd_state", { p_client: row.client_id });
-  return { status: row.status, plan_name: row.plan_name, first_class: row.first_class, class_date: row.class_date, payUrl, dd: state.ok ? state.data : "none" };
+  const how = await rpc<{ status: SignupStatus["dd"]; method: string; label: string }>(db, "akb_payment_method_info", { p_client: row.client_id });
+  const bacs = how.ok && how.data.method === "bacs" && how.data.status === "active";
+  const card = how.ok && how.data.method === "card" && how.data.status === "active" ? how.data.label || "your card" : "";
+  return { status: row.status, plan_name: row.plan_name, first_class: row.first_class, class_date: row.class_date, payUrl, dd: bacs ? "active" : "none", card };
 }
 
 interface ActivatedSignup {
@@ -166,6 +178,11 @@ export async function notifyNewMembers(db: Db, classes: PublishedClass[], env: E
     const client = people.data.find((p) => p.id === row.client_id);
     if (!client) continue;
     const s = { ...row, client };
+    const how = await rpc<{ status: string; method: string; label: string }>(db, "akb_payment_method_info", { p_client: row.client_id });
+    const renewalLine =
+      how.ok && how.data.status === "active" && how.data.method === "card"
+        ? `Your membership renews automatically every ${BILLING_WEEKS} weeks until you cancel: ${formatPenceShort(s.price_pence)} is charged to your ${how.data.label || "card"} on each renewal date. We'll email you 5 days before each payment. To stop it, cancel from your account at any time.`
+        : `Your membership renews every ${BILLING_WEEKS} weeks; you'll get a payment link by email each time.`;
     const slot = classes.find((c) => c.id === s.class_slot);
     const firstClass = s.class_date && slot ? describeFirstClass({ session: slot.label, classDate: s.class_date }) : null;
     const toAlex = await sendEmail(
@@ -207,7 +224,7 @@ export async function notifyNewMembers(db: Db, classes: PublishedClass[], env: E
               : "Book your classes from your account.",
             "",
             `Sign in with your email: ${memberLinkOrigin(env)}${SIGN_IN_PATH}`,
-            `Your membership renews every ${BILLING_WEEKS} weeks; you'll get a payment link by email each time.`,
+            renewalLine,
           ].join("\n"),
         },
         fetchImpl,
@@ -222,6 +239,7 @@ export async function notifyNewMembers(db: Db, classes: PublishedClass[], env: E
 interface UnpaidPeriod {
   period_id: string;
   charge_id: string;
+  client_id: string;
   full_name: string;
   email: string;
   plan_name: string;
@@ -244,7 +262,11 @@ export async function sendRenewalLinks(db: Db, stripe: StripeConfig, today: Date
   let sent = 0;
   let failed = 0;
   for (const p of due.data) {
-    const link = await createChargeLink(db, stripe, p.charge_id, fetchImpl, { buyerEmail: p.email, redirectUrl: `${memberLinkOrigin(env)}${ACCOUNT_PATH}` });
+    const link = await createChargeLink(db, stripe, p.charge_id, fetchImpl, {
+      buyerEmail: p.email,
+      redirectUrl: `${memberLinkOrigin(env)}${ACCOUNT_PATH}`,
+      renewal: { clientId: p.client_id, email: p.email, name: p.full_name },
+    });
     if (!link.ok) {
       failed += 1;
       continue;
@@ -262,7 +284,7 @@ export async function sendRenewalLinks(db: Db, stripe: StripeConfig, today: Date
           `Pay ${formatPenceShort(link.amountPence)} securely with Stripe to use this period's credits:`,
           link.url,
           "",
-          "To stop your membership, reply to this email.",
+          "Paying this way also saves your card, so your membership renews automatically every 4 weeks from now on. We email you 5 days before each payment, and you can cancel any time from your account.",
         ].join("\n"),
       },
       fetchImpl,
@@ -285,7 +307,12 @@ export async function paymentDue(db: Db, stripe: StripeConfig | null, clientId: 
   let url: string | null = null;
   let direct = false;
   if (stripe) {
-    const link = await createChargeLink(db, stripe, due.data.charge_id, fetch, { redirectUrl: `${memberLinkOrigin(env)}${ACCOUNT_PATH}` });
+    const people = await select<{ email: string; full_name: string }>(db, "akb_clients", [["select", "email,full_name"], ["id", `eq.${clientId}`]]);
+    const person = people.ok ? people.data[0] : undefined;
+    const link = await createChargeLink(db, stripe, due.data.charge_id, fetch, {
+      redirectUrl: `${memberLinkOrigin(env)}${ACCOUNT_PATH}`,
+      renewal: person ? { clientId, email: person.email, name: person.full_name } : undefined,
+    });
     url = link.ok ? link.url : null;
     // Being collected by Direct Debit: nothing for the member to pay.
     direct = !link.ok && link.reason === "direct-debit";

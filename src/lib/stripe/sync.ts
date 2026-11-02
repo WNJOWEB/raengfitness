@@ -1,8 +1,9 @@
 import { insert, rpc, select, update, type Db, type DbError } from "../coach/db";
 import { memberLinkOrigin } from "../member-auth";
 import { toLondon } from "../coach/time";
-import { createPaymentSession, getCheckoutSession, getPaymentIntent, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
+import { createPaymentSession, getCheckoutSession, getPaymentIntent, getPaymentMethod, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
 import type { StripeConfig, StripeWebhookConfig } from "./config";
+import { ensureStripeCustomer, renewalConsent } from "./customer";
 import { verifyStripeSignature } from "./signature";
 
 /**
@@ -15,7 +16,7 @@ import { verifyStripeSignature } from "./signature";
  * types, outcomes and status codes only.
  */
 
-type Outcome = "recorded" | "duplicate" | "unknown_order" | "unknown_payment" | "pending" | "not_paid" | "not_refunded" | "ignored" | "active" | "unknown_client" | "mismatch" | "succeeded" | "failed" | "paused" | "unknown_collection";
+type Outcome = "kept_direct_debit" | "recorded" | "duplicate" | "unknown_order" | "unknown_payment" | "pending" | "not_paid" | "not_refunded" | "ignored" | "active" | "unknown_client" | "mismatch" | "succeeded" | "failed" | "paused" | "unknown_collection";
 export type SyncResult = { ok: true; outcome: Outcome } | { ok: false; reason: string };
 
 const stripeFailure = (what: string, r: StripeResult<unknown>): SyncResult => ({ ok: false, reason: `stripe-${what}-${r.ok ? "ok" : (r.status ?? "network")}` });
@@ -43,16 +44,56 @@ export async function syncCheckoutSession(db: Db, stripe: StripeConfig, sessionI
     // An expired or cancelled session closes its link, so the next attempt makes a fresh one.
     await update(db, "akb_square_payment_links", [["square_order_id", `eq.${c.id}`], ["status", "eq.open"]], { status: "cancelled" });
   }
+  if (!result.ok) return dbFailure(result.error);
+  // A membership payment that kept the card (the member agreed on Stripe's page): remember it for the renewals.
+  if (status === "COMPLETED" && c.clientReference && c.paymentIntentId && c.customerId) {
+    const saved = await saveCardFromPayment(db, stripe, c.clientReference, c.customerId, c.paymentIntentId, fetchImpl);
+    if (!saved.ok) return saved;
+  }
+  return { ok: true, outcome: result.data };
+}
+
+/** Reads the card a paid membership checkout kept, and records it as the member's renewal method. */
+async function saveCardFromPayment(db: Db, stripe: StripeConfig, clientId: string, customerId: string, paymentIntentId: string, fetchImpl: typeof fetch): Promise<SyncResult> {
+  const intent = await getPaymentIntent(stripe, paymentIntentId, fetchImpl);
+  if (!intent.ok) return stripeFailure("intent", intent);
+  // Only a payment that asked to keep its card (a membership one) has a payment method kept for the customer.
+  if (intent.data.status !== "succeeded" || !intent.data.paymentMethodId) return { ok: true, outcome: "ignored" };
+  const method = await getPaymentMethod(stripe, intent.data.paymentMethodId, fetchImpl);
+  if (!method.ok) return stripeFailure("method", method);
+  if (method.data.type !== "card") return { ok: true, outcome: "ignored" };
+  const result = await rpc<Outcome>(db, "akb_card_set_method", {
+    p_client: clientId,
+    p_environment: stripe.environment,
+    p_customer: customerId,
+    p_method: method.data.id,
+    p_label: method.data.label,
+    p_replace: false,
+  });
   return result.ok ? { ok: true, outcome: result.data } : dbFailure(result.error);
 }
 
-/** A Direct Debit set-up page finished: record the member's method and mandate. */
+/** A set-up page finished: record the member's Direct Debit and mandate, or the new card for their renewals. */
 async function syncSetupSession(db: Db, stripe: StripeConfig, session: CheckoutSession, fetchImpl: typeof fetch): Promise<SyncResult> {
   if (session.status !== "complete" || !session.setupIntentId || !session.clientReference) return { ok: true, outcome: "pending" };
   const intent = await getSetupIntent(stripe, session.setupIntentId, fetchImpl);
   if (!intent.ok) return stripeFailure("setup", intent);
   const i = intent.data;
   if (i.status !== "succeeded" || !i.paymentMethodId) return { ok: true, outcome: "pending" };
+  const method = await getPaymentMethod(stripe, i.paymentMethodId, fetchImpl);
+  if (!method.ok) return stripeFailure("method", method);
+  if (method.data.type === "card") {
+    // The member changed the card their renewals are charged to.
+    const card = await rpc<Outcome>(db, "akb_card_set_method", {
+      p_client: session.clientReference,
+      p_environment: stripe.environment,
+      p_customer: i.customerId ?? session.customerId,
+      p_method: method.data.id,
+      p_label: method.data.label,
+      p_replace: true,
+    });
+    return card.ok ? { ok: true, outcome: card.data } : dbFailure(card.error);
+  }
   const result = await rpc<Outcome>(db, "akb_dd_set_method", {
     p_client: session.clientReference,
     p_environment: stripe.environment,
@@ -70,7 +111,7 @@ async function syncSetupSession(db: Db, stripe: StripeConfig, session: CheckoutS
  * failure pauses the membership. Payment intents that aren't collections (a
  * card checkout's own) are ignored by the database.
  */
-async function syncPaymentIntent(db: Db, stripe: StripeConfig, paymentIntentId: string, failed: boolean, fetchImpl: typeof fetch): Promise<SyncResult> {
+export async function syncPaymentIntent(db: Db, stripe: StripeConfig, paymentIntentId: string, failed: boolean, fetchImpl: typeof fetch): Promise<SyncResult> {
   if (failed) {
     const marked = await rpc<Outcome>(db, "akb_dd_mark", { p_payment_intent: paymentIntentId, p_status: "failed" });
     return marked.ok ? { ok: true, outcome: marked.data } : dbFailure(marked.error);
@@ -251,8 +292,11 @@ export async function createChargeLink(
   stripe: StripeConfig,
   chargeId: string,
   fetchImpl: typeof fetch = fetch,
-  /** Online sign-ups and class bookings: the buyer's email for Stripe's form, and the page to return to. */
-  options: { buyerEmail?: string; redirectUrl?: string } = {},
+  /**
+   * Online sign-ups and class bookings: the buyer's email for Stripe's form, and the page to return to.
+   * `renewal`: a membership payment, which also keeps the card for the renewals (the consent line is on Stripe's page).
+   */
+  options: { buyerEmail?: string; redirectUrl?: string; renewal?: { clientId: string; email: string; name: string } } = {},
 ): Promise<LinkResult> {
   const live = await select<LinkRow>(db, "akb_square_payment_links", [["charge_id", `eq.${chargeId}`], ["status", "in.(creating,open)"]]);
   if (!live.ok) return { ok: false, reason: "db" };
@@ -289,6 +333,10 @@ export async function createChargeLink(
   // names none, so the buyer lands on a confirmation page that reads this link's state from the
   // database (which only the verified webhook changes): it never claims "paid" on its own.
   const back = options.redirectUrl || `${memberLinkOrigin()}${PAY_DONE_PATH}?link=${link.id}`;
+  // A membership payment keeps the card for the renewals; if the customer can't be made, it is still just a payment.
+  const renewal = options.renewal?.email ? options.renewal : null;
+  const customer = renewal ? await ensureStripeCustomer(db, stripe, renewal, fetchImpl) : null;
+  const keepCard = renewal && customer?.ok ? { customerId: customer.customerId, clientReference: renewal.clientId, consent: renewalConsent(link.amount_pence) } : null;
   const made = await createPaymentSession(
     stripe,
     {
@@ -296,7 +344,9 @@ export async function createChargeLink(
       name: charge.description,
       amountPence: link.amount_pence,
       note: `RAENG ref ${link.id.slice(0, 8)}`,
-      buyerEmail: options.buyerEmail,
+      buyerEmail: keepCard ? undefined : options.buyerEmail,
+      customerId: keepCard?.customerId,
+      saveCard: keepCard ? { clientReference: keepCard.clientReference, consent: keepCard.consent } : undefined,
       successUrl: back,
       cancelUrl: back,
     },
@@ -339,7 +389,8 @@ export async function reconcileOpenLinks(db: Db, stripe: StripeConfig, fetchImpl
   const summary: ReconcileSummary = { ok: true, checked: links.data.length, recorded: 0, failed: 0 };
   for (const link of links.data) {
     if (!link.square_order_id) continue;
-    const result = await syncCheckoutSession(db, stripe, link.square_order_id, fetchImpl);
+    // A collection from a saved card or Direct Debit is a payment intent, not a checkout session.
+    const result = link.square_order_id.startsWith("pi_") ? await syncPaymentIntent(db, stripe, link.square_order_id, false, fetchImpl) : await syncCheckoutSession(db, stripe, link.square_order_id, fetchImpl);
     if (!result.ok) summary.failed += 1;
     else if (result.outcome === "recorded") summary.recorded += 1;
   }

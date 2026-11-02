@@ -6,8 +6,8 @@ import { onlineCoachingOffered } from "@/content/services";
 import { memberSettings } from "@/lib/member-settings";
 import { requireMember } from "@/lib/member-session";
 import { paymentDue } from "@/lib/membership-checkout";
-import { stripeConfig } from "@/lib/stripe/config";
-import { directDebitState } from "@/lib/stripe/direct-debit";
+import { directDebitEnabled, stripeConfig } from "@/lib/stripe/config";
+import { paymentMethodInfo } from "@/lib/stripe/direct-debit";
 
 /** After an action: what happened (?done=). Shown as a toast. */
 export const DONE: Record<string, string> = {
@@ -18,6 +18,7 @@ export const DONE: Record<string, string> = {
   cancelled_paid_late: "Cancelled. It was less than 24 hours before the class, so there's nothing back.",
   booked_class_credit: "Booked with your class credit. Nothing to pay.",
   profile_saved: "Saved. Your details are updated.",
+  card_updated: "Thanks, your card is saved. Your renewals will be charged to it.",
   membership_cancelled: "Your membership is cancelled. You keep the credits you've paid for until the end of this period, and nothing more will be taken.",
   reminders_on: "Class reminders are on. You'll get an email on the morning of each class you're booked on.",
   reminders_off: "Class reminders are off.",
@@ -47,6 +48,7 @@ export const ERRORS: Record<string, string> = {
   message_invalid: "Write a message first (up to 2,000 characters).",
   message_too_many: "That's a lot of messages in an hour. Please wait a little, then try again.",
   no_programme: "Your programme isn't ready yet. Alex is writing it.",
+  card_unavailable: "Sorry, the card page couldn't be opened just now. Please try again in a minute, or message Alex.",
   direct_debit_unavailable: "Sorry, Direct Debit set-up couldn't be opened just now. Please try again in a minute, or message Alex.",
   failed: "Sorry, something went wrong. Please try again, or message Alex.",
 };
@@ -72,12 +74,12 @@ export async function loadMembers(searchParams: Promise<Params>) {
     fullClasses(today),
     // Members who pay online: this period's payment, if it's still to pay (credits wait for it).
     paymentDue(member.db, stripeConfig(), member.clientId),
-    directDebitState(member.db, member.clientId),
+    paymentMethodInfo(member.db, member.clientId),
   ]);
   const one = (k: string) => (typeof params[k] === "string" ? (params[k] as string) : null);
   const done = one("done") ? (DONE[one("done")!] ?? null) : null;
   const error = one("error") ? (ERRORS[one("error")!] ?? ERRORS.failed) : null;
-  return { member, now, today, overview, settings: settings.ok ? settings.data : null, coaching: coaching.ok && (coaching.data.active || onlineCoachingOffered) ? coaching.data : null, full, due, dd, ddAvailable: stripeConfig() !== null, done, error, justBooked: done ? one("at") : null, confirm: one("confirm") };
+  return { member, now, today, overview, settings: settings.ok ? settings.data : null, coaching: coaching.ok && (coaching.data.active || onlineCoachingOffered) ? coaching.data : null, full, due, dd, ddAvailable: directDebitEnabled(), cardAvailable: stripeConfig() !== null, done, error, justBooked: done ? one("at") : null, confirm: one("confirm") };
 }
 
 

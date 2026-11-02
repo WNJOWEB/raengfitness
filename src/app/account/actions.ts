@@ -37,7 +37,7 @@ import { sendNotice } from "@/lib/notices";
 import { DONE } from "./data";
 import { sendEmailWithRetry } from "@/lib/send-email";
 import { stripeConfig } from "@/lib/stripe/config";
-import { cancelOwnMembership, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
+import { cancelOwnMembership, startCardUpdate, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
 
 export type SignInField = "email";
 
@@ -246,6 +246,24 @@ export async function setUpDirectDebit(): Promise<void> {
     `${memberLinkOrigin()}${ACCOUNT_PATH}/plan`,
   );
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=${result.reason === "already_set_up" ? "failed" : "direct_debit_unavailable"}`);
+  redirect(result.url);
+}
+
+/** Opens Stripe's page where the signed-in member changes the card their renewals are charged to (nothing is charged there). */
+export async function updateRenewalCard(): Promise<void> {
+  const member = await requireMember();
+  const stripe = stripeConfig();
+  const overview = await memberOverview(member.db, member.clientId);
+  const price = overview.ok ? overview.data.membership?.price_pence : undefined;
+  if (!stripe || !overview.ok || !overview.data.client.email || !price) redirect(`${ACCOUNT_PATH}/plan?error=card_unavailable`);
+  const result = await startCardUpdate(
+    member.db,
+    stripe,
+    { clientId: member.clientId, email: overview.data.client.email, name: overview.data.client.name },
+    price,
+    `${memberLinkOrigin()}${ACCOUNT_PATH}/plan?done=card_updated`,
+  );
+  if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=card_unavailable`);
   redirect(result.url);
 }
 

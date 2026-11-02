@@ -80,7 +80,19 @@ export interface CheckoutSessionLink {
  */
 export function createPaymentSession(
   config: StripeConfig,
-  args: { idempotencyKey: string; name: string; amountPence: number; note: string; buyerEmail?: string; successUrl: string; cancelUrl: string; customerId?: string; metadata?: Record<string, string> },
+  args: {
+    idempotencyKey: string;
+    name: string;
+    amountPence: number;
+    note: string;
+    buyerEmail?: string;
+    successUrl: string;
+    cancelUrl: string;
+    customerId?: string;
+    metadata?: Record<string, string>;
+    /** A membership payment: keeps the card for the renewals (needs customerId), with this consent line shown beside the pay button. */
+    saveCard?: { clientReference: string; consent: string };
+  },
   fetchImpl: typeof fetch = fetch,
 ): Promise<StripeResult<CheckoutSessionLink>> {
   return call(
@@ -94,7 +106,8 @@ export function createPaymentSession(
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,
       ...(args.customerId ? { customer: args.customerId } : args.buyerEmail ? { customer_email: args.buyerEmail } : {}),
-      payment_intent_data: { description: args.note.slice(0, 500) },
+      payment_intent_data: { description: args.note.slice(0, 500), ...(args.saveCard && args.customerId ? { setup_future_usage: "off_session" } : {}) },
+      ...(args.saveCard && args.customerId ? { client_reference_id: args.saveCard.clientReference, custom_text: { submit: { message: args.saveCard.consent.slice(0, 1000) } } } : {}),
       ...(args.metadata ? { metadata: args.metadata } : {}),
     },
     (json) => {
@@ -222,17 +235,20 @@ export function createCustomer(
  */
 export function createDirectDebitSetupSession(
   config: StripeConfig,
-  args: { idempotencyKey: string; customerId: string; clientReference: string; successUrl: string; cancelUrl: string },
+  args: { idempotencyKey: string; customerId: string; clientReference: string; successUrl: string; cancelUrl: string; method?: "bacs_debit" | "card"; consent?: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<StripeResult<CheckoutSessionLink>> {
+  const method = args.method ?? "bacs_debit";
   return call(
     config,
     "POST",
     "/v1/checkout/sessions",
     {
       mode: "setup",
-      currency: "gbp",
-      payment_method_types: { 0: "bacs_debit" },
+      // Bacs needs the currency named; a card page doesn't.
+      ...(method === "bacs_debit" ? { currency: "gbp" } : {}),
+      payment_method_types: { 0: method },
+      ...(args.consent ? { custom_text: { submit: { message: args.consent.slice(0, 1000) } } } : {}),
       customer: args.customerId,
       client_reference_id: args.clientReference,
       success_url: args.successUrl,
@@ -276,6 +292,8 @@ export interface StripePaymentIntent {
   amountPence: number;
   currency: string;
   createdAt: string;
+  customerId: string | null;
+  paymentMethodId: string | null;
 }
 
 function readPaymentIntent(json: unknown): StripePaymentIntent | null {
@@ -286,7 +304,7 @@ function readPaymentIntent(json: unknown): StripePaymentIntent | null {
   const currency = str(p?.currency);
   const createdAt = iso(p?.created);
   if (!id || !status || amount === null || !currency || !createdAt) return null;
-  return { id, status, amountPence: amount, currency: currency.toUpperCase(), createdAt };
+  return { id, status, amountPence: amount, currency: currency.toUpperCase(), createdAt, customerId: idOf(p?.customer), paymentMethodId: idOf(p?.payment_method) };
 }
 
 export function getPaymentIntent(config: StripeConfig, id: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<StripePaymentIntent>> {
@@ -294,15 +312,17 @@ export function getPaymentIntent(config: StripeConfig, id: string, fetchImpl: ty
 }
 
 /**
- * Takes a Direct Debit payment from a saved Bacs method, off session (the
- * member isn't there). Bacs takes about three working days: the intent is
- * "processing" at first, and `payment_intent.succeeded` / `.payment_failed`
- * say how it ended. The idempotency key (one per period and try) means a
- * retried call never collects twice.
+ * Takes a payment from a method the member saved, off session (the member
+ * isn't there). A Direct Debit (Bacs) takes about three working days: the
+ * intent is "processing" at first. A card answers at once (a declined card or
+ * one that needs the bank's confirmation is a 402 here). Either way
+ * `payment_intent.succeeded` / `.payment_failed` say how it ended. The
+ * idempotency key (one per period and try) means a retried call never
+ * charges twice.
  */
 export function createDirectDebitPayment(
   config: StripeConfig,
-  args: { idempotencyKey: string; customerId: string; paymentMethodId: string; amountPence: number; description: string; metadata?: Record<string, string> },
+  args: { idempotencyKey: string; customerId: string; paymentMethodId: string; amountPence: number; description: string; method?: "bacs_debit" | "card"; metadata?: Record<string, string> },
   fetchImpl: typeof fetch = fetch,
 ): Promise<StripeResult<StripePaymentIntent>> {
   return call(
@@ -314,7 +334,7 @@ export function createDirectDebitPayment(
       currency: "gbp",
       customer: args.customerId,
       payment_method: args.paymentMethodId,
-      payment_method_types: { 0: "bacs_debit" },
+      payment_method_types: { 0: args.method ?? "bacs_debit" },
       confirm: true,
       off_session: true,
       description: args.description.slice(0, 500),
@@ -324,4 +344,27 @@ export function createDirectDebitPayment(
     fetchImpl,
     args.idempotencyKey,
   );
+}
+
+export interface StripePaymentMethod {
+  id: string;
+  /** "card" | "bacs_debit" | ... */
+  type: string;
+  /** For a card, e.g. "Visa ending 4242"; empty otherwise. */
+  label: string;
+}
+
+const BRANDS: Record<string, string> = { visa: "Visa", mastercard: "Mastercard", amex: "American Express", discover: "Discover", diners: "Diners Club", jcb: "JCB", unionpay: "UnionPay" };
+
+export function getPaymentMethod(config: StripeConfig, id: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<StripePaymentMethod>> {
+  return call(config, "GET", `/v1/payment_methods/${encodeURIComponent(id)}`, undefined, (json) => {
+    const m = obj(json);
+    const mid = str(m?.id);
+    const type = str(m?.type);
+    if (!mid || !type) return null;
+    const card = obj(m?.card);
+    const last4 = str(card?.last4);
+    const brand = BRANDS[str(card?.brand) ?? ""] ?? "Card";
+    return { id: mid, type, label: type === "card" && last4 ? `${brand} ending ${last4.slice(-4)}` : "" };
+  }, fetchImpl);
 }

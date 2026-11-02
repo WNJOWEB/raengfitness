@@ -65,15 +65,16 @@ export const membershipTermsAlex = {
 
 /**
  * How cancelling a membership works (owner, 2026-10-30, the way the big gyms do
- * it): the first four weeks are paid by card, then each four weeks by Direct
- * Debit. The Direct Debit for a period is collected a few days before it starts
- * (Bacs takes about three working days), which is why "before then".
+ * it; payment by saved card from 2026-11-02, like Spotify): the first four weeks
+ * are paid by card, which is kept (the member agrees on Stripe's page), and each
+ * four weeks after that is charged to it on the day the period starts, until
+ * the member cancels. A reminder is emailed 5 days before each payment.
  */
 export const membershipCancellation = {
   title: "Membership cancellation",
   lines: [
     "You can cancel your membership at any time from your account, or by messaging Alex.",
-    "Your first four weeks are paid by card; after that each four weeks is paid by Direct Debit. Each payment is collected a few days before the new period starts, so cancel before then to stop the next one.",
+    "Your first four weeks are paid by card, which we save with your agreement. After that your membership renews automatically every four weeks, and the payment is taken on the day the new period starts, until you cancel. We email you 5 days before each payment, so cancel before then to stop the next one.",
     "Once a period is paid you get its credits and keep them until the period ends. Cancelling stops further payments and new periods; it doesn't refund a period you've already paid for.",
   ],
 } as const;

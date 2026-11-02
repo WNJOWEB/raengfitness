@@ -51,9 +51,12 @@ const sections: { heading: string; body: React.ReactNode }[] = [
         membership request we also receive the plan you choose, your first class if you pick one, and the
         date and time you agreed to the membership terms and cancellation policy. When you book a class or session we keep a record that you ticked the participation and risk terms: which version of the wording, and when. We don&apos;t ask for or keep any health details. If you pay online, you pay on
         Stripe&apos;s secure page: Stripe receives your card details, and we never see them; we receive the amount,
-        the date and Stripe&apos;s reference for the payment. For a membership, you then set up a Direct Debit on
-        Stripe&apos;s page: Stripe receives your bank details and the mandate, and we never see them; we keep
-        only Stripe&apos;s reference for your Direct Debit and whether each payment succeeded or failed. If you book a class online, we also keep a coded copy
+        the date and Stripe&apos;s reference for the payment. For a membership, the card you pay with is saved
+        by Stripe, with your agreement on its page, so your membership can renew every four weeks until you
+        cancel: we keep only Stripe&apos;s reference for it, the card&apos;s brand and last four digits (for example
+        &quot;Visa ending 4242&quot;, so you can see which card is used), and whether each payment succeeded or failed.
+        You can change the card or cancel from your account. If Direct Debit is offered and you choose it, Stripe
+        receives your bank details and the mandate, and we never see them. If you book a class online, we also keep a coded copy
         of the private link we email you to cancel it, and of any class credit link. Once you&apos;ve paid for a
         class or a membership, you have an account: you can sign in with your email to see your classes and
         credits, and we keep your name, email and phone so the booking form can fill them in next time. When

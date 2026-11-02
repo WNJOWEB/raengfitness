@@ -628,9 +628,10 @@ test.describe("memberships", () => {
     const terms = page.locator("#membership-terms");
     await expect(terms.getByRole("heading", { level: 2 })).toHaveText("Membership terms");
     await expect(terms.locator("h3")).toHaveText(["Using your credits", "Four-week renewal", "Unused credits", "Cancellations", "Membership cancellation"]);
-    // How cancelling a membership works, as the owner wrote it (2026-10-30): any time, Direct Debit, credits stay for the paid period.
+    // How cancelling a membership works, as the owner wrote it (2026-10-30; saved-card renewals 2026-11-02): any time, renews by saved card, credits stay for the paid period.
     await expect(terms).toContainText("You can cancel your membership at any time from your account");
-    await expect(terms).toContainText("after that each four weeks is paid by Direct Debit");
+    await expect(terms).toContainText("your membership renews automatically every four weeks, and the payment is taken on the day the new period starts, until you cancel");
+    await expect(terms).toContainText("We email you 5 days before each payment");
     await expect(terms).toContainText("it doesn't refund a period you've already paid for");
     await expect(terms).toContainText("Late cancellations and missed classes forfeit the credit.");
     await expect(terms).not.toContainText("Explain how to cancel");
