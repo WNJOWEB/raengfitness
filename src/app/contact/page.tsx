@@ -66,9 +66,9 @@ export default function ContactPage() {
 
   return (
     <div className="section-rules">
-      <PageHeader eyebrow="FAQs & Contact" title="FAQs & Contact" intro="Book, message Alex, or come and find us." />
+      <PageHeader eyebrow="FAQs & Contact" title="FAQs & Contact" intro="Book, message Alex, or come and find us." compact />
 
-      <Section tone="white" id="contact-details" labelledBy="details-heading">
+      <Section tone="white" id="contact-details" labelledBy="details-heading" className="pt-6 sm:pt-8 lg:pt-10">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
           <SectionHeading id="details-heading" className="lg:col-span-5" eyebrow="Contact details" title="Find us." />
           <ul id="ways" className="mt-8 flex max-w-2xl flex-col gap-3 lg:col-span-7 lg:mt-0">

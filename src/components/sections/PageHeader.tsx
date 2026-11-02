@@ -16,14 +16,16 @@ interface PageHeaderProps {
   image?: Photo | null;
   /** Shown in the image's place when a page has no photo (e.g. the "Train anywhere" panel). */
   panel?: ReactNode;
+  /** Less space under the title, for a page whose first section follows straight on (FAQs & Contact, 2026-11-02). */
+  compact?: boolean;
 }
 
 /** Opening block for the inner pages. The page's only <h1>. */
-export function PageHeader({ eyebrow, title, intro, children, image, panel }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, intro, children, image, panel, compact = false }: PageHeaderProps) {
   const aside = image || panel;
   return (
     <header className="bg-paper">
-      <div className="container-page pt-14 pb-12 sm:pt-20 sm:pb-16 lg:grid lg:grid-cols-12 lg:items-center lg:gap-x-12 lg:py-24">
+      <div className={`container-page pt-14 lg:grid lg:grid-cols-12 lg:items-center lg:gap-x-12 ${compact ? "pb-2 sm:pt-20 sm:pb-4 lg:pt-24 lg:pb-6" : "pb-12 sm:pt-20 sm:pb-16 lg:py-24"}`}>
         <div className={aside ? "lg:col-span-7" : "lg:col-span-12"}>
           <p className="eyebrow">{eyebrow}</p>
           <h1 className="mt-4 max-w-4xl font-display text-h1 text-balance">{statement(title)}</h1>
