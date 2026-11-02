@@ -147,6 +147,15 @@ test.describe("booking a group class and paying online", () => {
     expect(await emailsTo(request, email)).toEqual([]);
   });
 
+  test("the page after paying a link Alex sent: unknown links say so, and it has no accessibility problems", async ({ page }) => {
+    await page.goto(`${PAY}/pay/done?link=00000000-0000-4000-8000-000000000000`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("We couldn't find that payment.");
+    await page.waitForTimeout(1300); // let the page's fade-in finish before measuring contrast
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.goto(`${PAY}/pay/done?link=not-a-link`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("We couldn't find that payment.");
+  });
+
   test("unknown bookings and links say so; one-to-one stays a request", async ({ page }) => {
     await page.goto(`${PAY}/book/done?booking=00000000-0000-4000-8000-000000000000`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("We couldn't find that booking.");

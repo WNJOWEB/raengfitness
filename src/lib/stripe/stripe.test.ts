@@ -5,7 +5,7 @@ import { addCharge, getCharge, recordPayment, recordRefund, setPaymentStatus, vo
 import { testDb } from "../coach/test-support";
 import { stripeConfig, stripeWebhookConfig } from "./config";
 import { stripeSignature, verifyStripeSignature } from "./signature";
-import { createChargeLink, handleStripeWebhook, reconcileOpenLinks } from "./sync";
+import { chargeLinkStatus, createChargeLink, handleStripeWebhook, reconcileOpenLinks } from "./sync";
 import { deliverStripeEvent, signedEvent, stripeStandIn, testStripe, testWebhook, type StripeStandIn } from "./test-support";
 
 const stripe = testStripe;
@@ -135,14 +135,36 @@ describe("checkout links", () => {
     expect(call.form.get("success_url")).toBe("https://raeng.example/back");
   });
 
-  it("always gives Stripe a return address, even when the caller names none (the coach portal's Card link)", async () => {
+  it("always gives Stripe a return address, even when the caller names none (the coach portal's Card link): the confirmation page for that link", async () => {
     const a = api();
     const { charge } = await chargeFor(1000);
     expect(await createChargeLink(db, stripe, charge, a.fetchImpl)).toMatchObject({ ok: true });
+    const [row] = await sql("select id from akb_square_payment_links where charge_id = $1", [charge]);
     const success = a.calls[0].form.get("success_url");
-    const cancel = a.calls[0].form.get("cancel_url");
-    expect(success).toMatch(/^https?:\/\/[^/]+\/$/);
-    expect(cancel).toBe(success);
+    expect(success).toMatch(/^https?:\/\/[^/]+\/pay\/done\?link=[0-9a-f-]{36}$/);
+    expect(success).toContain(`link=${row.id}`);
+    expect(a.calls[0].form.get("cancel_url")).toBe(success);
+  });
+
+  it("the confirmation page's state: awaiting until the verified payment is recorded, then paid; closed when cancelled; unknown ids give nothing", async () => {
+    const a = api();
+    const { charge, client } = await chargeFor(1000);
+    await createChargeLink(db, stripe, charge, a.fetchImpl);
+    const [row] = await sql("select id, url from akb_square_payment_links where charge_id = $1", [charge]);
+    // Arriving from Stripe proves nothing: still awaiting, with the Stripe page to go back to.
+    expect(await chargeLinkStatus(db, String(row.id))).toEqual({ status: "awaiting", amountPence: 1000, description: "Group class, Sat 24 Oct", payUrl: row.url });
+    // Only the signed webhook's recorded payment flips it.
+    await sql("update akb_square_payment_links set status = 'paid' where id = $1", [row.id]);
+    expect(await chargeLinkStatus(db, String(row.id))).toMatchObject({ status: "paid", payUrl: null });
+    // A cancelled or expired link is closed.
+    const other = await chargeFor(500);
+    await createChargeLink(db, stripe, other.charge, a.fetchImpl);
+    const [row2] = await sql("select id from akb_square_payment_links where charge_id = $1", [other.charge]);
+    await sql("update akb_square_payment_links set status = 'cancelled' where id = $1", [row2.id]);
+    expect(await chargeLinkStatus(db, String(row2.id))).toMatchObject({ status: "closed", payUrl: null });
+    expect(await chargeLinkStatus(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
+    // Nothing about the person leaves the database.
+    expect(JSON.stringify(await chargeLinkStatus(db, String(row.id)))).not.toContain(client);
   });
 
   it("one live link per charge; a retry after a failure reuses the same idempotency key", async () => {

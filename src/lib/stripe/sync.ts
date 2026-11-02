@@ -1,5 +1,5 @@
 import { insert, rpc, select, update, type Db, type DbError } from "../coach/db";
-import { siteUrl } from "../env";
+import { memberLinkOrigin } from "../member-auth";
 import { toLondon } from "../coach/time";
 import { createPaymentSession, getCheckoutSession, getPaymentIntent, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
 import type { StripeConfig, StripeWebhookConfig } from "./config";
@@ -286,8 +286,9 @@ export async function createChargeLink(
   if (link.environment !== stripe.environment) return { ok: false, reason: "db" };
 
   // Stripe requires a return address and refuses a blank one (400). The coach portal's "Card link"
-  // names none, so it falls back to the home page, which says nothing about the payment.
-  const back = options.redirectUrl || `${siteUrl()}/`;
+  // names none, so the buyer lands on a confirmation page that reads this link's state from the
+  // database (which only the verified webhook changes): it never claims "paid" on its own.
+  const back = options.redirectUrl || `${memberLinkOrigin()}${PAY_DONE_PATH}?link=${link.id}`;
   const made = await createPaymentSession(
     stripe,
     {
@@ -361,4 +362,35 @@ export async function listOpenLinks(db: Db, clientId: string): Promise<LiveLink[
     ["status", "eq.open"],
   ]);
   return result.ok ? result.data : [];
+}
+
+/** Where Stripe sends someone after paying a link the coach made (a Card link in the portal). */
+export const PAY_DONE_PATH = "/pay/done";
+
+export interface ChargeLinkStatus {
+  /** "awaiting": not paid yet (or Stripe hasn't told us yet); "paid": the verified payment is recorded; "closed": the link was cancelled or has expired. */
+  status: "awaiting" | "paid" | "closed";
+  amountPence: number;
+  description: string;
+  /** The Stripe page to go back to, while the link is still open. */
+  payUrl: string | null;
+}
+
+/**
+ * What the confirmation page may show for a link: its state, the amount and
+ * what it was for, nothing about the person. "paid" only once the payment is
+ * in the database, which happens only from Stripe's signed webhook (or the
+ * reconcile job), never from the buyer arriving at the page.
+ */
+export async function chargeLinkStatus(db: Db, linkId: string): Promise<ChargeLinkStatus | null> {
+  const links = await select<{ status: LinkRow["status"]; amount_pence: number; charge_id: string; url: string }>(db, "akb_square_payment_links", [
+    ["select", "status,amount_pence,charge_id,url"],
+    ["id", `eq.${linkId}`],
+  ]);
+  const link = links.ok ? links.data[0] : undefined;
+  if (!link) return null;
+  const charges = await select<{ description: string }>(db, "akb_charges", [["select", "description"], ["id", `eq.${link.charge_id}`]]);
+  const description = charges.ok ? (charges.data[0]?.description ?? "") : "";
+  const status = link.status === "paid" ? "paid" : link.status === "cancelled" ? "closed" : "awaiting";
+  return { status, amountPence: link.amount_pence, description, payUrl: status === "awaiting" && link.url.startsWith("https://") ? link.url : null };
 }
