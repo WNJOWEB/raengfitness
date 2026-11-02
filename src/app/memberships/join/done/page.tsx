@@ -6,7 +6,7 @@ import { coachDb, isUuid } from "@/lib/coach/db";
 import { formatLongDate, type DateKey } from "@/lib/coach/time";
 import { SIGN_IN_PATH } from "@/lib/member-auth";
 import { startSignupDirectDebit } from "../direct-debit-actions";
-import { signupStatus, type SignupStatus } from "@/lib/membership-checkout";
+import { SIGNUP_DD_PATH, signupStatus, type SignupStatus } from "@/lib/membership-checkout";
 import { directDebitEnabled } from "@/lib/stripe/config";
 import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
@@ -34,18 +34,22 @@ export default async function JoinDonePage({ searchParams }: { searchParams: Pro
   const db = coachDb();
   const signup = id && db ? await signupStatus(db, id) : null;
   const params = await searchParams;
+  // A paid sign-up with Direct Debit on is forwarded to Stripe's bank page after a few seconds (a button does it at once).
+  // Coming back from that page ("skipped", "unavailable", "done") is never forwarded again.
+  const forward = directDebitEnabled() && signup?.status === "active" && signup.dd !== "active" && !params.dd && id !== null;
   const ddMessage = params.dd === "unavailable" ? "Sorry, the Direct Debit page couldn't be opened just now. Please try again in a minute." : null;
   return (
     <Section labelledBy="done-heading">
       {signup?.status === "awaiting_payment" ? <meta httpEquiv="refresh" content="4" /> : null}
+      {forward ? <meta httpEquiv="refresh" content={`5;url=${SIGNUP_DD_PATH}?signup=${id}`} /> : null}
       <div className="max-w-xl" role="status">
-        <Body signup={signup} signupId={id} ddMessage={ddMessage} directDebitOffered={directDebitEnabled()} />
+        <Body signup={signup} signupId={id} ddMessage={ddMessage} directDebitOffered={directDebitEnabled()} forwarding={forward} />
       </div>
     </Section>
   );
 }
 
-function Body({ signup, signupId, ddMessage, directDebitOffered }: { signup: SignupStatus | null; signupId: string | null; ddMessage: string | null; directDebitOffered: boolean }) {
+function Body({ signup, signupId, ddMessage, directDebitOffered, forwarding }: { signup: SignupStatus | null; signupId: string | null; ddMessage: string | null; directDebitOffered: boolean; forwarding: boolean }) {
   const heading = "mt-3 font-display text-h1 text-balance";
   if (!signup || signup.status === "replaced") {
     return (
@@ -129,6 +133,9 @@ function Body({ signup, signupId, ddMessage, directDebitOffered }: { signup: Sig
               Set up Direct Debit
             </button>
           </form>
+          {forwarding ? (
+            <p className="mt-3 text-sm font-semibold">Taking you to your bank details in a moment. Tap the button if you&apos;d rather go now.</p>
+          ) : null}
           <p className="mt-3 text-sm">
             {signup.card
               ? `Prefer to pay by card? There's nothing more to do: your ${signup.card} is charged automatically every ${BILLING_WEEKS} weeks, and we email you 5 days before each payment.`

@@ -71,18 +71,22 @@ test.describe("joining and paying online", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're in.", { timeout: 15_000 });
     await expect(page.getByRole("link", { name: "Sign in to your account" })).toHaveAttribute("href", "/account/sign-in");
 
-    // Direct Debit is the first option: the payment also kept the card (the member agreed on Stripe's page), which is the fallback.
+    // Direct Debit is the first option: the page says so, forwards to Stripe's bank page after a few seconds on its own, and the saved card is the fallback.
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Taking you to your bank details in a moment")).toBeVisible();
     await expect(page.getByText("Your bank details go straight to Stripe, not to us.")).toBeVisible();
     await expect(page.getByText("Prefer to pay by card? There's nothing more to do: your Visa ending 4242 is charged automatically every 4 weeks")).toBeVisible();
-    expect(await sql(request, "select d.dd_status, d.method, d.card_label, d.environment from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", method: "card", card_label: "Visa ending 4242", environment: "sandbox" }]);
-    await page.getByRole("button", { name: "Set up Direct Debit" }).click();
-    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`), { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Set up Direct Debit" })).toBeVisible();
+    // Until Stripe says the Direct Debit is set up, the card is still the member's method.
+    expect(await sql(request, "select d.dd_status, d.method, d.card_label, d.environment from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", method: "card", card_label: "Visa ending 4242", environment: "sandbox" }]);
     await page.getByRole("button", { name: "Authorise Direct Debit" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=`));
     await expect(page.getByText("Direct Debit is set up.")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toHaveCount(0);
+    // Coming back set up, the page doesn't forward anywhere.
+    await page.waitForTimeout(6500);
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=`));
     expect(await sql(request, "select d.dd_status, d.method, d.card_label from akb_stripe_customers d join akb_clients c on c.id = d.client_id where c.email = $1", [email])).toEqual([{ dd_status: "active", method: "bacs", card_label: "" }]);
 
     // In the database: an online-paying membership on the paid charge, and a card payment from Stripe.
@@ -147,6 +151,32 @@ test.describe("joining and paying online", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath("plan-card.png"), fullPage: true });
+  });
+
+  test("backing out of the bank page leaves the member on the page with the button: they aren't sent back", async ({ page }) => {
+    test.slow();
+    const email = `backer-${Date.now()}@example.com`;
+    await toCheckStep(page, "starter", "Backs Out", email);
+    await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByRole("button", { name: "Pay £40" }).click();
+    await page.getByRole("button", { name: "Pay £40.00" }).click();
+    await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
+    const signup = new URL(page.url()).searchParams.get("signup");
+    // What Stripe's "back" link returns to: marked skipped, so nothing forwards.
+    await page.goto(`${PAY}/memberships/join/done?signup=${signup}&dd=skipped`);
+    await expect(page.getByText("Set up your Direct Debit.")).toBeVisible();
+    await expect(page.getByText("Taking you to your bank details")).toHaveCount(0);
+    await page.waitForTimeout(7000);
+    await expect(page).toHaveURL(new RegExp(`dd=skipped$`));
+    await expect(page.getByRole("button", { name: "Set up Direct Debit" })).toBeVisible();
+    // The button still works.
+    await page.getByRole("button", { name: "Set up Direct Debit" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    // An address that isn't a paid sign-up goes nowhere near Stripe.
+    await page.goto(`${PAY}/memberships/join/direct-debit?signup=00000000-0000-4000-8000-000000000000`);
+    await expect(page).toHaveURL(/dd=unavailable$/);
+    await page.goto(`${PAY}/memberships/join/direct-debit?signup=not-a-uuid`);
+    await expect(page).toHaveURL(`${PAY}/memberships`);
   });
 
   test("leaving Stripe's page without paying starts nothing, and the page says it's waiting", async ({ page, request }) => {

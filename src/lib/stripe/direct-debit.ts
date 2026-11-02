@@ -38,12 +38,12 @@ export type SetupResult = { ok: true; url: string } | { ok: false; reason: "alre
 
 type Member = { clientId: string; email: string; name: string };
 
-async function openSetupPage(db: Db, stripe: StripeConfig, member: Member, returnUrl: string, method: "bacs_debit" | "card", fetchImpl: typeof fetch, consent?: string): Promise<SetupResult> {
+async function openSetupPage(db: Db, stripe: StripeConfig, member: Member, returnUrl: string, method: "bacs_debit" | "card", fetchImpl: typeof fetch, consent?: string, cancelUrl?: string): Promise<SetupResult> {
   const customer = await ensureStripeCustomer(db, stripe, member, fetchImpl);
   if (!customer.ok) return { ok: false, reason: "unavailable" };
   const session = await createDirectDebitSetupSession(
     stripe,
-    { idempotencyKey: `${method === "card" ? "card" : "dd"}-setup-${randomUUID()}`, customerId: customer.customerId, clientReference: member.clientId, successUrl: returnUrl, cancelUrl: returnUrl, method, consent },
+    { idempotencyKey: `${method === "card" ? "card" : "dd"}-setup-${randomUUID()}`, customerId: customer.customerId, clientReference: member.clientId, successUrl: returnUrl, cancelUrl: cancelUrl ?? returnUrl, method, consent },
     fetchImpl,
   );
   if (!session.ok) {
@@ -54,10 +54,10 @@ async function openSetupPage(db: Db, stripe: StripeConfig, member: Member, retur
 }
 
 /** Opens Stripe's Direct Debit set-up page for a member who has paid their first period. */
-export async function startDirectDebitSetup(db: Db, stripe: StripeConfig, member: Member, returnUrl: string, fetchImpl: typeof fetch = fetch): Promise<SetupResult> {
+export async function startDirectDebitSetup(db: Db, stripe: StripeConfig, member: Member, returnUrl: string, fetchImpl: typeof fetch = fetch, cancelUrl?: string): Promise<SetupResult> {
   const state = await rpc<{ status: string; method: string }>(db, "akb_payment_method_info", { p_client: member.clientId });
   if (state.ok && state.data.status === "active" && state.data.method === "bacs") return { ok: false, reason: "already_set_up" };
-  return openSetupPage(db, stripe, member, returnUrl, "bacs_debit", fetchImpl);
+  return openSetupPage(db, stripe, member, returnUrl, "bacs_debit", fetchImpl, undefined, cancelUrl);
 }
 
 /**

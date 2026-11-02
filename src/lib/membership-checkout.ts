@@ -10,6 +10,7 @@ import { formatPenceShort } from "./membership";
 import { describeFirstClass, type MembershipRequest } from "./membership-request";
 import { sendEmail } from "./send-email";
 import { directDebitEnabled, stripeConfig, type StripeConfig } from "./stripe/config";
+import { startDirectDebitSetup } from "./stripe/direct-debit";
 import { createChargeLink } from "./stripe/sync";
 
 /**
@@ -119,6 +120,26 @@ export async function signupMember(db: Db, signupId: string): Promise<{ clientId
   const people = await select<{ email: string; full_name: string }>(db, "akb_clients", [["select", "email,full_name"], ["id", `eq.${row.client_id}`]]);
   const person = people.ok ? people.data[0] : undefined;
   return person ? { clientId: row.client_id, email: person.email, name: person.full_name } : null;
+}
+
+/** The page that opens a paid sign-up's Direct Debit set-up on Stripe (the done page forwards there a few seconds after paying). */
+export const SIGNUP_DD_PATH = "/memberships/join/direct-debit";
+
+/**
+ * Opens Stripe's Direct Debit page for a paid sign-up and says where to go:
+ * Stripe's page, or back to the done page with a reason. Leaving Stripe's page
+ * without finishing lands on the done page marked "skipped", so the member is
+ * not sent straight back. The id is only a pointer: the member and their
+ * details come from the database, and only an active (paid) sign-up qualifies.
+ */
+export async function beginSignupDirectDebit(db: Db | null, stripe: StripeConfig | null, signupId: string, env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<{ url: string; external: boolean }> {
+  const back = `${memberLinkOrigin(env)}${JOIN_DONE_PATH}?signup=${signupId}`;
+  if (!db || !stripe || !directDebitEnabled(env)) return { url: `${back}&dd=unavailable`, external: false };
+  const member = await signupMember(db, signupId);
+  if (!member) return { url: `${back}&dd=unavailable`, external: false };
+  const result = await startDirectDebitSetup(db, stripe, member, back, fetchImpl, `${back}&dd=skipped`);
+  if (result.ok) return { url: result.url, external: true };
+  return { url: `${back}&dd=${result.reason === "already_set_up" ? "done" : "unavailable"}`, external: false };
 }
 
 /** What the "after paying" page shows. Only the plan and the state: no personal details. */

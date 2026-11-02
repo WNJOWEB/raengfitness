@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { rpc, type Db } from "../coach/db";
 import { addDays, londonToday } from "../coach/time";
 import { testDb } from "../coach/test-support";
-import { sendRenewalLinks, startCheckout } from "../membership-checkout";
+import { beginSignupDirectDebit, sendRenewalLinks, startCheckout } from "../membership-checkout";
 import type { MembershipRequest } from "../membership-request";
 import { collectDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
 import { deliverStripeEvent, stripeStandIn, testStripe } from "./test-support";
@@ -112,6 +112,39 @@ describe("setting up the Direct Debit", () => {
     const sessionId = (res.ok ? res.url : "").split("/").pop()!;
     expect((await deliverStripeEvent(db, s.api, "checkout.session.completed", { id: sessionId })).body).toEqual({ outcome: "pending" });
     expect(await rpc(db, "akb_payment_method_info", { p_client: m.client })).toMatchObject({ data: { method: "card" } });
+  });
+});
+
+describe("the forward to the bank page after paying", () => {
+  const on = { ...env, STRIPE_SECRET_KEY: "sk_test_not_real", DIRECT_DEBIT_ENABLED: "true" };
+
+  it("opens Stripe's Direct Debit page for a paid sign-up, and leaving it unfinished comes back marked skipped", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    const [{ id: signup }] = (await sql("select id from akb_membership_signups where client_id = $1", [m.client])) as { id: string }[];
+    const next = await beginSignupDirectDebit(db, stripe, signup, on, s.fetchImpl);
+    expect(next.external).toBe(true);
+    expect(next.url).toMatch(/^https:\/\/checkout\.stripe\.test\/c\/setup\/cs_test_\d+$/);
+    const setup = s.api.calls.filter((c) => c.method === "POST" && c.path === "/v1/checkout/sessions").pop()!.form;
+    expect(setup.get("mode")).toBe("setup");
+    expect(setup.get("success_url")).toBe(`https://raeng.example/memberships/join/done?signup=${signup}`);
+    expect(setup.get("cancel_url")).toBe(`https://raeng.example/memberships/join/done?signup=${signup}&dd=skipped`);
+  });
+
+  it("goes back to the done page with a reason when it can't: unknown sign-up, nothing paid, or Direct Debit off", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    const [{ id: signup }] = (await sql("select id from akb_membership_signups where client_id = $1", [m.client])) as { id: string }[];
+    const unknown = await beginSignupDirectDebit(db, stripe, "00000000-0000-4000-8000-000000000000", on, s.fetchImpl);
+    expect(unknown).toEqual({ url: "https://raeng.example/memberships/join/done?signup=00000000-0000-4000-8000-000000000000&dd=unavailable", external: false });
+    const off = await beginSignupDirectDebit(db, stripe, signup, env, s.fetchImpl);
+    expect(off).toEqual({ url: `https://raeng.example/memberships/join/done?signup=${signup}&dd=unavailable`, external: false });
+    const none = await beginSignupDirectDebit(null, stripe, signup, on, s.fetchImpl);
+    expect(none.external).toBe(false);
+    // Already set up: back to the page, which says so.
+    await setUpDirectDebit(s, m);
+    const again = await beginSignupDirectDebit(db, stripe, signup, on, s.fetchImpl);
+    expect(again).toEqual({ url: `https://raeng.example/memberships/join/done?signup=${signup}&dd=done`, external: false });
   });
 });
 
