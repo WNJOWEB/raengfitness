@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { buttonClasses } from "@/components/ui/ButtonLink";
 import { cn } from "@/lib/cn";
 import { useClassStatus, useUsualClassSize } from "@/components/classes/useClassStatus";
@@ -43,6 +44,9 @@ function ukNow(): { day: number; mins: number } {
   const day = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(parts.weekday);
   return { day, mins: day * 1440 + Number(parts.hour) * 60 + Number(parts.minute) };
 }
+
+/** How long the row shows dark before the calendar opens (the fade itself is 600 ms, as on the membership cards). */
+const PRESS_MS = 450;
 
 const pill = "rounded-full border border-current px-2 py-0.5 text-[0.6875rem] leading-tight font-semibold tracking-[0.1em] whitespace-nowrap uppercase";
 
@@ -89,6 +93,27 @@ export function ClassWeek({
     : null;
   const next = deltas ? deltas.indexOf(Math.min(...deltas)) : null;
   const button = buttonClasses("action", "w-full px-6");
+  const router = useRouter();
+  // The tapped row turns ink (as the membership cards do when chosen), then the calendar opens.
+  const [pressed, setPressed] = useState<string | null>(null);
+  const timers = useRef<number[]>([]);
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+  const press = (e: React.MouseEvent<HTMLAnchorElement>, id: string, href: string) => {
+    // Let the browser handle new-tab clicks, and don't start twice.
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    if (pressed) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      router.push(href);
+      return;
+    }
+    setPressed(id);
+    timers.current.push(
+      window.setTimeout(() => router.push(href), PRESS_MS),
+      // Back on this page (the back button), the row is plain again.
+      window.setTimeout(() => setPressed(null), PRESS_MS + 1500),
+    );
+  };
 
   return (
     <div>
@@ -121,9 +146,20 @@ export function ClassWeek({
           );
           const row = "flex min-h-16 items-start justify-between gap-4 px-5 py-4";
           return (
-            <li key={c.id} className={cn("overflow-hidden rounded-[1.25rem] border-[1.5px] bg-white", label === "Next up" || label === "On now" ? "border-ink" : "border-transparent")}>
+            <li
+              key={c.id}
+              className={cn(
+                "overflow-hidden rounded-[1.25rem] border-[1.5px] motion-safe:transition-colors motion-safe:duration-[600ms] motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]",
+                pressed === c.id ? "border-ink bg-ink text-white" : cn("bg-white", label === "Next up" || label === "On now" ? "border-ink" : "border-transparent"),
+              )}
+            >
               {href ? (
-                <Link href={href} aria-label={`${c.day} ${c.time}${isFull ? ", fully booked" : ""}`} className={cn(row, "hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink")}>
+                <Link
+                  href={href}
+                  onClick={(e) => press(e, c.id, href)}
+                  aria-label={`${c.day} ${c.time}${isFull ? ", fully booked" : ""}`}
+                  className={cn(row, pressed === c.id ? "" : "hover:bg-paper", "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink")}
+                >
                   {body}
                 </Link>
               ) : (

@@ -868,6 +868,32 @@ test("home: the class times as simple rows; a row and View classes and book open
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
+test("home: tapping a class row turns it ink, then opens the calendar on that class", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const section = page.getByRole("region", { name: "Three classes a week." });
+  const item = section.getByRole("list", { name: "Class times" }).getByRole("listitem").nth(2);
+  await item.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(3300); // the opening logo screen
+  const background = () => item.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(await background()).toBe("rgb(255, 255, 255)");
+  await item.getByRole("link").click();
+  // It fades to ink first (the membership cards' fade), then the calendar opens on Saturday's class.
+  // (Read as "dark enough": the page moves on a moment before the fade's last shade.)
+  await expect.poll(async () => Math.max(...(await background()).match(/\d+/g)!.slice(0, 3).map(Number)), { timeout: 3000 }).toBeLessThan(60);
+  await expect(page).toHaveURL(/\/book\/group-class\?class=sat-morning/);
+});
+
+test("home: with Reduce Motion a class row opens the calendar at once, with no dark wait", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const section = page.getByRole("region", { name: "Three classes a week." });
+  await page.waitForTimeout(1500);
+  await section.getByRole("list", { name: "Class times" }).getByRole("link").nth(0).click();
+  await expect(page).toHaveURL(/\/book\/group-class\?class=/);
+});
+
 test("home: a fully booked class says so and Book now goes to the next class", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   // Monday 6:30 pm is full on every date in the window; the other classes have places.
