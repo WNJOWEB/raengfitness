@@ -234,6 +234,12 @@ test("contact details: email shown, phone number hidden until tapped and never i
   await page.goto("/contact");
   const ways = page.locator("#ways");
   await expect(ways.getByRole("link", { name: /hello@raengfitness\.co\.uk/ })).toHaveAttribute("href", "mailto:hello@raengfitness.co.uk");
+  // Instagram (RAENG's own account) sits beside the email, each with its icon, and opens in a new tab.
+  const instagram = ways.getByRole("link", { name: /@raeng\.fitness on Instagram/ });
+  await expect(instagram).toHaveAttribute("href", "https://www.instagram.com/raeng.fitness/");
+  await expect(instagram).toHaveAttribute("target", "_blank");
+  await expect(ways).toContainText("@raeng.fitness");
+  await expect(ways.locator("svg")).toHaveCount(4); // Email, Instagram, Phone and the address each have an icon
   await expect(ways).not.toContainText("07452");
   await ways.getByRole("button", { name: "Show number" }).click();
   await expect(ways).toContainText("07452 825256");

@@ -1,4 +1,6 @@
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
+import { PinIcon } from "@/components/ui/ContactIcons";
+import { MailIcon } from "@/components/ui/MailIcon";
 import { RevealPhone } from "@/components/ui/RevealPhone";
 import { scramblePhone } from "@/lib/phone";
 import type { Metadata } from "next";
@@ -22,15 +24,23 @@ export const metadata: Metadata = pageMetadata({
 
 const linkClass = "inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 hover:no-underline";
 
-/** One way in: what it is (and its detail), and its link on the right. */
-function Way({ title, detail, children }: { title: string; detail?: ReactNode; children: ReactNode }) {
+/** One way in: an icon, what it is (and its detail), and its link on the right. */
+function Way({ title, detail, icon, children }: { title: string; detail?: ReactNode; icon?: ReactNode; children: ReactNode }) {
   return (
-    <li className="flex items-center justify-between gap-4 rounded-[1.25rem] bg-white px-5 py-3 sm:px-6">
-      <div className="min-w-0 py-1">
-        <p className="card-title">{title}</p>
-        {detail ? <div className="mt-0.5 text-[0.9375rem]">{detail}</div> : null}
+    <li className="flex items-center justify-between gap-4 rounded-[1.25rem] bg-white px-5 py-3 max-[400px]:flex-col max-[400px]:items-start max-[400px]:gap-0 sm:px-6">
+      <div className="flex min-w-0 items-center gap-4 py-1">
+        {icon ? (
+          <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-paper text-ink">
+            {icon}
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          <p className="card-title">{title}</p>
+          {detail ? <div className="mt-0.5 text-[0.9375rem] max-[400px]:text-[0.875rem] [overflow-wrap:anywhere]">{detail}</div> : null}
+        </div>
       </div>
-      {children}
+      {/* Under 400px the link sits under the text (its left edge lines up with the text, past the icon) so an email address stays on one line. */}
+      <div className="shrink-0 max-[400px]:pl-[3.75rem]">{children}</div>
     </li>
   );
 }
@@ -64,14 +74,19 @@ export default function ContactPage() {
           <SectionHeading id="details-heading" className="lg:col-span-5" eyebrow="Contact details" title="Find us." />
           <ul id="ways" className="mt-8 flex max-w-2xl flex-col gap-3 lg:col-span-7 lg:mt-0">
             {email ? (
-              <Way title="Email" detail={email}>
+              <Way title="Email" detail={email} icon={<MailIcon className="size-6" />}>
                 <a href={`mailto:${email}`} className={linkClass}>
                   Email<span className="sr-only"> {email}</span>
                 </a>
               </Way>
             ) : null}
+            <Way title="Instagram" detail={site.social.raeng.handle} icon={<InstagramIcon className="size-6" />}>
+              <a href={site.social.raeng.url} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                Open<span className="sr-only"> {site.social.raeng.handle} on Instagram (opens in a new tab)</span>
+              </a>
+            </Way>
             {phone ? <RevealPhone mode="row" scrambled={scramblePhone(phone)} /> : null}
-            <Way title={l.street} detail={<address className="not-italic">{`${l.town}, ${l.city}, ${l.postcode}`}</address>}>
+            <Way title={l.street} detail={<address className="not-italic">{`${l.town}, ${l.city}, ${l.postcode}`}</address>} icon={<PinIcon className="size-6" />}>
               <a href={mapsUrl()} target="_blank" rel="noopener noreferrer" className={linkClass}>
                 Directions<span className="sr-only"> to the class location (opens in a new tab)</span>
               </a>
