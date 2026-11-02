@@ -2,13 +2,15 @@
 
 import { refresh } from "next/cache";
 import { failure, success, type ActionState } from "@/lib/coach/action-state";
-import { addAttendee, ATTENDANCE_STATUSES, cancelClass, ensureClassSession, getAttendance, setAttendance, setDefaultCapacity, updateClassSession } from "@/lib/coach/bookings";
+import { addAttendee, ATTENDANCE_STATUSES, cancelClass, ensureClassSession, getAttendance, listAttendance, setAttendance, setDefaultCapacity, updateClassSession } from "@/lib/coach/bookings";
 import { classChargeDescription, classDurationMinutes, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
 import { getClient } from "@/lib/coach/clients";
 import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
 import { ATTENDANCE_STATUS } from "@/lib/coach/labels";
 import { FormReader } from "@/lib/coach/validate";
+import { classWhen } from "@/lib/class-checkout";
+import { sendNotice } from "@/lib/notices";
 import { payWithCredit, periodOn } from "@/lib/coach/memberships";
 
 const CHECK = "Please check the highlighted fields.";
@@ -91,11 +93,32 @@ export async function cancelClassAction(_prev: ActionState, formData: FormData):
   const occ = occurrence(chosen.date, chosen.slot);
   const id = await ensureClassSession(ctx.db, { slot: chosen.slot.id, date: chosen.date, startsAt: occ.startsAt, duration: classDurationMinutes(chosen.slot) });
   if (!id.ok) return failure(dbMessage(id.error));
+  // Who is booked now, before the places are cancelled, so each person can be told.
+  const booked = await listAttendance(ctx.db, { sessionIds: [id.data] });
   const result = await cancelClass(ctx.db, id.data, reason);
   if (!result.ok) return failure(dbMessage(result.error));
-  refresh();
   const n = result.data;
-  return success(`Class cancelled. ${n === 0 ? "Nobody was booked." : `${n} ${n === 1 ? "place" : "places"} cancelled; members' credits are back and unpaid class charges are cancelled. Let each person know.`}`);
+  let told = 0;
+  if (booked.ok) {
+    const when = classWhen(chosen.date, chosen.slot);
+    for (const place of booked.data.filter((p) => p.status === "booked")) {
+      const person = await getClient(ctx.db, place.client_id);
+      if (!person.ok || !person.data) continue;
+      const sent = await sendNotice({
+        label: "class-cancelled-by-coach",
+        key: `class-cancelled/${place.id}`,
+        customer: {
+          email: person.data.email,
+          subject: `Class cancelled: ${when}`,
+          text: `The group class on ${when} has been cancelled by Alex, so your place is cancelled.${reason ? `\n\nReason: ${reason}` : ""}\n\nAny membership credit you used has been returned to your account. If you paid for this class, please message Alex.`,
+        },
+      });
+      if (sent.customer) told += 1;
+    }
+  }
+  refresh();
+  const emailed = told > 0 ? ` ${told} ${told === 1 ? "person has" : "people have"} been emailed.` : "";
+  return success(`Class cancelled. ${n === 0 ? "Nobody was booked." : `${n} ${n === 1 ? "place" : "places"} cancelled; members' credits are back and unpaid class charges are cancelled.${emailed || " Let each person know."}${emailed ? " Anyone who paid for the class needs sorting out by you." : ""}`}`);
 }
 
 export async function updateClassAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

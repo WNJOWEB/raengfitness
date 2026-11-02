@@ -113,6 +113,7 @@ test.describe("booking a group class and paying online", () => {
     const href = await credit.getAttribute("href");
     expect(href).toMatch(/\/book\/group-class\?credit=[A-Za-z0-9_-]{43}$/);
     await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your class credit")).toBe(true);
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject.startsWith("Class cancelled: Class Payer"))).toBe(true);
 
     // The credit link: nothing to pay, booked straight away, with no Stripe page.
     await toDetails(page, href!, 1, "Class Payer", `other-${email}`);

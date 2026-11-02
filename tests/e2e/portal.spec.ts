@@ -116,12 +116,16 @@ test("confirming a class request creates the client, books the place, and paymen
   await expect(page.getByRole("status").filter({ hasText: "Confirmed" })).toBeVisible();
   await expect(page.getByText("Confirmed", { exact: true }).first()).toBeVisible();
 
-  // Nothing tells them they're booked until Alex sends it: a prefilled message to send.
-  const mail = page.getByRole("link", { name: "Open in email" });
-  await expect(mail).toHaveAttribute("href", new RegExp(`^mailto:${encodeURIComponent(person.email)}`));
+  // They're emailed at once, in the words the "Let them know" box suggests, and marked as told.
   await expect(page.getByLabel("Message")).toHaveValue(/You're booked in: Kettlebell Training/);
-  await page.getByRole("button", { name: "Mark as told" }).click();
   await expect(page.getByText(/^Told /)).toBeVisible();
+  await expect
+    .poll(async () => {
+      const all = (await (await request.get(`http://localhost:${process.env.MOCK_EMAIL_PORT ?? 3299}/requests`)).json()) as { payload: { to: string[]; subject: string; text: string } }[];
+      const mine = all.find((e) => e.payload.to.includes(person.email));
+      return mine ? `${mine.payload.subject} | ${mine.payload.text.includes("You're booked in: Kettlebell Training")}` : null;
+    })
+    .toBe("Booked: Group class | true");
 
   // One client, linked; one place on the class.
   const clients = await sql<{ id: string }>(request, "select id from akb_clients where email = $1", [person.email]);

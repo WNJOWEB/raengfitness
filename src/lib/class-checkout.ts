@@ -2,13 +2,14 @@ import { onlineClassBooking } from "@/content/classes";
 import { getService } from "@/content/services";
 import { site } from "@/content/site";
 import { bookingDeliveryConfig } from "./booking-request";
-import type { PublishedClass } from "./class-sessions";
+import { publishedClasses, type PublishedClass } from "./class-sessions";
 import { inList, insert, rpc, select, update, type Db, type DbError } from "./coach/db";
 import { formatLongDate, londonToUtc, toLondon, formatClock, type DateKey } from "./coach/time";
 import type { Env } from "./env";
 import { isToken, memberLinkOrigin, randomToken, sha256Hex, SIGN_IN_PATH } from "./member-auth";
 import { publishable } from "./publish";
 import { formatTime } from "./schedule";
+import { sendNotice } from "./notices";
 import { sendEmail } from "./send-email";
 import type { StripeConfig } from "./stripe/config";
 import { createChargeLink } from "./stripe/sync";
@@ -125,7 +126,7 @@ export async function classBookingStatus(db: Db, bookingId: string, classes: Pub
   return { status: row.status, when, payUrl };
 }
 
-async function placeWhen(db: Db, attendanceId: string, classes: PublishedClass[]): Promise<string | null> {
+export async function placeWhen(db: Db, attendanceId: string, classes: PublishedClass[]): Promise<string | null> {
   const att = await select<{ class_session_id: string }>(db, "akb_class_attendance", [["select", "class_session_id"], ["id", `eq.${attendanceId}`]]);
   const sessionId = att.ok ? att.data[0]?.class_session_id : undefined;
   if (!sessionId) return null;
@@ -275,29 +276,30 @@ export async function cancelByToken(
     const rule = r.error.kind === "rule" ? r.error.rule : null;
     return { ok: false, reason: rule === "not_found" || rule === "not_booked" || rule === "class_started" ? rule : "failed" };
   }
-  if (!r.data.credit) return { ok: true, creditLink: null };
-  const creditLink = `${memberLinkOrigin(env)}${CLASS_BOOK_PATH}?credit=${creditToken}`;
-  // Email the credit link too (best effort: it's also shown on the page).
-  const email = bookingDeliveryConfig(env);
-  const rows = await select<{ client_id: string }>(db, "akb_class_bookings", [["select", "client_id"], ["manage_token_hash", `eq.${hash}`]]);
-  const clientId = rows.ok ? rows.data[0]?.client_id : undefined;
-  if (email && clientId) {
-    const people = await select<{ email: string }>(db, "akb_clients", [["select", "email"], ["id", `eq.${clientId}`]]);
-    const to = people.ok ? people.data[0]?.email : undefined;
-    if (to) {
-      await sendEmail(
-        email,
+  const creditLink = r.data.credit ? `${memberLinkOrigin(env)}${CLASS_BOOK_PATH}?credit=${creditToken}` : null;
+  // Tell the booker it's cancelled (with the credit link when one was given) and tell Alex, once each.
+  // Best effort: the cancellation has already happened and the page shows the outcome.
+  const rows = await select<{ id: string; client_id: string; attendance_id: string }>(db, "akb_class_bookings", [["select", "id,client_id,attendance_id"], ["manage_token_hash", `eq.${hash}`]]);
+  const booking = rows.ok ? rows.data[0] : undefined;
+  if (booking) {
+    const people = await select<{ full_name: string; email: string }>(db, "akb_clients", [["select", "full_name,email"], ["id", `eq.${booking.client_id}`]]);
+    const person = people.ok ? people.data[0] : undefined;
+    if (person) {
+      const when = (await placeWhen(db, booking.attendance_id, publishedClasses())) ?? "your class";
+      const outcome = creditLink
+        ? `Here's your credit for another group class within the next 4 weeks:\n${creditLink}\nIt works once. Nothing to pay when you book with it.`
+        : "It was less than 24 hours before the class, so there's no credit.";
+      await sendNotice(
         {
-          idempotencyKey: `class-credit/${hash}`,
-          to,
-          replyTo: email.to,
-          subject: "Your class credit",
-          text: [
-            "Your class is cancelled. Here's your credit for another group class within the next 4 weeks:",
-            creditLink,
-            "It works once. Nothing to pay when you book with it.",
-          ].join("\n"),
+          label: "class-cancel",
+          key: `class-cancel/${hash}`,
+          customer: { email: person.email, subject: creditLink ? "Your class credit" : `Cancelled: ${when}`, text: `Your booking for the group class on ${when} is cancelled.\n\n${outcome}` },
+          alex: {
+            subject: `Class cancelled: ${person.full_name}, ${when}`,
+            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${creditLink ? "They were given a class credit for another class within 4 weeks." : "It was less than 24 hours before the class, so no credit was given."}`,
+          },
         },
+        env,
         fetchImpl,
       );
     }

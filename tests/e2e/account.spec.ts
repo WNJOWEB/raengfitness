@@ -110,6 +110,9 @@ test.describe("member accounts", () => {
     await expect(page.getByRole("tab", { selected: true })).toHaveText(weekLabel);
     await expect(page.getByRole("tabpanel").getByRole("link", { name: `${label}: Booked` })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "7 credits to use." })).toBeVisible();
+    // The booking is emailed to the member and to Alex.
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject.startsWith("You're booked:"))).toBe(true);
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject.startsWith("Class booked: Member Tester"))).toBe(true);
 
     // Home: it's the next class, with the calendar and directions.
     await tabs.getByRole("link", { name: "Home" }).click();
@@ -143,6 +146,9 @@ test.describe("member accounts", () => {
     await expect(page.getByRole("dialog")).toContainText("Your credit comes back");
     await page.getByRole("dialog").getByRole("button", { name: "Cancel booking" }).click();
     await expect(page.getByRole("status")).toHaveText("Cancelled. Your credit is back.");
+    // The cancellation is emailed to the member and to Alex.
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject.startsWith("Cancelled:") && e.payload.text.includes("Your credit is back."))).toBe(true);
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject.startsWith("Class cancelled: Member Tester"))).toBe(true);
     await expect(page.getByRole("img", { name: "8 of 8 credits left" })).toBeVisible();
 
     // Plan: the plan card and what's used.
@@ -449,6 +455,8 @@ test.describe("member accounts", () => {
     await expect(page.getByText(/Cancelled from/)).toBeVisible();
     const [m] = await sql(request, "select m.status, m.cancelled_on is not null as has_date from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email]);
     expect(m).toEqual({ status: "cancelled", has_date: true });
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG membership is cancelled")).toBe(true);
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject === "Membership cancelled: Member Tester")).toBe(true);
     // Nothing is left to cancel or set up.
     await expect(page.getByRole("button", { name: "Yes, cancel my membership" })).toHaveCount(0);
   });

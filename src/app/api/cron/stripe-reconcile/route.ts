@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyChargePayments } from "@/lib/stripe/receipts";
 import { coachDb } from "@/lib/coach/db";
 import { cronAuthorized } from "@/lib/cron-auth";
 import { stripeConfig } from "@/lib/stripe/config";
@@ -20,5 +21,6 @@ export async function GET(request: Request) {
   // Also catches sign-ups started by a payment the webhook missed (or recorded in the portal).
   const welcomed = await notifyNewMembers(db, publishedClasses()).catch(() => 0);
   const classBookings = await notifyClassBookings(db, publishedClasses()).catch(() => 0);
-  return NextResponse.json({ ...summary, welcomed, classBookings }, { status: summary.ok ? 200 : 503, headers: noStore });
+  const receipts = await notifyChargePayments(db).catch(() => 0);
+  return NextResponse.json({ ...summary, welcomed, classBookings, receipts }, { status: summary.ok ? 200 : 503, headers: noStore });
 }

@@ -5,6 +5,7 @@ import { addCharge, getCharge, recordPayment, recordRefund, setPaymentStatus, vo
 import { testDb } from "../coach/test-support";
 import { stripeConfig, stripeWebhookConfig } from "./config";
 import { stripeSignature, verifyStripeSignature } from "./signature";
+import { notifyChargePayments } from "./receipts";
 import { chargeLinkStatus, createChargeLink, handleStripeWebhook, reconcileOpenLinks } from "./sync";
 import { deliverStripeEvent, signedEvent, stripeStandIn, testStripe, testWebhook, type StripeStandIn } from "./test-support";
 
@@ -303,6 +304,49 @@ describe("webhooks → ledger", () => {
     expect((await completed(a, late.sessionId)).body).toEqual({ outcome: "recorded" });
     const lateBal = await select<{ credit_pence: number }>(db, "akb_client_balances", [["client_id", `eq.${late.client}`]]);
     expect(lateBal.ok && lateBal.data[0].credit_pence).toBe(1000);
+  });
+});
+
+describe("receipts for payments on a coach Card link", () => {
+  const RESEND = "http://localhost:3299/emails";
+  const mailEnv = { RESEND_API_KEY: "re_test", BOOKING_NOTIFY_EMAIL: "alex@example.com", BOOKING_FROM_EMAIL: "RAENG <hello@example.com>", RESEND_API_URL: RESEND };
+  const mailer = () => {
+    const sent: { to: string[]; subject: string; text: string; key: string }[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit = {}) => {
+      if (String(url) !== RESEND) return db.fetchImpl(url, init);
+      const body = JSON.parse(String(init.body)) as { to: string[]; subject: string; text: string };
+      const key = (init.headers as Record<string, string>)["Idempotency-Key"];
+      if (!sent.some((e) => e.key === key)) sent.push({ ...body, key });
+      return Response.json({ id: "email" });
+    }) as typeof fetch;
+    return { sent, fetchImpl };
+  };
+
+  it("emails the customer and Alex once when the verified payment is recorded, and never again", async () => {
+    const a = api();
+    const m = mailer();
+    const { client, sessionId } = await openLink(a, 100);
+    a.pay(sessionId, 100);
+    await completed(a, sessionId);
+    const [person] = await sql("select email from akb_clients where id = $1", [client]);
+    expect(await notifyChargePayments(db, mailEnv, m.fetchImpl)).toBeGreaterThanOrEqual(1);
+    const mine = m.sent.filter((e) => e.to.includes(String(person.email)) || e.subject.includes("£1.00"));
+    expect(mine.find((e) => e.to.includes(String(person.email)))).toMatchObject({ subject: "We've received your payment: £1.00" });
+    expect(mine.find((e) => e.to.includes(String(person.email)))?.text).toContain("Group class, Sat 24 Oct");
+    expect(mine.find((e) => e.to.includes("alex@example.com"))?.subject).toMatch(/^Payment received: .*£1\.00$/);
+    const count = m.sent.length;
+    expect(await notifyChargePayments(db, mailEnv, m.fetchImpl)).toBe(0);
+    expect(m.sent).toHaveLength(count);
+  });
+
+  it("sends nothing without email settings, and nothing for a payment that isn't recorded", async () => {
+    const a = api();
+    const m = mailer();
+    const { sessionId } = await openLink(a, 250);
+    expect(await notifyChargePayments(db, {}, m.fetchImpl)).toBe(0);
+    await notifyChargePayments(db, mailEnv, m.fetchImpl); // the link above is still unpaid
+    expect(m.sent.filter((e) => e.subject.includes("£2.50"))).toEqual([]);
+    expect(sessionId).toBeTruthy();
   });
 });
 

@@ -1,4 +1,5 @@
 import { bookingDeliveryConfig } from "./booking-request";
+import { sendNotice } from "./notices";
 import { alertError, recordAlert } from "./request-alerts";
 import { requestStoreConfig, saveRequest, type StoredRequest } from "./request-store";
 import { sendEmailWithRetry, type OutgoingEmail } from "./send-email";
@@ -25,5 +26,23 @@ export async function deliverRequest(stored: StoredRequest, email: Omit<Outgoing
     const recorded = await recordAlert(store, stored.idempotencyKey, email, sent);
     if (!recorded) console.error(`Recording a request alert (${stored.kind}) failed`);
   }
-  return saved === true || sent?.ok === true;
+  const delivered = saved === true || sent?.ok === true;
+  // Acknowledge to the person once it has reached Alex, so they know it was received and that it isn't confirmed yet.
+  // Best effort; the same key as the request, so a resubmitted form acknowledges once.
+  if (delivered) {
+    await sendNotice({
+      label: "request-received",
+      key: `request-received/${stored.idempotencyKey}`,
+      customer: {
+        email: stored.email,
+        subject: `We've received your request: ${stored.service}`.slice(0, 150),
+        text: [
+          `Thanks, ${stored.name}. We've received your ${stored.service.toLowerCase()} request${stored.summary ? ` (${stored.summary})` : ""}.`,
+          "",
+          "This is a request, not a confirmed booking. Alex will reply to confirm.",
+        ].join("\n"),
+      },
+    });
+  }
+  return delivered;
 }

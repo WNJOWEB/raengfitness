@@ -4,11 +4,11 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { bookingDeliveryConfig, isSpam, text, type FormState } from "@/lib/booking-request";
 import { isClassDate } from "@/lib/availability/timetable";
-import { notifyClassBookings } from "@/lib/class-checkout";
+import { classWhen, notifyClassBookings, placeWhen } from "@/lib/class-checkout";
 import { MEMBERS_VIEW_PATH } from "@/lib/members-app";
 import { publishedClasses } from "@/lib/class-sessions";
-import { coachDb, isUuid } from "@/lib/coach/db";
-import { londonToday, londonToUtc } from "@/lib/coach/time";
+import { coachDb, isUuid, type Db } from "@/lib/coach/db";
+import { formatLongDate, londonToday, londonToUtc, type DateKey } from "@/lib/coach/time";
 import { emailError, singleLine } from "@/lib/form-validation";
 import {
   ACCOUNT_PATH,
@@ -33,6 +33,8 @@ import {
 } from "@/lib/member-auth";
 import { deviceLabel, labelSession } from "@/lib/member-settings";
 import { requireMember } from "@/lib/member-session";
+import { sendNotice } from "@/lib/notices";
+import { DONE } from "./data";
 import { sendEmailWithRetry } from "@/lib/send-email";
 import { stripeConfig } from "@/lib/stripe/config";
 import { cancelOwnMembership, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
@@ -125,6 +127,15 @@ function at(formData: FormData): string {
 const errorFor = (result: { ok: false; error: { kind: string; rule?: string | null } }) =>
   result.error.kind === "rule" ? (RULES[result.error.rule ?? ""] ?? "failed") : "failed";
 
+/** The member's name and email, for the emails that follow their own actions. Null if it can't be read (the action still stands). */
+async function whoIs(member: { db: Db; clientId: string }): Promise<{ name: string; email: string } | null> {
+  const overview = await memberOverview(member.db, member.clientId);
+  return overview.ok ? { name: overview.data.client.name, email: overview.data.client.email } : null;
+}
+
+/** A timestamp to the minute, so one event is emailed once but the same class booked, cancelled and booked again is not mistaken for a repeat. */
+const minute = () => new Date().toISOString().slice(0, 16);
+
 /**
  * Books a class with a credit. The class's start time and length come from
  * the published timetable, never from the form: the form only says which
@@ -143,6 +154,16 @@ export async function bookClass(formData: FormData): Promise<void> {
     durationMinutes: slot.durationMinutes ?? 60,
   });
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
+  const who = await whoIs(member);
+  if (who) {
+    const when = classWhen(date, slot);
+    await sendNotice({
+      label: "member-book",
+      key: `member-book/${result.data}`,
+      customer: { email: who.email, subject: `You're booked: ${when}`, text: `Your place on the group class on ${when} is confirmed (one membership credit used).\n\nYou can see or cancel it in your account: ${memberLinkOrigin()}${ACCOUNT_PATH}` },
+      alex: { subject: `Class booked: ${who.name}, ${when}`, text: `${who.name} (${who.email}) booked the group class on ${when} with a membership credit. Their place is confirmed; nothing to confirm.` },
+    });
+  }
   // at= marks the class just booked on the page.
   redirect(`${back(formData)}?done=booked&at=${date}.${slot.id}`);
 }
@@ -156,14 +177,23 @@ export async function cancelClass(formData: FormData): Promise<void> {
   const member = await requireMember();
   const id = text(formData, "place");
   if (!isUuid(id)) redirect(`${back(formData)}?error=not_found`);
-  if (text(formData, "paid") === "yes") {
-    const result = await cancelPaidPlace(member.db, member.clientId, id);
-    if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
-    redirect(`${back(formData)}?done=${result.data ? "cancelled_credit" : "cancelled_paid_late"}${at(formData)}`);
-  }
-  const result = await cancelPlace(member.db, member.clientId, id);
+  const paid = text(formData, "paid") === "yes";
+  const result = paid ? await cancelPaidPlace(member.db, member.clientId, id) : await cancelPlace(member.db, member.clientId, id);
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
-  redirect(`${back(formData)}?done=${result.data ? "cancelled_late" : "cancelled"}${at(formData)}`);
+  // data: for a paid place, whether a class credit was given; for a membership place, whether it was late (credit used).
+  const outcome = paid ? (result.data ? "cancelled_credit" : "cancelled_paid_late") : result.data ? "cancelled_late" : "cancelled";
+  const who = await whoIs(member);
+  if (who) {
+    const when = (await placeWhen(member.db, id, publishedClasses())) ?? "your class";
+    const effect = DONE[outcome] ?? "Cancelled.";
+    await sendNotice({
+      label: "member-cancel",
+      key: `member-cancel/${id}/${minute()}`,
+      customer: { email: who.email, subject: `Cancelled: ${when}`, text: `Your place on the group class on ${when} is cancelled.\n\n${effect}` },
+      alex: { subject: `Class cancelled: ${who.name}, ${when}`, text: `${who.name} (${who.email}) cancelled their place on the group class on ${when}.\n\n${effect}` },
+    });
+  }
+  redirect(`${back(formData)}?done=${outcome}${at(formData)}`);
 }
 
 /**
@@ -222,7 +252,17 @@ export async function setUpDirectDebit(): Promise<void> {
 /** The member cancels their own membership: nothing more is taken; credits already given stay until the period ends. */
 export async function cancelMembership(): Promise<void> {
   const member = await requireMember();
+  const who = await whoIs(member);
   const result = await cancelOwnMembership(member.db, member.clientId, londonToday());
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=failed`);
+  if (who) {
+    const ends = result.endsOn ? ` Your credits stay usable until ${formatLongDate(result.endsOn as DateKey)}.` : "";
+    await sendNotice({
+      label: "membership-cancel",
+      key: `membership-cancel/${member.clientId}/${minute()}`,
+      customer: { email: who.email, subject: "Your RAENG membership is cancelled", text: `Your membership is cancelled and nothing more will be taken.${ends}` },
+      alex: { subject: `Membership cancelled: ${who.name}`, text: `${who.name} (${who.email}) cancelled their own membership from their account.${ends}` },
+    });
+  }
   redirect(`${ACCOUNT_PATH}/plan?done=membership_cancelled`);
 }

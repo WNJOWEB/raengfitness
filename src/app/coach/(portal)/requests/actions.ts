@@ -8,9 +8,11 @@ import { getClient } from "@/lib/coach/clients";
 import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
 import { confirmRequest, getRequest, markNotified, setRequestStatus, type ConfirmBooking } from "@/lib/coach/requests";
-import { addDays, londonToUtc } from "@/lib/coach/time";
+import { addDays, formatDateTime, londonToUtc } from "@/lib/coach/time";
 import { payWithCredit, periodOn } from "@/lib/coach/memberships";
 import { FormReader } from "@/lib/coach/validate";
+import { decisionMessage } from "@/lib/coach/notify";
+import { sendNotice } from "@/lib/notices";
 
 /**
  * Booking request decisions. Each checks the coach's session first
@@ -93,6 +95,19 @@ export async function confirmRequestAction(_prev: ActionState, formData: FormDat
 
   const result = await confirmRequest(db, { requestId, clientId, newClient, booking, note });
   if (!result.ok) return failure(dbMessage(result.error));
+  // Tell them it's confirmed, in the same words Alex's "Let them know" box suggests (best effort; he can still send it by hand).
+  const who = await getClient(db, result.data.client_id);
+  const booked =
+    booking.kind === "class" && findSlot(booking.slot)
+      ? `Kettlebell Training, ${formatDateTime(booking.starts_at)}`
+      : booking.kind === "pt"
+        ? `one-to-one session, ${formatDateTime(booking.starts_at)}`
+        : undefined;
+  if (who.ok && who.data && booked) {
+    const message = decisionMessage({ name: request.data.name, status: "confirmed", summary: request.data.summary, service: request.data.service, decision_note: note }, booked);
+    const sent = await sendNotice({ label: "request-confirmed", key: `request-confirmed/${requestId}`, customer: { email: who.data.email, subject: message.subject, text: message.body } });
+    if (sent.customer) await markNotified(db, requestId);
+  }
   if (useCredit && result.data.booked_id) {
     const credit = await payWithCredit(db, result.data.booked_id);
     redirect(`/coach/requests/${requestId}?done=${credit.ok ? "confirmed-credit" : "confirmed-no-credit"}`);
@@ -116,6 +131,7 @@ async function simpleDecision(formData: FormData, status: "awaiting" | "declined
   const result = await setRequestStatus(db, requestId, status, note);
   if (!result.ok) return failure(dbMessage(result.error));
   if (!result.data) return failure(messages.stale);
+  const wasConfirmed = before.data.status === "confirmed";
 
   // Cancelling a confirmed request also cancels what it booked (unpaid charges are cancelled with it).
   if (status === "cancelled" && before.data.status === "confirmed") {
@@ -132,6 +148,19 @@ async function simpleDecision(formData: FormData, status: "awaiting" | "declined
       const r = await setPtStatus(db, s.id, "cancelled", note || "Request cancelled");
       if (!r.ok) return failure(`The request was cancelled, but the session wasn't: ${dbMessage(r.error)}`);
     }
+  }
+  // Tell the requester about a decision that affects them (the decline uses Alex's own suggested wording, including his note).
+  if (status === "declined" || (status === "cancelled" && wasConfirmed)) {
+    const what = before.data.kind === "online" ? "online coaching enquiry" : "booking request";
+    const message =
+      status === "declined"
+        ? decisionMessage({ name: before.data.name, status: "declined", summary: before.data.summary, service: before.data.service, decision_note: note }, undefined)
+        : {
+            subject: `Your ${before.data.service.toLowerCase()} booking is cancelled`,
+            body: [`Hi ${before.data.name.trim().split(/\s+/)[0] || "there"},`, "", `Your ${what} has been cancelled, and what was booked with it is cancelled too.${note ? `\n\n${note}` : ""}`, "", "Message me if you'd like to rearrange."].join("\n"),
+          };
+    const sent = await sendNotice({ label: `request-${status}`, key: `request-${status}/${requestId}`, customer: { email: before.data.email, subject: message.subject, text: message.body } });
+    if (sent.customer) await markNotified(db, requestId);
   }
   redirect(`/coach/requests/${requestId}?done=${status}`);
 }

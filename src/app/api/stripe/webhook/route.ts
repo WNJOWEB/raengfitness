@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyChargePayments } from "@/lib/stripe/receipts";
 import { coachDb } from "@/lib/coach/db";
 import { stripeConfig, stripeWebhookConfig } from "@/lib/stripe/config";
 import { handleStripeWebhook, MAX_WEBHOOK_BYTES } from "@/lib/stripe/sync";
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     await notifyNewMembers(db, publishedClasses()).catch(() => 0);
     await notifyClassBookings(db, publishedClasses()).catch(() => 0);
     await notifyDirectDebitFailures(db).catch(() => 0);
+    await notifyChargePayments(db).catch(() => 0);
   }
   return NextResponse.json(result.body, { status: result.status, headers: noStore });
 }
