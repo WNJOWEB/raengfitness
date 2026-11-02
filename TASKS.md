@@ -131,7 +131,7 @@ See Coach portal below.
 - [x] Email alerts to Alex: outcome recorded per request, one immediate retry, daily cron retry inside the provider's idempotency window, shown in the portal (2026-10-20, code only)
 - [x] `20261020000100_akb_request_alerts.sql` applied to the live database (2026-10-23)
 - [ ] **P0** Turn alerts on: Resend account + verified domain, Vercel env (`RESEND_API_KEY`, `BOOKING_NOTIFY_EMAIL`, `BOOKING_FROM_EMAIL`, `CRON_SECRET`) (DEPLOYMENT.md → Email alerts)
-- [ ] **P1** Alex adds retention periods for client and financial records to `/privacy`
+- [x] Alex adds retention periods for client and financial records to `/privacy`
 - [ ] **P1** Real-device pass of the portal on Alex's phone
 - [x] Public calendar hides full dates and the server refuses them, from capacities set per date (2026-10-23)
 - [ ] **P2** Default class capacity per timetable slot (now set per date)
@@ -248,3 +248,10 @@ See Coach portal below.
 - [ ] **P1** Owner/Alex: confirm the membership cancellation wording (content/policy.ts `membershipCancellation`): collections are submitted ~6 days before each period, so cancelling later than that still takes the next payment
 - [x] Participation and risk disclaimer ticked before every booking (2026-10-31, owner): wording in `content/policy.ts` (`classWaiver`), required on the server, version and time stored with the booking
 - [ ] **P0** Owner: have a solicitor read the disclaimer wording, and check RAENG's public liability insurance covers classes (UK law doesn't let a business exclude liability for death or injury caused by its own negligence, so the wording doesn't try to)
+
+## Alex's decisions (2026-11-02, via the owner)
+- [x] Refund policy: **option B**. No cash refunds for late cancellations, missed classes or a started membership period. If Alex cancels a class someone paid for and they can't make another date, it is refunded to their card; a payment taken in error is always refunded. On the site: `content/policy.ts` (`refunds`, `coachCancellations`), the FAQ "Can I get a refund?" and the cancelled-class email.
+- [x] Records kept (owner's pick, 2026-11-02): payment and booking records 6 years; name, email, phone and notes deleted or anonymised 2 years after the last booking, payment or message; enquiries that never became a booking 12 months. On `/privacy`. **Deletion is manual for now**: review once a year (clients with no activity for 2 years, enquiries older than 12 months); a coach-portal list to help is a possible follow-up.
+- [x] Class size: 15 places (already set; the coach portal can change a single class). On the FAQ "How many people are in a class?".
+- [ ] **P1** Photo consent, option A: each person visible in the hero video and photos sends a short written OK (a text or WhatsApp screenshot, kept by Alex). Anyone who hasn't agreed is blurred or replaced before launch.
+- [ ] **P1** Alex's bio, portrait, qualifications with certificates, and 3 to 5 testimonials with written permission (nothing added until supplied).

@@ -110,7 +110,7 @@ export async function cancelClassAction(_prev: ActionState, formData: FormData):
         customer: {
           email: person.data.email,
           subject: `Class cancelled: ${when}`,
-          text: `The group class on ${when} has been cancelled by Alex, so your place is cancelled.${reason ? `\n\nReason: ${reason}` : ""}\n\nAny membership credit you used has been returned to your account. If you paid for this class, please message Alex.`,
+          text: `The group class on ${when} has been cancelled by Alex, so your place is cancelled.${reason ? `\n\nReason: ${reason}` : ""}\n\nAny membership credit you used has been returned to your account. If you paid for this class by card and can't make another date, reply to this email and we'll refund your payment to your card.`,
         },
       });
       if (sent.customer) told += 1;

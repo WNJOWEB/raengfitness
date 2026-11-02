@@ -102,7 +102,11 @@ const sections: { heading: string; body: React.ReactNode }[] = [
       <p>
         Only as long as we need it to arrange and run your coaching, then we delete it. Sign-in links are
         deleted after a day, and records of your sessions 30 days after you sign out or they expire. Records of
-        reminders sent are deleted after 60 days.
+        reminders sent are deleted after 60 days. Payment and booking records are kept for 6 years, because we
+        need them for our accounts and tax records. Your name, email, phone and notes are deleted or made
+        anonymous 2 years after your last booking, payment or message. A request or enquiry that never became a
+        booking is deleted after 12 months. You can ask us to delete your details sooner (see below), except
+        payment records we must keep.
       </p>
     ),
   },

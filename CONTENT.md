@@ -115,7 +115,7 @@ Contact
 
 | Date | Item | Approved by |
 |---|---|---|
-| — | — | — |
+| 2026-11-02 | Refund policy (option B); records kept 6 years / 2 years / 12 months; class size 15 | Alex, via the owner |
 
 ## Home page slots awaiting content (2026-10-22)
 

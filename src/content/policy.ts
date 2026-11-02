@@ -31,7 +31,10 @@ export const cancellationPolicy = {
   credits:
     "Returned credits must be used within your current four-week membership period. Unused credits expire at the end of the membership period and cannot be carried over.",
   coachCancellations:
-    "If a class is cancelled by the coach, your credit will be returned to your account or an alternative session will be offered.",
+    "If a class is cancelled by the coach, your credit will be returned to your account or an alternative session will be offered. If you paid for that class by card and can't make another date, we'll refund your payment to your card.",
+  /** Refunds (Alex's choice B, via the owner, 2026-11-02): no cash refunds, except these. */
+  refunds:
+    "We don't give cash refunds for late cancellations, missed classes or a membership period that has started. If we cancel a class you paid for and you can't make another date, we refund it to your card, and a payment taken in error is always refunded.",
   agreement: "By booking a class, you agree to these cancellation terms.",
   thanks: "Thank you for your understanding and cooperation.",
 } as const;

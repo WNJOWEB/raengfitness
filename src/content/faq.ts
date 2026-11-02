@@ -1,6 +1,7 @@
 import type { FaqItem } from "./types";
 import { site } from "./site";
-import { timetable } from "./classes";
+import { defaultClassCapacity, timetable } from "./classes";
+import { cancellationPolicy } from "./policy";
 import { describeTimetable } from "@/lib/schedule";
 
 /**
@@ -8,7 +9,8 @@ import { describeTimetable } from "@/lib/schedule";
  * "first-session" use industry-standard answers at the project owner's
  * request (2026-10-15); Alex should check them. Class length (60 minutes)
  * confirmed 2026-10-17.
- * Cancellations and capacity stay unanswered until Alex supplies them.
+ * Refunds (Alex's choice B, via the owner) and class size (up to 15, from Alex's
+ * mockup) were confirmed 2026-11-02.
  */
 export const faq: FaqItem[] = [
   {
@@ -50,6 +52,18 @@ export const faq: FaqItem[] = [
     id: "length",
     question: "How long is a class?",
     answer: "60 minutes, including a warm-up.",
+    status: "confirmed",
+  },
+  {
+    id: "class-size",
+    question: "How many people are in a class?",
+    answer: `Classes hold up to ${defaultClassCapacity} people.`,
+    status: "confirmed",
+  },
+  {
+    id: "refunds",
+    question: "Can I get a refund?",
+    answer: `Cancel 24 hours or more before a class and your credit comes back to your account. ${cancellationPolicy.refunds}`,
     status: "confirmed",
   },
   // The "Can I be coached if I don't live near Cumbernauld?" answer (online coaching) is removed while online coaching is off (Alex, 2026-10-29); restore it from git history.
