@@ -110,6 +110,10 @@ export interface SignupStatus {
   dd: "none" | "pending" | "active" | "ended";
   /** The card their renewals are charged to (e.g. "Visa ending 4242"), once saved; empty otherwise. */
   card: string;
+  /** What the confirmation screen lists (the plan's price in pence, its credits, the next renewal date). */
+  price_pence: number;
+  credits: number;
+  next_renewal: string | null;
 }
 
 /** The member behind an active sign-up, for opening their Direct Debit set-up. */
@@ -137,17 +141,18 @@ export async function beginSignupDirectDebit(db: Db | null, stripe: StripeConfig
   if (!db || !stripe || !directDebitEnabled(env)) return { url: `${back}&dd=unavailable`, external: false };
   const member = await signupMember(db, signupId);
   if (!member) return { url: `${back}&dd=unavailable`, external: false };
-  const result = await startDirectDebitSetup(db, stripe, member, back, fetchImpl, `${back}&dd=skipped`);
+  // Coming back from the bank page ("returned") shows the confirming screen until Stripe's word is in; leaving it unfinished is "skipped".
+  const result = await startDirectDebitSetup(db, stripe, member, `${back}&dd=returned`, fetchImpl, `${back}&dd=skipped`);
   if (result.ok) return { url: result.url, external: true };
   return { url: `${back}&dd=${result.reason === "already_set_up" ? "done" : "unavailable"}`, external: false };
 }
 
 /** What the "after paying" page shows. Only the plan and the state: no personal details. */
 export async function signupStatus(db: Db, signupId: string): Promise<SignupStatus | null> {
-  const rows = await select<{ status: SignupStatus["status"]; plan_name: string; first_class: SignupStatus["first_class"]; class_date: string | null; charge_id: string; client_id: string }>(
+  const rows = await select<{ status: SignupStatus["status"]; plan_name: string; first_class: SignupStatus["first_class"]; class_date: string | null; charge_id: string; client_id: string; price_pence: number; credits: number; membership_id: string | null }>(
     db,
     "akb_membership_signups",
-    [["select", "status,plan_name,first_class,class_date,charge_id,client_id"], ["id", `eq.${signupId}`]],
+    [["select", "status,plan_name,first_class,class_date,charge_id,client_id,price_pence,credits,membership_id"], ["id", `eq.${signupId}`]],
   );
   const row = rows.ok ? rows.data[0] : undefined;
   if (!row) return null;
@@ -159,7 +164,12 @@ export async function signupStatus(db: Db, signupId: string): Promise<SignupStat
   const how = await rpc<{ status: SignupStatus["dd"]; method: string; label: string }>(db, "akb_payment_method_info", { p_client: row.client_id });
   const bacs = how.ok && how.data.method === "bacs" && how.data.status === "active";
   const card = how.ok && how.data.method === "card" && how.data.status === "active" ? how.data.label || "your card" : "";
-  return { status: row.status, plan_name: row.plan_name, first_class: row.first_class, class_date: row.class_date, payUrl, dd: bacs ? "active" : "none", card };
+  let nextRenewal: string | null = null;
+  if (row.membership_id) {
+    const m = await select<{ next_period_on: string; status: string }>(db, "akb_memberships", [["select", "next_period_on,status"], ["id", `eq.${row.membership_id}`]]);
+    nextRenewal = m.ok && m.data[0]?.status === "active" ? m.data[0].next_period_on : null;
+  }
+  return { status: row.status, plan_name: row.plan_name, first_class: row.first_class, class_date: row.class_date, payUrl, dd: bacs ? "active" : "none", card, price_pence: row.price_pence, credits: row.credits, next_renewal: nextRenewal };
 }
 
 interface ActivatedSignup {

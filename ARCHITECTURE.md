@@ -254,6 +254,7 @@ Rule: a page or email says "paid", "booked" or "confirmed" only once the databas
 | Membership joined and paid (`/memberships/join`) | `/memberships/join/done` states | Welcome email + Alex, once (`notifyNewMembers`) |
 | Membership renewal coming (card members) | Plan page shows the card ("Visa ending 4242") | Member "Your RAENG membership renews on …" 5 days before, once per renewal date (`sendRenewalReminders`, `akb_stripe_customers.reminded_for`) |
 | Membership renewed (saved card or Direct Debit) | Plan page | Member "Your RAENG membership has renewed" + Alex "Membership renewed: …", once (`notifyRenewalPayments`, `akb_dd_collections.paid_notified_at`) |
+| Direct Debit set up | `/memberships/join/done?…&dd=returned` or `/account/direct-debit?returned=1`: confirming screen (asks again every 3 s, gives up after 45 s) → "Direct Debit set up." | Member "Your RAENG Direct Debit is set up" + Alex, once per set-up (`notifyDirectDebitSetUp`, `lib/stripe/dd-notice.ts`) |
 | Renewal payment failed / membership paused | Plan page (change card) | Member "Your RAENG membership payment didn't go through" (says when the next try is, and to change the card) or "…is paused"; Alex when paused (`notifyDirectDebitFailures`) |
 | Renewal by pay link (members with no saved card) | Account page | "Your RAENG … membership has renewed" with the Stripe link, which also saves the card |
 | Member cancels membership (`/account/plan`) | Toast | Member "Your RAENG membership is cancelled" + Alex |

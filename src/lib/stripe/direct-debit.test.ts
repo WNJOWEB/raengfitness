@@ -5,6 +5,7 @@ import { testDb } from "../coach/test-support";
 import { beginSignupDirectDebit, sendRenewalLinks, startCheckout } from "../membership-checkout";
 import type { MembershipRequest } from "../membership-request";
 import { collectDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
+import { notifyDirectDebitSetUp } from "./dd-notice";
 import { deliverStripeEvent, stripeStandIn, testStripe } from "./test-support";
 
 /**
@@ -115,6 +116,25 @@ describe("setting up the Direct Debit", () => {
   });
 });
 
+describe("the confirmation email", () => {
+  it("emails the member and Alex once when the Direct Debit is set up, with the amount, the Guarantee and how to stop it", async () => {
+    const s = services();
+    const m = await paidMember(s, "dedicated", 8500);
+    await setUpDirectDebit(s, m);
+    await notifyDirectDebitSetUp(db, m.client, "seti_demo_1", env, s.fetchImpl);
+    const mail = s.emails.find((e) => e.to[0] === m.email && e.subject === "Your RAENG Direct Debit is set up");
+    expect(mail?.text).toContain("£85 every 4 weeks for your Dedicated membership");
+    expect(mail?.text).toContain("Direct Debit Guarantee");
+    expect(mail?.text).toContain("https://raeng.example/account/plan");
+    expect(mail?.text).toContain("Cancel before a payment is collected to stop that one.");
+    expect(s.emails.some((e) => e.subject === `Direct Debit set up: ${m.name}`)).toBe(true);
+    // The same set-up again (a repeated webhook) sends nothing more.
+    const before = s.emails.length;
+    await notifyDirectDebitSetUp(db, m.client, "seti_demo_1", env, s.fetchImpl);
+    expect(s.emails.length).toBe(before);
+  });
+});
+
 describe("the forward to the bank page after paying", () => {
   const on = { ...env, STRIPE_SECRET_KEY: "sk_test_not_real", DIRECT_DEBIT_ENABLED: "true" };
 
@@ -127,7 +147,7 @@ describe("the forward to the bank page after paying", () => {
     expect(next.url).toMatch(/^https:\/\/checkout\.stripe\.test\/c\/setup\/cs_test_\d+$/);
     const setup = s.api.calls.filter((c) => c.method === "POST" && c.path === "/v1/checkout/sessions").pop()!.form;
     expect(setup.get("mode")).toBe("setup");
-    expect(setup.get("success_url")).toBe(`https://raeng.example/memberships/join/done?signup=${signup}`);
+    expect(setup.get("success_url")).toBe(`https://raeng.example/memberships/join/done?signup=${signup}&dd=returned`);
     expect(setup.get("cancel_url")).toBe(`https://raeng.example/memberships/join/done?signup=${signup}&dd=skipped`);
   });
 

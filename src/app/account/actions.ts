@@ -243,6 +243,8 @@ export async function setUpDirectDebit(): Promise<void> {
     member.db,
     stripe,
     { clientId: member.clientId, email: overview.data.client.email, name: overview.data.client.name },
+    `${memberLinkOrigin()}${ACCOUNT_PATH}/direct-debit?returned=1`,
+    fetch,
     `${memberLinkOrigin()}${ACCOUNT_PATH}/plan`,
   );
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=${result.reason === "already_set_up" ? "failed" : "direct_debit_unavailable"}`);

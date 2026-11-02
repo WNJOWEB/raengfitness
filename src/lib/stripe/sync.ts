@@ -4,6 +4,7 @@ import { toLondon } from "../coach/time";
 import { createPaymentSession, getCheckoutSession, getPaymentIntent, getPaymentMethod, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
 import type { StripeConfig, StripeWebhookConfig } from "./config";
 import { directDebitEnabled } from "./config";
+import { notifyDirectDebitSetUp } from "./dd-notice";
 import { ensureStripeCustomer, renewalConsent } from "./customer";
 import { verifyStripeSignature } from "./signature";
 
@@ -102,7 +103,10 @@ async function syncSetupSession(db: Db, stripe: StripeConfig, session: CheckoutS
     p_method: i.paymentMethodId,
     p_mandate: i.mandateId ?? "",
   });
-  return result.ok ? { ok: true, outcome: result.data } : dbFailure(result.error);
+  if (!result.ok) return dbFailure(result.error);
+  // Confirmed by Stripe: tell the member in writing, once (best effort).
+  if (result.data === "active") await notifyDirectDebitSetUp(db, session.clientReference, i.id).catch(() => null);
+  return { ok: true, outcome: result.data };
 }
 
 /**

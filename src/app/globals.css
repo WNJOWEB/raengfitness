@@ -1041,3 +1041,141 @@
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+
+/*
+ * Confirmation screens (owner, 2026-11-02): the page after a card payment or a
+ * Direct Debit set-up. A badge (a turning ring while Stripe's word is awaited,
+ * an ink disc with a drawn tick once it has come), the plain words, a short
+ * list of what was set up, and the steps. Four colours only. The motion is
+ * decoration: with Reduce Motion the ring is still and the tick is just there.
+ */
+.cf-badge {
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 999px;
+}
+.cf-badge-wait {
+  border: 1.5px solid var(--color-line);
+  background: var(--color-white);
+  color: var(--color-ink);
+}
+.cf-badge-done {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.cf-ring {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+.cf-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.cf-ring .cf-track {
+  stroke: var(--color-line);
+}
+.cf-ring .cf-arc {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-dasharray: 40 120;
+}
+.cf-tick {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.cf-tick path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 32;
+  stroke-dashoffset: 0;
+}
+.cf-tick-sm {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.cf-tick-sm path {
+  stroke-width: 5.5;
+  animation: none;
+}
+.cf-dot {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-line);
+  background: var(--color-white);
+  color: var(--color-paper);
+}
+.cf-dot-done {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+}
+.cf-dot-active {
+  border-color: var(--color-ink);
+}
+.cf-dot-active::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cf-ring {
+    animation: cf-turn 1.05s linear infinite;
+  }
+  .cf-badge-done {
+    animation: cf-pop 520ms cubic-bezier(0.3, 0.7, 0.2, 1) both;
+  }
+  .cf-tick path {
+    animation: cf-draw 460ms 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  .cf-rise {
+    animation: cf-rise 560ms cubic-bezier(0.3, 0.7, 0.2, 1) both;
+    animation-delay: var(--cf-delay, 0ms);
+  }
+  .cf-dot-active::after {
+    animation: cf-beat 1.2s ease-in-out infinite;
+  }
+}
+@keyframes cf-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cf-pop {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes cf-draw {
+  from {
+    stroke-dashoffset: 32;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes cf-rise {
+  from {
+    transform: translateY(14px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes cf-beat {
+  50% {
+    transform: scale(0.55);
+  }
+}
