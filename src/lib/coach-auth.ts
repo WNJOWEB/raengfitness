@@ -111,6 +111,31 @@ export function refreshSession(
   return tokenRequest(config, "refresh_token", { refresh_token: refreshToken }, fetchImpl);
 }
 
+/** How long a refresh result is shared with other requests carrying the same refresh token (Supabase's own reuse window is 10 s). */
+export const REFRESH_SHARE_MS = 10_000;
+const recentRefreshes = new Map<string, { at: number; result: Promise<SignInResult> }>();
+
+/**
+ * Refreshes once for requests that arrive together. A page load can send
+ * several requests at the same moment (the page and its link prefetches), all
+ * carrying the same refresh token. Refresh tokens are single-use, so the
+ * second would be refused, and its redirect would delete the cookie the first
+ * had just renewed: the coach is signed out at random. Requests with the same
+ * token within REFRESH_SHARE_MS now share one refresh and all get the same new
+ * session. Only a successful refresh is remembered; a failure is retried.
+ */
+export function refreshSessionShared(config: SupabaseConfig, refreshToken: string, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<SignInResult> {
+  for (const [token, entry] of recentRefreshes) if (now - entry.at > REFRESH_SHARE_MS) recentRefreshes.delete(token);
+  const shared = recentRefreshes.get(refreshToken);
+  if (shared) return shared.result;
+  const result = refreshSession(config, refreshToken, fetchImpl);
+  recentRefreshes.set(refreshToken, { at: now, result });
+  void result.then((r) => {
+    if (!r.ok) recentRefreshes.delete(refreshToken);
+  }, () => recentRefreshes.delete(refreshToken));
+  return result;
+}
+
 /** The signed-in user's email, checked with Supabase on every call (so a revoked session stops working). */
 export async function currentUserEmail(
   config: SupabaseConfig,

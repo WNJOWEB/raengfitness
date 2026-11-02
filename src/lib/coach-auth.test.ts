@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { coachEmails, coachLoginConfig, currentUserEmail, isCoach, refreshSession, signInWithPassword } from "./coach-auth";
+import { coachEmails, coachLoginConfig, currentUserEmail, isCoach, REFRESH_SHARE_MS, refreshSession, refreshSessionShared, signInWithPassword } from "./coach-auth";
 import { ACCESS_COOKIE, REFRESH_COOKIE, REFRESH_MAX_AGE, sessionCookies } from "./coach-cookies";
 
 const supabase = { url: "https://ref.supabase.co", secretKey: "sb_secret_x" };
@@ -59,6 +59,38 @@ describe("refreshSession", () => {
     const fetchImpl = respond(200, tokenBody);
     expect((await refreshSession(supabase, "rt", fetchImpl)).ok).toBe(true);
     expect(fetchImpl.mock.calls[0][0]).toBe("https://ref.supabase.co/auth/v1/token?grant_type=refresh_token");
+  });
+});
+
+describe("refreshSessionShared", () => {
+  it("requests that arrive together with the same refresh token share one refresh (tokens are single-use)", async () => {
+    const fetchImpl = respond(200, tokenBody);
+    const [a, b, c] = await Promise.all([1, 2, 3].map(() => refreshSessionShared(supabase, "shared-1", fetchImpl)));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(b);
+    expect(b).toEqual(c);
+    expect(a.ok).toBe(true);
+    // A different token is its own refresh.
+    await refreshSessionShared(supabase, "shared-2", fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares the result for a few seconds, then asks Supabase again", async () => {
+    const fetchImpl = respond(200, tokenBody);
+    const t = 1_000_000;
+    await refreshSessionShared(supabase, "shared-3", fetchImpl, t);
+    await refreshSessionShared(supabase, "shared-3", fetchImpl, t + REFRESH_SHARE_MS - 1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await refreshSessionShared(supabase, "shared-3", fetchImpl, t + REFRESH_SHARE_MS + 1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("doesn't remember a failed refresh: the next request tries again", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response("{}", { status: 400 })).mockResolvedValueOnce(new Response(JSON.stringify(tokenBody), { status: 200 }));
+    expect((await refreshSessionShared(supabase, "shared-4", fetchImpl)).ok).toBe(false);
+    await Promise.resolve();
+    expect((await refreshSessionShared(supabase, "shared-4", fetchImpl)).ok).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });
 

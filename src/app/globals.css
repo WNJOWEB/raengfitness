@@ -720,7 +720,11 @@
   border-radius: 999px;
   font-weight: 600;
   text-align: center;
-  transition: background-color 200ms, color 200ms;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .members-btn {
+    transition: background-color 200ms, color 200ms;
+  }
 }
 .members-btn:hover {
   background: var(--color-ink);

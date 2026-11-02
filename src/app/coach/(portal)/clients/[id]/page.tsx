@@ -442,7 +442,7 @@ async function Payments({ db, client, today }: TabProps) {
             {payments.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
-                  <TextLink href={`/coach/finances/payments/${p.id}`}>{formatPence(p.amount_pence)}</TextLink> · {formatDate(p.paid_on)} · {PAYMENT_METHOD[p.method]}{p.provider === "stripe" ? " (Stripe)" : p.provider === "square_sandbox" ? " (Stripe test)" : ""} · {SERVICE[p.service]}
+                  <TextLink href={`/coach/finances/payments/${p.id}`}>{formatPence(p.amount_pence)}</TextLink> · {formatDate(p.paid_on)} · {PAYMENT_METHOD[p.method]}{p.provider === "stripe" ? " (Stripe)" : p.provider === "stripe_test" || p.provider === "square_sandbox" ? " (Stripe test)" : ""} · {SERVICE[p.service]}
                   {p.refunded_pence ? <span className="block text-muted">{formatPence(p.refunded_pence)} refunded</span> : null}
                   {p.status === "received" && p.unallocated_pence > 0 ? <span className="block text-muted">{formatPence(p.unallocated_pence)} not yet set against a charge</span> : null}
                 </span>

@@ -8,7 +8,9 @@ import { getClient } from "@/lib/coach/clients";
 import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
 import { getMembership, MEMBERSHIP_STATUSES, returnCredit, setMembershipStatus, startMembership, payWithCredit } from "@/lib/coach/memberships";
+import { formatDate } from "@/lib/coach/time";
 import { getRequest } from "@/lib/coach/requests";
+import { sendNotice } from "@/lib/notices";
 import { FormReader } from "@/lib/coach/validate";
 
 const CHECK = "Please check the highlighted fields.";
@@ -51,6 +53,22 @@ export async function membershipStatusAction(_prev: ActionState, formData: FormD
   if (!found.data) return failure("That membership no longer exists.");
   const result = await setMembershipStatus(ctx.db, id, status, on);
   if (!result.ok) return failure(dbMessage(result.error));
+  // The member is told what Alex did to their membership (best effort; the change itself has happened).
+  const person = await getClient(ctx.db, found.data.client_id);
+  if (person.ok && person.data) {
+    const plan = `${found.data.plan_name} membership`;
+    const words =
+      status === "active"
+        ? { subject: "Your RAENG membership is back on", text: `Your ${plan} has been restarted. New periods and credits continue from the next renewal${found.data.next_period_on ? ` (${formatDate(found.data.next_period_on as Parameters<typeof formatDate>[0])})` : ""}.` }
+        : status === "paused"
+          ? { subject: "Your RAENG membership is paused", text: `Your ${plan} has been paused. No new periods or payments are taken until it's restarted. Credits you've already been given stay usable until the end of their period.` }
+          : { subject: "Your RAENG membership is cancelled", text: `Your ${plan} has been cancelled and nothing more will be taken. Credits you've already been given stay usable until the end of their period.` };
+    await sendNotice({
+      label: `membership-${status}-by-coach`,
+      key: `membership-${status}-by-coach/${id}/${on}/${new Date().toISOString().slice(0, 16)}`,
+      customer: { email: person.data.email, ...words },
+    }).catch(() => null);
+  }
   refresh();
   return success(status === "active" ? "Resumed." : status === "paused" ? "Paused: no new periods until you resume it." : "Cancelled: no new periods. Credits already given stay usable in their period.");
 }

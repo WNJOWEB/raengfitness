@@ -99,8 +99,8 @@ Priority: P0 blocks launch · P1 before/at launch · P2 later.
 - No horizontal scroll at 320 px; axe reports no WCAG A/AA violations.
 
 ## Phase 2 — Booking & payments (blocked)
-Blocked on: provider choice, Square capabilities, class price/capacity/duration, cancellation & refund policy.
-- [ ] Verify Square products enabled on Alex's account and current fees (official docs/dashboard)
+Blocked on (history): provider choice (Stripe chosen 2026-10-30, live 2026-11-02), class price/capacity/duration, cancellation & refund policy.
+- [x] Payment provider decided and live: Stripe (replaces Square, 2026-10-30; live 2026-11-02). Fees: Stripe's UK card rate (1.5% + 20p standard UK cards) and Bacs 1% (min 20p, max £4) per its pricing page; check the account's own rate in the Stripe Dashboard
 - [ ] Choose option A (hosted) or B (custom) — see ARCHITECTURE.md
 - [x] Supabase project `Alexkbells` connected (env config only; see ARCHITECTURE.md)
 - [x] Coach login (`/coach/login`) with Supabase Auth, limited to `COACH_EMAIL`
@@ -136,14 +136,14 @@ See Coach portal below.
 - [x] Public calendar hides full dates and the server refuses them, from capacities set per date (2026-10-23)
 - [ ] **P2** Default class capacity per timetable slot (now set per date)
 - [ ] **P2** Anonymise-on-request for former clients with financial history (now: set to Former)
-- [x] Square card payments built (2026-10-21): payment links per charge, signed webhooks re-read from Square, duplicate-event table, idempotent ledger functions, refunds mirrored from Square, daily reconciliation, sandbox/production guard (code + migration `20261021000000_akb_square.sql`, not applied)
+- [x] Card payments built (2026-10-21 for Square; moved to Stripe 2026-10-30, live 2026-11-02): payment links per charge, signed webhooks re-read from Stripe, duplicate-event table, idempotent ledger functions, refunds mirrored from Stripe, daily reconciliation, test/live guard (the `akb_square_*` table and function names predate Stripe and hold Stripe's ids)
 - [x] Test-environment options and costs checked; database + app safeguards against Sandbox records in the live database (2026-10-21)
-- [x] Sandbox test environment decided: local Supabase + HTTPS tunnel + webhook-only gateway; verified locally without Square credentials (2026-10-21)
-- [ ] **P0** Owner: Square Sandbox access token, location id and webhook subscription; run the local setup and Sandbox test plan (DEPLOYMENT.md → Square Sandbox test environment)
-- [ ] **P1** Owner: Square Developer Console app, Sandbox credentials + webhook subscription; run the Sandbox test plan (DEPLOYMENT.md → Square); then live credentials
-- [ ] **P2** Delete a cancelled charge's payment link at Square automatically (today: Dashboard)
-- [ ] **P2** Flaky e2e: "the coach signs in, stays signed in after the access token expires" fails about 1 run in 10, also on code from before 2026-10-23: after the access cookie is cleared, /coach sometimes lands on the login page. Suspect concurrent refreshes (the navigation and link prefetches each swapping the refresh token). Fix the proxy; don't just retry the test
-- [ ] **P2** Emails to clients from the site (needs a verified sending domain); today Alex sends the prepared message himself
+- [x] Test environment decided (2026-10-21), kept for Stripe: tests run against a Stripe stand-in and the real migrations; the database guard stops test records reaching the live ledger (DEPLOYMENT.md → Stripe payments)
+- [x] Stripe live (2026-11-02): live key and webhook set on Vercel Production; a real £1 payment and its refund each recorded once; test clients archived
+- [ ] **P1** Owner (in the Stripe app): request Bacs Direct Debit (Alex's identity check), set the support email to hello@raengfitness.co.uk, turn on customer receipt emails, add hello@ as a team member, optionally roll the webhook secret. Then set `DIRECT_DEBIT_ENABLED=true` on Production
+- [ ] **P2** Expire a cancelled charge's Stripe checkout link automatically (today it just becomes credit if paid)
+- [x] Flaky e2e "the coach signs in, stays signed in after the access token expires" (2026-11-02): not reproduced in 205 repeats (180 under load); hardened the likely cause: requests arriving together with the same refresh token now share one refresh (`refreshSessionShared`), so a refused second use can't delete the cookie the first renewed. Watch for a recurrence
+- [x] Emails to clients from the site (Resend, verified domain raengfitness.co.uk, 2026-11-02): confirmations, cancellations, receipts, reminders, and the coach's pause/cancel/payment notices (ARCHITECTURE.md → Confirmation pages and emails)
 
 
 ## Second-pass audit (2026-10-26)
@@ -162,11 +162,11 @@ See Coach portal below.
 - [x] Alex's launch post as reference (2026-10-26): /about story in his words, spaced-capital labels, "•" in the tagline
 - [x] /about opens with Alex's quote, class facts and Book now (pick C); line under titles removed site-wide (2026-10-26)
 - [x] Home cards overhauled (option 1, 2026-10-26): Coached by line, classes as three steps with Book now, More ways as rows, Why kettlebells as a plain grid; same information, about 1,000 px less on phones
-- [x] Join and pay online with no confirmation by Alex (2026-10-26): Square checkout, membership starts on the verified payment, first class booked then, renewal pay links, credits wait for payment; tested (SQL, unit, e2e with a Square stand-in)
-- [x] Book and pay for a group class online (2026-10-27): 15-minute hold, confirmed on Square's verified payment, private link to cancel, 24 h → class credit for 4 weeks; 1:1 stays a request; tested (SQL, unit, e2e with the Square stand-in)
+- [x] Join and pay online with no confirmation by Alex (2026-10-26): Stripe checkout, membership starts on the verified payment, first class booked then, renewal pay links, credits wait for payment; tested (SQL, unit, e2e with a Square stand-in)
+- [x] Book and pay for a group class online (2026-10-27): 15-minute hold, confirmed on Stripe's verified payment, private link to cancel, 24 h → class credit for 4 weeks; 1:1 stays a request; tested (SQL, unit, e2e with the Square stand-in)
 - [ ] Alex to confirm the class credit wording ("Cancel 24 hours or more before and you get a credit for another class within 4 weeks…")
 - [x] Migrations 20261020 → 20261030 applied to the live database (2026-10-28)
-- [ ] Go live with online joining and class booking: Square Sandbox test then live, Resend, SITE_URL (DEPLOYMENT.md)
+- [x] Online joining and class booking live (2026-11-02): Stripe live, Resend, `SITE_URL` set
 - [ ] Alex to confirm: wording of the renewal email ("To stop your membership, reply to this email") and whether unpaid renewals should pause a membership automatically
 - [x] Restyle /classes, /memberships, /coaching, /online-coaching, /about and /contact to the home system: no cards, nothing repeated, shorter (2026-10-26); hero wording A "Get stronger. / Kettlebell classes in Cumbernauld"
 - [ ] P2 Hero film: muted colour grade (recommended 2026-10-24, not yet done)
@@ -174,15 +174,15 @@ See Coach portal below.
 ## Master redesign (2026-10-22)
 - [x] Four-colour system (tokens, components, test), hero "Get stronger. Move better.", new home order, memberships with conditions, schedule Saturday 9:00, per-plan sign-up URLs
 - [x] Memberships in the coach portal (2026-10-23, migration `20261023000000_akb_memberships.sql` applied live): plan carried on the booking request, start from the request, four-week periods with credits and one charge each, daily renewal cron (`/api/cron/membership-renewals`), pay class places with credits, 24-hour rule enforced in the database, give a credit back, pause/resume/cancel
-- [x] Owner decided (2026-10-24): **manual membership billing for now**. Each four-week period's charge is owed in the portal; Alex records the payment or sends a Square payment link. Nothing charges a card automatically
-- [ ] P3 Later, if wanted: Square Subscriptions for automatic card billing (needs the plan in Square and the API checked against current docs)
+- [x] Owner decided (2026-10-24): **manual membership billing for now**. Each four-week period's charge is owed in the portal; Alex records the payment or sends a Stripe payment link (since 2026-11-02, members who pay online are charged by their saved card)
+- [x] Automatic card billing (2026-11-02): renewals by saved card, built on Stripe's saved cards rather than a subscription product (ARCHITECTURE.md → Renewals by saved card)
 - [x] Coach cancels a whole class (2026-10-24, `20261024000000_akb_cancel_class.sql`): every place cancelled in one step, members' credits back whatever the time, unpaid class charges cancelled, no one can be booked onto it again, and the booking calendar stops offering it
 - [x] Applied `20261024000000_akb_cancel_class.sql` to the live database (2026-10-28)
 - [x] Member requests confirmed on a credit: the confirm form ticks "Pay with their membership credit" when their period covers the class (no £12 charge) (2026-10-24)
 - [x] Client record: Membership tab (plan, credits left, renewal) (2026-10-24)
 - [x] Dashboard: "No credits left" for members who have used every credit this period; renewals caught up on every visit to the dashboard or Memberships, so they still happen without `CRON_SECRET` (2026-10-24)
 - [ ] P0 Confirm class capacity (set per class in the coach portal; blank means not full)
-- [ ] P1 Square Sandbox end-to-end test of payment links (DEPLOYMENT.md), then live credentials
+- [x] End-to-end payment test done live with a real £1 payment and refund (2026-11-02); further flows are covered by mocked tests
 - [ ] P1 Confirm brand name on the site (RAENG Kettlebell Club vs Alex K Bells)
 
 ## Kettlebell Club redesign (2026-10-21, later)
@@ -202,14 +202,14 @@ See Coach portal below.
 - [ ] P0 Confirm the venue, timetable, prices and coach details are unchanged under RAENG; confirm everyone in the supplied photos agrees to appear (and replace any frame that isn't OK)
 - [ ] P1 RAENG Instagram/Facebook handles, email, phone, domain (`SITE_URL`), a verified Resend sending domain named RAENG
 - [ ] P1 Alex's own words: background, qualifications, philosophy, motivation, brand story; a current portrait
-- [ ] P1 Booking/payment decision unchanged (see CORE.md open decisions): on-site request flow stays; Square not live
+- [x] Online booking and payment decision: card payments live on Stripe (2026-11-02); 1:1 and online coaching stay requests Alex confirms
 - [ ] P2 Real RAENG logo artwork if one exists; Online coaching feature list, capacity/cancellation policy, testimonials
 
 ## From Alex's WhatsApp messages (reviewed 2026-10-26)
 - [x] Home page in Alex's order (book, what I offer, why kettlebells, about me); Why kettlebells back on the home page
 - [x] Pictures limited to the hero film, the before-and-after and one photo each on /classes and /coaching
 - [x] Booking requests are live in production (stored for the coach area; Alex confirms each one)
-- [ ] **P0, needs Alex** Square card payments: Alex's Square application credentials, then the Sandbox test plan in DEPLOYMENT.md → Square card payments, then live
+- [x] Card payments live on Stripe (2026-11-02)
 - [ ] **P1, needs Alex** Max class capacity, and what's included in 1:1 coaching (he mentioned confirming both; never guessed)
 - [ ] **P1, needs Alex** 2–3 member quotes with permission (the section is built and hidden until then)
 - [ ] **P2** Alex's layout references (ChatGPT images, 21 Oct) and his 25 Oct voice note weren't in the chat export: compare once received
@@ -244,7 +244,7 @@ See Coach portal below.
 - [x] Payments moved from Square to Stripe (2026-10-30, owner): Checkout, signed webhook, refunds, reconcile; Direct Debit memberships (card first, then Bacs Direct Debit every 4 weeks, early collection, retries then pause, member cancel any time). Built against a Stripe stand-in.
 - [x] Renewals by saved card (2026-11-02, owner): first payment keeps the card with an agreement on Stripe's page, charged on the day each period starts, reminder 5 days before, receipt after, retries day 3 and 7 then pause, change card from the plan page, cancel any time. Direct Debit hidden until `DIRECT_DEBIT_ENABLED=true`.
 - [ ] P1 Owner: confirm the renewal wording on Stripe's page and in the emails; whether a member who pays their way out of a paused membership should restart automatically (today Alex restarts it)
-- [ ] **P0** Owner: create the Stripe account, enable Cards and Bacs Direct Debit, add `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`, apply `20261104000000_akb_stripe.sql` and `20261105000000_akb_direct_debit.sql`, run the test-mode plan in DEPLOYMENT.md (not verified against Stripe yet)
+- [x] Stripe account created, live key and webhook set, `20261104000000_akb_stripe.sql` and `20261105000000_akb_direct_debit.sql` applied (2026-11-02). Apply `20261106000000_akb_card_renewals.sql` when the saved-card renewals go live. Bacs Direct Debit still awaits Stripe's approval (see the P1 item above)
 - [ ] **P1** Owner/Alex: confirm the membership cancellation wording (content/policy.ts `membershipCancellation`): collections are submitted ~6 days before each period, so cancelling later than that still takes the next payment
 - [x] Participation and risk disclaimer ticked before every booking (2026-10-31, owner): wording in `content/policy.ts` (`classWaiver`), required on the server, version and time stored with the booking
 - [ ] **P0** Owner: have a solicitor read the disclaimer wording, and check RAENG's public liability insurance covers classes (UK law doesn't let a business exclude liability for death or injury caused by its own negligence, so the wording doesn't try to)

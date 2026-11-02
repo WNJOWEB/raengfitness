@@ -192,6 +192,8 @@ test.describe("member accounts", () => {
 
   test("the account menu's pages (2026-10-28): profile, notifications and reminders, calendar sync, devices", async ({ page, request }) => {
     test.slow();
+    // Colour checks read the finished colours: with motion on, a button fading after a click or a page fading in is measured half-way.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const email = `menu-${Date.now()}@example.com`;
     await seedMember(request, email);
     await askForLink(page, email);
@@ -298,6 +300,8 @@ test.describe("member accounts", () => {
 
   test("Raeng Coaching (2026-10-28): a coaching client logs a session, checks in and messages; others see the unlock page", async ({ page, request }) => {
     test.slow();
+    // Colour checks read the finished colours: with motion on, a button fading after a click or a page fading in is measured half-way.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const email = `coaching-${Date.now()}@example.com`;
     // A coaching client who has never booked a class: an active subscription and a programme from Alex.
     const [client] = await sql(request, "insert into akb_clients (full_name, email, status) values ('Cora Client', $1, 'active') returning id", [email]);

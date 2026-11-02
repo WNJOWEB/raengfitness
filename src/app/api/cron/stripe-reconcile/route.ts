@@ -16,9 +16,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: noStore });
   }
   const db = coachDb();
-  const square = stripeConfig();
-  if (!db || !square) return NextResponse.json({ skipped: "not-configured" }, { headers: noStore });
-  const summary = await reconcileOpenLinks(db, square);
+  const stripe = stripeConfig();
+  if (!db || !stripe) return NextResponse.json({ skipped: "not-configured" }, { headers: noStore });
+  const summary = await reconcileOpenLinks(db, stripe);
   // Also catches sign-ups started by a payment the webhook missed (or recorded in the portal).
   const welcomed = await notifyNewMembers(db, publishedClasses()).catch(() => 0);
   const classBookings = await notifyClassBookings(db, publishedClasses()).catch(() => 0);

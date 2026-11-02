@@ -50,6 +50,12 @@ async function seedRequest(request: APIRequestContext, person: { name: string; e
   return row.id;
 }
 
+/** The emails the mock mail server has recorded for an address. */
+async function mailTo(request: APIRequestContext, to: string) {
+  const all = (await (await request.get(`http://localhost:${process.env.MOCK_EMAIL_PORT ?? 3299}/requests`)).json()) as { payload: { to: string[]; subject: string; text: string } }[];
+  return all.filter((e) => e.payload.to.includes(to)).map((e) => e.payload);
+}
+
 async function seedClient(request: APIRequestContext, person: { name: string; email: string; phone?: string }) {
   const [row] = await sql<{ id: string }>(request, "insert into akb_clients (full_name, email, phone, status) values ($1, $2, $3, 'active') returning id", [person.name, person.email, person.phone ?? ""]);
   return row.id;
@@ -145,6 +151,9 @@ test("confirming a class request creates the client, books the place, and paymen
   await page.getByLabel("Amount received").fill("7");
   await page.getByRole("button", { name: "Record payment" }).click();
   await expect(page.getByText("Payment recorded.")).toBeVisible();
+  // The client is sent a receipt for what Alex recorded (once).
+  await expect.poll(async () => (await mailTo(request, person.email)).filter((e) => e.subject === "We've received your payment: £7.00").length).toBe(1);
+  expect((await mailTo(request, person.email)).find((e) => e.subject === "We've received your payment: £7.00")?.text).toContain("We've recorded your");
 
   await page.goto(`/coach/clients/${clientId}?tab=payments`);
   await expect(page.getByText("£5.00 left")).toBeVisible();
@@ -614,7 +623,7 @@ test("memberships: start the plan chosen on the site, pay places with credits, 2
     expect(renew.status()).toBe(200);
     expect(renew.headers()["cache-control"]).toContain("no-store");
     const body = (await renew.json()) as Record<string, unknown>;
-    expect(Object.keys(body).sort()).toEqual(["classHoldsReleased", "directDebitFailures", "directDebitsSubmitted", "ok", "payLinksSent", "periodsCreated", "signInsRemoved"]);
+    expect(Object.keys(body).sort()).toEqual(["classHoldsReleased", "directDebitFailures", "directDebitsSubmitted", "ok", "payLinksSent", "periodsCreated", "renewalReceipts", "renewalReminders", "signInsRemoved"]);
     // Stripe isn't configured here, so no pay links are sent (null, not 0).
     expect(body.payLinksSent).toBeNull();
     // The same daily run tidies member sign-ins (a count, not null: the clean-up ran).
@@ -622,6 +631,20 @@ test("memberships: start the plan chosen on the site, pay places with credits, 2
   }
   const periods = await sql<{ n: number }>(request, "select count(*)::int as n from akb_membership_periods p join akb_memberships m on m.id = p.membership_id where m.client_id = $1", [clientId]);
   expect(periods).toEqual([{ n: 1 }]);
+
+  // Alex pauses, resumes and cancels it: the member is told each time, in plain words.
+  await page.goto(membershipUrl);
+  await page.getByRole("form", { name: "Pause membership" }).getByRole("button", { name: "Pause renewals" }).click();
+  await expect(page.getByText("Paused: no new periods until you resume it.")).toBeVisible();
+  await expect.poll(async () => (await mailTo(request, person.email)).filter((e) => e.subject === "Your RAENG membership is paused").length).toBe(1);
+  expect((await mailTo(request, person.email)).find((e) => e.subject === "Your RAENG membership is paused")?.text).toContain("No new periods or payments are taken until it's restarted");
+  await page.getByRole("form", { name: "Resume membership" }).getByRole("button", { name: "Resume" }).click();
+  await expect(page.getByText("Resumed.")).toBeVisible();
+  await expect.poll(async () => (await mailTo(request, person.email)).filter((e) => e.subject === "Your RAENG membership is back on").length).toBe(1);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("form", { name: "Cancel membership" }).getByRole("button", { name: "Cancel membership" }).click();
+  await expect.poll(async () => (await mailTo(request, person.email)).filter((e) => e.subject === "Your RAENG membership is cancelled").length).toBe(1);
+  expect((await mailTo(request, person.email)).find((e) => e.subject === "Your RAENG membership is cancelled")?.text).toContain("nothing more will be taken");
 });
 
 test("memberships: a member's request is confirmed on a credit, the client record shows it, and cancelling the class gives it back", async ({ page, request }) => {
