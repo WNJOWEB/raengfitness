@@ -106,7 +106,6 @@ Blocked on (history): provider choice (Stripe chosen 2026-10-30, live 2026-11-02
 - [x] Coach login (`/coach/login`) with Supabase Auth, limited to `COACH_EMAIL`
 - [ ] Create Alex's coach account in Supabase, turn off public sign-ups, set `COACH_EMAIL` in Vercel (DEPLOYMENT.md → Coach login)
 - [x] The other app's data was removed from the Supabase project (2026-11-02, owner's instruction): 47 leftover tables and 26 types in `public`, the `lodge` and `fystay_preview` schemas and the `backup_snapshot_20261011` schema (about 900 rows, newest dated 11 October). The project now holds only RAENG's 37 `akb_*` tables. That data was not copied anywhere first.
-- [ ] **P0** Backups: the Free plan has none (Supabase shows "No backups"), and the project now holds real payment and client records. Upgrade to Pro (daily backups) or schedule regular exports before launch
 - [ ] If B: Supabase schema + RLS, idempotent booking endpoint, verified webhooks, emails
 - [ ] Tests: last-place race, duplicate requests, payment success/failure/pending, refunds, webhook retries, cross-user access
 - [x] Booking request form with server validation, spam protection, privacy notice (general contact form still not built)
