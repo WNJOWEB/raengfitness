@@ -208,23 +208,29 @@ test("skip link moves focus to main content", async ({ page }) => {
 test("the contact page leads to RAENG's Instagram", async ({ page }) => {
   await page.goto("/contact");
   await expect(page.locator("h1")).toHaveText("FAQs & Contact.");
-  // In Alex's order (2026-10-29) the questions come first, then the contact details, then Instagram.
-  const ig = page.getByRole("link", { name: /message raeng on instagram/i });
+  // Instagram is a row in the contact details, with its logo.
+  const ig = page.getByRole("link", { name: /@raeng\.fitness on Instagram/ });
   await expect(ig).toHaveAttribute("href", "https://www.instagram.com/raeng.fitness/");
   await expect(ig).toHaveAttribute("target", "_blank");
 });
 
-test("FAQs & Contact: questions, contact details, Instagram, getting started, in that order and nothing else (Alex, 2026-10-29)", async ({ page }) => {
+test("FAQs & Contact: contact details first, then questions, then getting started, and nothing else (owner, 2026-11-02)", async ({ page }) => {
   await page.goto("/contact");
   const order = await page.locator("main > section, main > .section-rules > section").evaluateAll((els) => els.map((e) => e.id || e.getAttribute("aria-labelledby")));
-  expect(order).toEqual(["faq-heading", "contact-details", "instagram", "getting-started"]);
+  expect(order).toEqual(["contact-details", "faq-heading", "getting-started"]);
   const ways = page.locator("#ways");
   await expect(ways).toContainText("1A Dunns Wood Road");
   await expect(ways.getByRole("link", { name: /Directions/ })).toHaveAttribute("href", /google\.com\/maps/);
   // No Book row and no Facebook here (the footer has Facebook); no "Follow" button.
   await expect(ways.getByRole("link", { name: /book/i })).toHaveCount(0);
   await expect(page.locator("main").getByRole("link", { name: /facebook|follow/i })).toHaveCount(0);
-  await expect(page.locator("#instagram")).toContainText("@raeng.fitness");
+  // Instagram is a row in the contact list (no section of its own).
+  await expect(ways).toContainText("@raeng.fitness");
+  await expect(page.locator("#instagram")).toHaveCount(0);
+  // The contact details are the first thing under the page title.
+  const firstTop = await page.locator("#contact-details").evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  const faqTop = await page.locator("main section").filter({ has: page.locator("#faq-heading") }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  expect(firstTop).toBeLessThan(faqTop);
 });
 
 test("contact details: email shown, phone number hidden until tapped and never in the page source", async ({ page, request }) => {

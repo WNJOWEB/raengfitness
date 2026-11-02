@@ -46,10 +46,11 @@ function Way({ title, detail, icon, children }: { title: string; detail?: ReactN
 }
 
 /**
- * FAQs & Contact, in the order of Alex's layout (2026-10-29): common questions,
- * contact details (email and phone only once confirmed, then the address with
- * directions), Instagram, getting started. Nothing else (no Book row, no
- * Facebook; the footer has it).
+ * FAQs & Contact (owner, 2026-11-02, replacing Alex's order of 2026-10-29): the
+ * contact details first (email, Instagram, phone once confirmed, then the
+ * address with directions), then the common questions, then getting started.
+ * Instagram is one of the contact rows (no section of its own). Nothing else
+ * (no Book row, no Facebook; the footer has it).
  */
 export default function ContactPage() {
   const { email, phone } = site.contact;
@@ -66,8 +67,6 @@ export default function ContactPage() {
   return (
     <div className="section-rules">
       <PageHeader eyebrow="FAQs & Contact" title="FAQs & Contact" intro="Book, message Alex, or come and find us." />
-
-      <Faq tone="plain" />
 
       <Section tone="white" id="contact-details" labelledBy="details-heading">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
@@ -95,24 +94,7 @@ export default function ContactPage() {
         </div>
       </Section>
 
-      <Section tone="plain" id="instagram" labelledBy="instagram-heading">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
-          <SectionHeading id="instagram-heading" className="lg:col-span-5" eyebrow="Instagram"
-            title={
-              <span className="inline-flex items-center gap-3">
-                <InstagramIcon className="size-8 shrink-0 sm:size-10" />
-                {site.social.raeng.handle}
-              </span>
-            }
-          />
-          <p className="mt-6 lg:col-span-7 lg:mt-0">
-            <a href={site.social.raeng.url} target="_blank" rel="noopener noreferrer" className={`${linkClass} gap-2`}>
-              <InstagramIcon className="size-5 shrink-0" />
-              Message RAENG on Instagram<span className="sr-only"> (opens in a new tab)</span>
-            </a>
-          </p>
-        </div>
-      </Section>
+      <Faq tone="plain" />
 
       {started.length > 0 ? (
         <Section tone="white" id="getting-started" labelledBy="started-heading">
