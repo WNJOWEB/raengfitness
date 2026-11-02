@@ -135,6 +135,16 @@ describe("checkout links", () => {
     expect(call.form.get("success_url")).toBe("https://raeng.example/back");
   });
 
+  it("always gives Stripe a return address, even when the caller names none (the coach portal's Card link)", async () => {
+    const a = api();
+    const { charge } = await chargeFor(1000);
+    expect(await createChargeLink(db, stripe, charge, a.fetchImpl)).toMatchObject({ ok: true });
+    const success = a.calls[0].form.get("success_url");
+    const cancel = a.calls[0].form.get("cancel_url");
+    expect(success).toMatch(/^https?:\/\/[^/]+\/$/);
+    expect(cancel).toBe(success);
+  });
+
   it("one live link per charge; a retry after a failure reuses the same idempotency key", async () => {
     const a = api();
     const { charge } = await chargeFor(1500);

@@ -1,4 +1,5 @@
 import { insert, rpc, select, update, type Db, type DbError } from "../coach/db";
+import { siteUrl } from "../env";
 import { toLondon } from "../coach/time";
 import { createPaymentSession, getCheckoutSession, getPaymentIntent, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
 import type { StripeConfig, StripeWebhookConfig } from "./config";
@@ -284,7 +285,9 @@ export async function createChargeLink(
   }
   if (link.environment !== stripe.environment) return { ok: false, reason: "db" };
 
-  const back = options.redirectUrl ?? "";
+  // Stripe requires a return address and refuses a blank one (400). The coach portal's "Card link"
+  // names none, so it falls back to the home page, which says nothing about the payment.
+  const back = options.redirectUrl || `${siteUrl()}/`;
   const made = await createPaymentSession(
     stripe,
     {
