@@ -281,3 +281,55 @@ describe("one reminder to set up a Direct Debit (owner, 2026-11-03)", () => {
     expect(mine(api, off.email)).toHaveLength(1);
   });
 });
+
+describe("joining again after cancelling (owner, 2026-11-03)", () => {
+  async function joinAndPay(api: ReturnType<typeof services>, email: string, key: string) {
+    const data = { ...request({ plan: "starter" }), email, submissionId: key };
+    const out = await startCheckout(db, stripe, data, null, { agreedAt: new Date().toISOString(), idempotencyKey: key, env, fetchImpl: api.fetchImpl });
+    if (!out.ok) return out;
+    const session = await orderFor(out.signupId);
+    const intent = api.stripeApi.pay(session, 4000);
+    expect((await deliver(api, session)).status).toBe(200);
+    const [row] = await sql("select s.membership_id, s.client_id, p.id as period_id from akb_membership_signups s join akb_membership_periods p on p.membership_id = s.membership_id where s.id = $1", [out.signupId]);
+    return { ok: true as const, intent, membership: String(row.membership_id), client: String(row.client_id), period: String(row.period_id) };
+  }
+  const cancel = (membership: string) => rpc<null>(db, "akb_set_membership_status", { p_membership: membership, p_status: "cancelled", p_on: londonToday() });
+
+  it("cancelled and refunded (no credits left): joins again at once, and bookings use the new membership's credits, even on the same day", async () => {
+    const api = services();
+    const email = `rejoin-${n}@example.com`;
+    const first = await joinAndPay(api, email, `rejoin-a-${n}`);
+    if (!first.ok) throw new Error(first.reason);
+    expect((await cancel(first.membership)).ok).toBe(true);
+    await deliverStripeEvent(db, api.stripeApi, "refund.updated", { id: api.stripeApi.refund(first.intent, 4000) });
+    expect(await sql("select credits_left from akb_membership_period_balances where id = $1", [first.period])).toEqual([{ credits_left: 0 }]);
+
+    const again = await joinAndPay(api, email, `rejoin-b-${n}`);
+    if (!again.ok) throw new Error(`refused: ${again.reason}`);
+    expect(again.client).toBe(first.client);
+    expect(await sql("select status from akb_memberships where id = $1", [again.membership])).toEqual([{ status: "active" }]);
+
+    // Both periods start today: the booking takes a credit from the running membership.
+    const { cls, date } = upcomingClass();
+    const booked = await rpc<string>(db, "akb_member_book_class", { p_client: again.client, p_slot: cls.id, p_date: date, p_starts_at: new Date(Date.now() + 3 * 86_400_000).toISOString(), p_duration: 60 });
+    expect(booked.ok).toBe(true);
+    expect(await sql("select membership_period_id from akb_class_attendance where id = $1", [booked.ok ? booked.data : ""])).toEqual([{ membership_period_id: again.period }]);
+  });
+
+  it("cancelled with credits still to use: says so (they'd be stranded), and doesn't say 'already a member'", async () => {
+    const api = services();
+    const email = `rejoin-credits-${n}@example.com`;
+    const first = await joinAndPay(api, email, `rejoin-c-${n}`);
+    if (!first.ok) throw new Error(first.reason);
+    expect((await cancel(first.membership)).ok).toBe(true);
+    expect(await joinAndPay(api, email, `rejoin-d-${n}`)).toEqual({ ok: false, reason: "membership_running" });
+  });
+
+  it("a running membership still can't be joined twice", async () => {
+    const api = services();
+    const email = `rejoin-active-${n}@example.com`;
+    const first = await joinAndPay(api, email, `rejoin-e-${n}`);
+    if (!first.ok) throw new Error(first.reason);
+    expect(await joinAndPay(api, email, `rejoin-f-${n}`)).toEqual({ ok: false, reason: "already_member" });
+  });
+});

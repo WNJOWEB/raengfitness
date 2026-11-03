@@ -157,12 +157,18 @@ export function bookingWeeks(
         else if (place?.status === "booked") state = "booked";
         else if (cancelledKeys.includes(key)) state = "cancelled";
         else if (fullKeys.includes(key)) state = "full";
-        else if (o.membership) {
+        else if (o.membership && o.membership.status !== "cancelled") {
           if (!o.period || date < o.period.start || date > o.period.end) state = "next-period";
           else if (paymentDue) state = "pay-first";
           else if (o.period.left <= 0) state = "no-credits";
           else state = "book";
-        } else state = credit && date <= credit.expires_on ? "use-credit" : "pay";
+        } else if (o.membership && o.period && o.period.left > 0 && date >= o.period.start && date <= o.period.end) {
+          // Cancelled: the credits already paid for are used first, until the period ends (owner, 2026-11-03).
+          state = "book";
+        } else {
+          // No membership, or a cancelled one with nothing left: pay as you go (a class credit first).
+          state = credit && date <= credit.expires_on ? "use-credit" : "pay";
+        }
         slots.push({
           slot: c.id,
           date,
@@ -187,4 +193,15 @@ export function periodProgress(period: { start: string; end: string }, today: Da
   const total = daysBetween(period.start, period.end) + 1;
   const done = daysBetween(period.start, today) + 1;
   return Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+}
+
+/**
+ * Whether the account works as a membership (credits) or pay as you go
+ * (owner, 2026-11-03): a cancelled membership counts only while its paid
+ * period still has credits to use.
+ */
+export function usesCredits(o: Pick<MemberOverview, "membership" | "period">): boolean {
+  if (!o.membership) return false;
+  if (o.membership.status !== "cancelled") return true;
+  return Boolean(o.period && o.period.left > 0);
 }

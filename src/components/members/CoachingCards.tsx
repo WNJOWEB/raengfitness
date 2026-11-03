@@ -1,3 +1,4 @@
+import { usesCredits } from "@/lib/member-view";
 import Link from "next/link";
 import { getOnlineCoachingAction } from "@/lib/booking";
 import { COACHING_MESSAGES_PATH, COACHING_PATH, COACHING_UNLOCK_PATH, onlineCoachingPrice, type CoachingStatus } from "@/lib/coaching";
@@ -97,7 +98,8 @@ export function PlanCoaching({ coaching, overview: o }: { coaching: CoachingStat
     );
   }
   const price = onlineCoachingPrice();
-  const m = o.membership;
+  // A cancelled membership with nothing left to use reads as pay as you go (owner, 2026-11-03).
+  const m = usesCredits(o) ? o.membership : null;
   const have = m ? [`${m.credits} classes`, "Booking app"] : ["Pay as you go classes", "Booking app"];
   const enquiry = getOnlineCoachingAction();
   return (

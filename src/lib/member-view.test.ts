@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PublishedClass } from "./class-sessions";
 import type { MemberOverview, MemberPlace } from "./member-auth";
-import { bookingWeeks, countdown, firstName, greeting, periodProgress, upcomingPlaces } from "./member-view";
+import { bookingWeeks, countdown, firstName, greeting, periodProgress, upcomingPlaces, usesCredits } from "./member-view";
 
 const classes: PublishedClass[] = [
   { id: "mon-evening", label: "Monday 6:30 pm", day: "Monday", start: "18:30", durationMinutes: 60 },
@@ -131,5 +131,38 @@ describe("upcomingPlaces and periodProgress", () => {
     expect(periodProgress({ start: "2026-10-28", end: "2026-11-24" }, "2026-10-28")).toBe(4);
     expect(periodProgress({ start: "2026-10-28", end: "2026-11-24" }, "2026-11-24")).toBe(100);
     expect(periodProgress({ start: "2026-10-28", end: "2026-11-24" }, "2026-12-01")).toBe(100);
+  });
+});
+
+describe("after cancelling the membership (owner, 2026-11-03: the account becomes pay as you go)", () => {
+  const cancelled = (period: MemberOverview["period"], extra: Partial<MemberOverview> = {}) =>
+    member({ membership: { ...member().membership!, status: "cancelled", cancelled_on: "2026-10-28", renews_on: null }, period, places: [], ...extra });
+  const states = (o: MemberOverview) => new Set(bookingWeeks(o, args).flatMap((w) => w.slots).filter((s) => s.state !== "past").map((s) => s.state));
+
+  it("credits still to use: booked with credits in the paid period, pay as you go after it ends", () => {
+    const o = cancelled({ start: "2026-10-28", end: "2026-11-24", credits: 8, used: 1, left: 7 });
+    expect(usesCredits(o)).toBe(true);
+    const slots = bookingWeeks(o, args).flatMap((w) => w.slots).filter((s) => s.state !== "past");
+    expect(slots.filter((s) => s.date <= "2026-11-24").every((s) => s.state === "book")).toBe(true);
+    expect(slots.filter((s) => s.date > "2026-11-24").every((s) => s.state === "pay")).toBe(true);
+    expect(states(o).has("next-period")).toBe(false);
+  });
+
+  it("no credits left (used, or ended by a refund): every class is Book and pay, never 'No credits'", () => {
+    const o = cancelled({ start: "2026-10-28", end: "2026-11-24", credits: 0, used: 0, left: 0 });
+    expect(usesCredits(o)).toBe(false);
+    expect([...states(o)]).toEqual(["pay"]);
+  });
+
+  it("the period over: pay as you go, or a class credit first", () => {
+    expect([...states(cancelled(null))]).toEqual(["pay"]);
+    const withCredit = cancelled(null, { class_credits: [{ id: "c1", expires_on: "2026-12-31" }] });
+    expect([...states(withCredit)]).toEqual(["use-credit"]);
+  });
+
+  it("an active member with no credits is unchanged", () => {
+    const o = member({ period: { start: "2026-10-28", end: "2026-11-24", credits: 8, used: 8, left: 0 } });
+    expect(usesCredits(o)).toBe(true);
+    expect(states(o).has("pay")).toBe(false);
   });
 });

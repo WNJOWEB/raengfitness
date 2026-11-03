@@ -6,7 +6,7 @@ import { formatPenceShort } from "@/lib/membership";
 import type { MemberOverview } from "@/lib/member-auth";
 import { CALENDAR_SYNC_PATH, NOTIFICATIONS_PATH, PROFILE_PATH, SECURITY_PATH, type MemberSettings } from "@/lib/member-settings";
 import { MEMBERS_VIEW_PATH } from "@/lib/members-app";
-import { firstName } from "@/lib/member-view";
+import { usesCredits, firstName } from "@/lib/member-view";
 import { external, Icon, MENU_ICON, NEW_TAB } from "./icons";
 import { PendingButton } from "@/components/ui/PendingButton";
 
@@ -18,7 +18,8 @@ import { PendingButton } from "@/components/ui/PendingButton";
  * be read is left out.
  */
 export function AccountMenuContent({ overview: o, settings, coaching }: { overview: MemberOverview; settings: MemberSettings | null; coaching: CoachingStatus | null }) {
-  const m = o.membership;
+  // A cancelled membership with nothing left to use reads as pay as you go (owner, 2026-11-03).
+  const m = usesCredits(o) ? o.membership : null;
   const name = firstName(o.client.name) || "Member";
   const initial = name.slice(0, 1).toUpperCase();
   const coached = coaching?.active === true;

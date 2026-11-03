@@ -37,7 +37,7 @@ export function onlineJoinEnabled(env: Env = process.env): boolean {
 
 export type CheckoutResult =
   | { ok: true; url: string; signupId: string }
-  | { ok: false; reason: "already_member" | "payment_in_progress" | "unavailable" };
+  | { ok: false; reason: "already_member" | "membership_running" | "payment_in_progress" | "unavailable" };
 
 interface SignupCreated {
   signup_id: string;
@@ -106,8 +106,8 @@ async function signupClient(db: Db, signupId: string): Promise<string | null> {
   return rows.ok ? (rows.data[0]?.client_id ?? null) : null;
 }
 
-function ruleReason(error: DbError): "already_member" | "payment_in_progress" | "unavailable" {
-  if (error.kind === "rule" && (error.rule === "already_member" || error.rule === "payment_in_progress")) return error.rule;
+function ruleReason(error: DbError): "already_member" | "membership_running" | "payment_in_progress" | "unavailable" {
+  if (error.kind === "rule" && (error.rule === "already_member" || error.rule === "membership_running" || error.rule === "payment_in_progress")) return error.rule;
   console.error(`Online membership sign-up failed (${error.kind} ${error.code})`);
   return "unavailable";
 }

@@ -6,7 +6,7 @@ import type { MemberOverview } from "@/lib/member-auth";
 import type { CoachingStatus } from "@/lib/coaching";
 import type { MemberSettings } from "@/lib/member-settings";
 import { MEMBERS_VIEW_PATH, type MembersView } from "@/lib/members-app";
-import { countdown, firstName, shortWhen, upcomingPlaces } from "@/lib/member-view";
+import { usesCredits, countdown, firstName, shortWhen, upcomingPlaces } from "@/lib/member-view";
 import { ClearStatus } from "@/components/account/ClearStatus";
 import { AccountMenu } from "./AccountMenu";
 import { AccountMenuContent } from "./AccountMenuContent";
@@ -58,7 +58,8 @@ export function MembersShell({
   children: ReactNode;
 }) {
   const o = overview;
-  const m = o.membership;
+  // A cancelled membership with nothing left to use reads as pay as you go (owner, 2026-11-03).
+  const m = usesCredits(o) ? o.membership : null;
   const name = firstName(o.client.name) || "Member";
   const initial = name.slice(0, 1).toUpperCase();
   const left = o.period?.left ?? 0;

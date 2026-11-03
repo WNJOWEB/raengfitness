@@ -72,7 +72,14 @@ export async function submitMembershipRequest(
       redirect(checkout.url);
     }
     if (checkout.reason === "already_member") {
-      return { status: "error", message: "You're already a member. Sign in to your account to book classes, or reply to Alex to change plan.", errors: { email: "This email already has a membership." } };
+      return { status: "error", message: "You're already a member. Sign in to your account to book classes, or message Alex to change plan.", errors: { email: "This email already has a membership." } };
+    }
+    if (checkout.reason === "membership_running") {
+      return {
+        status: "error",
+        message: "Your cancelled membership still has credits to use this period. Sign in to your account to book with them; you can join again once they're used or the period ends. To restart sooner, message Alex.",
+        errors: { email: "This email's cancelled membership still has credits to use." },
+      };
     }
     if (checkout.reason === "payment_in_progress") {
       return { status: "error", message: "A payment for an earlier sign-up of yours is part-way through. Alex will be in touch to finish it.", errors: {} };

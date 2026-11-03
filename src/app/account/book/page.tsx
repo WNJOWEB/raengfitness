@@ -5,7 +5,7 @@ import { CLASS_WINDOW_DAYS } from "@/lib/availability/timetable";
 import { getPrimaryCtaFor } from "@/lib/booking";
 import { publishedClasses } from "@/lib/class-sessions";
 import { pageMetadata } from "@/lib/metadata";
-import { bookingWeeks, SLOT_LABEL, type WeekSlot } from "@/lib/member-view";
+import { usesCredits, bookingWeeks, SLOT_LABEL, type WeekSlot } from "@/lib/member-view";
 import { AccountUnavailable } from "@/components/members/Cards";
 import { MembersShell } from "@/components/members/MembersShell";
 import type { SheetPayload } from "@/components/members/sheet";
@@ -33,7 +33,8 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
   const d = await loadMembers(searchParams);
   if (!d.overview.ok) return <AccountUnavailable />;
   const o = d.overview.data;
-  const m = o.membership;
+  // A cancelled membership with nothing left to use reads as pay as you go (owner, 2026-11-03).
+  const m = usesCredits(o) ? o.membership : null;
   const left = o.period?.left ?? 0;
   const credit = o.class_credits[0] ?? null;
   // A class that has already gone and wasn't theirs is only noise: left out (their own attended and missed ones stay).

@@ -6,7 +6,7 @@ import { formatLongDate, type DateKey } from "@/lib/availability/dates";
 import { formatClock, toLondon } from "@/lib/coach/time";
 import { pageMetadata } from "@/lib/metadata";
 import { MEMBERS_VIEW_PATH } from "@/lib/members-app";
-import { countdown, firstName, greeting, longWhen, pastPlaces, upcomingPlaces } from "@/lib/member-view";
+import { usesCredits, countdown, firstName, greeting, longWhen, pastPlaces, upcomingPlaces } from "@/lib/member-view";
 import type { MemberPlace } from "@/lib/member-auth";
 import { AccountUnavailable, ClassCredits, PayAsYouGo, PaymentDue } from "@/components/members/Cards";
 import { CoachingCard } from "@/components/members/CoachingCards";
@@ -36,7 +36,8 @@ export default async function AccountHomePage({ searchParams }: { searchParams: 
   const d = await loadMembers(searchParams);
   if (!d.overview.ok) return <AccountUnavailable />;
   const o = d.overview.data;
-  const m = o.membership;
+  // A cancelled membership with nothing left to use reads as pay as you go (owner, 2026-11-03).
+  const m = usesCredits(o) ? o.membership : null;
   const upcoming = upcomingPlaces(o, d.now);
   const past = pastPlaces(o, d.now);
   const next = upcoming[0] ?? null;
