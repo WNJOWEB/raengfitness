@@ -260,6 +260,14 @@ See Coach portal below.
 - [x] Participation and risk disclaimer ticked before every booking (2026-10-31, owner): wording in `content/policy.ts` (`classWaiver`), required on the server, version and time stored with the booking
 - [x] **P0** Owner: have a solicitor read the disclaimer wording, and check RAENG's public liability insurance covers classes (UK law doesn't let a business exclude liability for death or injury caused by its own negligence, so the wording doesn't try to) — done: owner 2026-11-03: done (disclaimer and insurance)
 
+## Portal phone audit (2026-11-03, owner approved all eight)
+- [x] Members: "Signed in as" removed from Home and shown on its own line on Plan; classes that have already gone are left off Book (attended and missed ones stay); Home shows one Book link, not two
+- [x] Coach Today: no "Signed in as"; Business shows Received this month and Outstanding, with the other figures and the revenue chart behind "More figures" (the chart only when there is revenue)
+- [x] Coach Finances: This week / This month / Last month buttons first; custom dates and the service filter behind "Custom dates or one service"
+- [x] Coach Classes: next two weeks, then the calendar, then Class size; the month list is behind "List the month"
+- [x] Coach page headings (Classes, Finances, Clients and the rest) match the main tabs (small caps label, big heading)
+- [ ] Still to audit: the coach drawer, booking sheets, Plan page Direct Debit and card states, the public site
+
 ## Alex's decisions (2026-11-02, via the owner)
 - [x] Refund policy: **option B**. No cash refunds for late cancellations, missed classes or a started membership period. If Alex cancels a class someone paid for and they can't make another date, it is refunded to their card; a payment taken in error is always refunded. On the site: `content/policy.ts` (`refunds`, `coachCancellations`), the FAQ "Can I get a refund?" and the cancelled-class email.
 - [x] Records kept (owner's pick, 2026-11-02): payment and booking records 6 years; name, email, phone and notes deleted or anonymised 2 years after the last booking, payment or message; enquiries that never became a booking 12 months. On `/privacy`. **Deletion is manual for now**: review once a year (clients with no activity for 2 years, enquiries older than 12 months); a coach-portal list to help is a possible follow-up.

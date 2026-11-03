@@ -51,7 +51,6 @@ export default async function AccountHomePage({ searchParams }: { searchParams: 
           {greeting(d.now)}
           {name ? `, ${name}` : ""}.
         </h1>
-        {o.client.email ? <p className="text-sm text-ink">Signed in as {o.client.email}</p> : null}
       </div>
 
       {d.due ? <PaymentDue due={d.due} /> : null}
@@ -99,9 +98,11 @@ export default async function AccountHomePage({ searchParams }: { searchParams: 
           <h2 id="booked-heading" className="members-eyebrow">
             Booked
           </h2>
-          <Link href={MEMBERS_VIEW_PATH.book} className="members-link">
-            Book more
-          </Link>
+          {upcoming.length > 0 ? (
+            <Link href={MEMBERS_VIEW_PATH.book} className="members-link">
+              Book more
+            </Link>
+          ) : null}
         </div>
         {upcoming.length === 0 ? (
           <p className="border-y border-line py-4 text-ink">Nothing booked yet.</p>

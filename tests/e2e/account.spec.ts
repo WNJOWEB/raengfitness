@@ -499,7 +499,6 @@ test.describe("member accounts", () => {
     await page.goto(PROD + linkPath(sent[0]));
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("heading", { level: 1, name: /^(Morning|Afternoon|Evening), Pay\.$/ })).toBeVisible();
-    await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Pay as you go" })).toBeVisible();
     const place = page.locator("#booked li").filter({ hasText: "Paid" });
     await expect(place).toHaveCount(1);

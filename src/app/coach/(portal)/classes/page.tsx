@@ -83,15 +83,6 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
         <p className="mt-3 text-sm text-muted">A class shows as fully booked on the website once that many places are taken, and people are sent to the next class.</p>
       </Panel>
 
-      <Panel title="Class size" id="size-heading">
-        <ActionForm action={setDefaultCapacityAction} label="Class size">
-          <Field name="size" label="Places in every class" type="number" inputMode="numeric" min={1} max={200} defaultValue={usualSize} hint="Applies to all classes. To change one date, open it and set its own size." />
-          <div>
-            <SubmitButton variant="secondary">Save</SubmitButton>
-          </div>
-        </ActionForm>
-      </Panel>
-
       <Panel
         title={formatMonth(month)}
         id="month-heading"
@@ -130,7 +121,9 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
             );
           })}
         </div>
-        <ul className="mt-4 divide-y divide-line border-y border-line text-sm">
+        <details className="mt-4">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold underline underline-offset-4">List the month</summary>
+        <ul className="mt-2 divide-y divide-line border-y border-line text-sm">
           {inMonth.map((o) => {
             const row = rowFor(o.date, o.slot.id);
             return (
@@ -145,6 +138,16 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
             );
           })}
         </ul>
+        </details>
+      </Panel>
+
+      <Panel title="Class size" id="size-heading">
+        <ActionForm action={setDefaultCapacityAction} label="Class size">
+          <Field name="size" label="Places in every class" type="number" inputMode="numeric" min={1} max={200} defaultValue={usualSize} hint="Applies to all classes. To change one date, open it and set its own size." />
+          <div>
+            <SubmitButton variant="secondary">Save</SubmitButton>
+          </div>
+        </ActionForm>
       </Panel>
     </div>
   );

@@ -6,10 +6,10 @@ import { cn } from "@/lib/cn";
 
 export function PageHeader({ title, eyebrow, children, id = "page-heading" }: { title: ReactNode; eyebrow?: ReactNode; children?: ReactNode; id?: string }) {
   return (
-    <div className="flex flex-col gap-4 border-b border-ink pb-6 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        {eyebrow ? <p className="eyebrow text-muted">{eyebrow}</p> : null}
-        <h1 id={id} className="mt-2 font-display text-h2 break-words">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-2">
+        {eyebrow ? <p className="members-eyebrow">{eyebrow}</p> : null}
+        <h1 id={id} className="text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance break-words">
           {title}
         </h1>
       </div>

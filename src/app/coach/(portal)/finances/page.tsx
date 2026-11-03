@@ -47,24 +47,46 @@ async function Finances({ searchParams }: { searchParams: PageProps<"/coach/fina
 
   return (
     <>
-      <SearchBar action="/coach/finances" label="Period and service">
-        <SearchSelect
-          name="period"
-          label="Period"
-          defaultValue={range.period}
-          options={[
-            { value: "week", label: "This week" },
-            { value: "month", label: "This month" },
-            { value: "last-month", label: "Last month" },
-            { value: "custom", label: "Custom dates" },
-          ]}
-        />
-        <SearchInput name="from" label="From (custom)" type="date" defaultValue={range.period === "custom" ? range.from : ""} />
-        <SearchInput name="to" label="To (custom)" type="date" defaultValue={range.period === "custom" ? range.to : ""} />
-        <SearchSelect name="service" label="Service" defaultValue={service ?? ""} options={[{ value: "", label: "All services" }, ...SERVICE_KEYS.map((s) => ({ value: s, label: SERVICE[s] }))]} />
-      </SearchBar>
+      <nav aria-label="Period" className="mt-6 flex gap-2 overflow-x-auto p-1 [scrollbar-width:none]">
+        {(
+          [
+            ["week", "This week"],
+            ["month", "This month"],
+            ["last-month", "Last month"],
+          ] as const
+        ).map(([value, label]) => (
+          <Link
+            key={value}
+            href={`/coach/finances?period=${value}${service ? `&service=${service}` : ""}`}
+            aria-current={range.period === value ? "page" : undefined}
+            className={`inline-flex min-h-11 flex-none items-center rounded-full border-[1.5px] px-4 text-sm font-semibold whitespace-nowrap ${range.period === value ? "border-ink bg-ink text-paper" : "border-line hover:border-ink"}`}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
 
-      <p className="mt-6 text-sm" role="status">
+      <details className="mt-2" open={range.period === "custom" || Boolean(service)}>
+        <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold underline underline-offset-4">Custom dates or one service</summary>
+        <SearchBar action="/coach/finances" label="Period and service">
+          <SearchSelect
+            name="period"
+            label="Period"
+            defaultValue={range.period}
+            options={[
+              { value: "week", label: "This week" },
+              { value: "month", label: "This month" },
+              { value: "last-month", label: "Last month" },
+              { value: "custom", label: "Custom dates" },
+            ]}
+          />
+          <SearchInput name="from" label="From (custom)" type="date" defaultValue={range.period === "custom" ? range.from : ""} />
+          <SearchInput name="to" label="To (custom)" type="date" defaultValue={range.period === "custom" ? range.to : ""} />
+          <SearchSelect name="service" label="Service" defaultValue={service ?? ""} options={[{ value: "", label: "All services" }, ...SERVICE_KEYS.map((s) => ({ value: s, label: SERVICE[s] }))]} />
+        </SearchBar>
+      </details>
+
+      <p className="mt-4 text-sm" role="status">
         <strong>{range.label}</strong>: {formatDate(range.from)} to {formatDate(range.to)}
         {service ? `, ${SERVICE[service]} only` : ""}.
       </p>

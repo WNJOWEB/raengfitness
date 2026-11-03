@@ -95,9 +95,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                 ["Signed in as", o.client.email || o.client.name],
               ] as const
             ).map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4 border-b border-line py-3.5">
+              <div key={k} className={`flex border-b border-line py-3.5 ${k === "Signed in as" ? "flex-col gap-1" : "justify-between gap-4"}`}>
                 <dt className="text-ink">{k}</dt>
-                <dd className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{v}</dd>
+                <dd className={`min-w-0 font-semibold [overflow-wrap:anywhere] ${k === "Signed in as" ? "" : "text-right"}`}>{v}</dd>
               </div>
             ))}
           </dl>

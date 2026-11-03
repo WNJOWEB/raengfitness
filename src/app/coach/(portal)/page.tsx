@@ -56,7 +56,7 @@ function untilLabel(startsAt: string, now: Date): string {
 }
 
 async function Today() {
-  const { coach, db, today } = await portalContext();
+  const { db, today } = await portalContext();
   const now = new Date();
   if (!db) {
     return (
@@ -99,9 +99,6 @@ async function Today() {
         <h1 id="coach-heading" className="text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance">
           {greeting(now)}.
         </h1>
-        <p className="text-sm">
-          Signed in as <strong className="break-all">{coach.email}</strong>
-        </p>
       </div>
 
       <ul className="grid grid-cols-3 border-y border-line">
@@ -258,30 +255,12 @@ async function Today() {
 function Business({ d }: { d: Extract<Awaited<ReturnType<typeof loadDashboard>>, { ok: true }>["data"] }) {
   return (
     <>
-      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-3">
         <li>
           <Metric emphasis label="Received this month" value={formatPence(d.receivedMonth.net)} note={d.receivedMonth.refunds ? `After ${formatPence(d.receivedMonth.refunds)} refunds` : "After refunds"} href="/coach/finances?period=month" />
         </li>
         <li>
-          <Metric label="Received this week" value={formatPence(d.receivedWeek.net)} note="Monday to Sunday" href="/coach/finances?period=week" />
-        </li>
-        <li>
           <Metric label="Outstanding" value={formatPence(d.outstanding.due)} note={d.outstanding.later ? `${formatPence(d.outstanding.later)} more due later` : "Owed now"} href="/coach/finances#outstanding" />
-        </li>
-        <li>
-          <Metric label="Active clients" value={d.activeClients} href="/coach/clients?status=active" />
-        </li>
-        <li>
-          <Metric label="Sessions delivered" value={d.delivered.classes + d.delivered.pt} note={`This month: ${d.delivered.classes} classes, ${d.delivered.pt} one-to-one`} />
-        </li>
-        <li>
-          <Metric label="Upcoming confirmed" value={d.upcoming.classPlaces + d.upcoming.pt} note={`Next 7 days: ${d.upcoming.classPlaces} class places, ${d.upcoming.pt} one-to-one`} href="/coach/classes" />
-        </li>
-        <li>
-          <Metric label="Requests awaiting you" value={d.requests.new + d.requests.awaiting} note={`${d.requests.new} new, ${d.requests.awaiting} awaiting response`} href="/coach/requests" />
-        </li>
-        <li>
-          <Metric label="Active online clients" value={d.online.active} note={`Expected ${formatPence(d.online.expectedMonthly)}/month (not yet received)`} href="/coach/online" />
         </li>
       </ul>
 
@@ -308,10 +287,43 @@ function Business({ d }: { d: Extract<Awaited<ReturnType<typeof loadDashboard>>,
         {d.attention.length > 25 ? <p className="mt-3 text-sm text-muted">Showing 25 of {d.attention.length}.</p> : null}
       </Panel>
 
-      <Panel title="Revenue" id="revenue-heading" actions={<TextLink href="/coach/finances">Finances</TextLink>}>
-        <RevenueChart id="dashboard-revenue" months={d.months} />
-        <p className="mt-3 text-sm text-muted">Money actually received, after refunds. Unpaid charges and expected subscription income are not included.</p>
-      </Panel>
+      <details className="group rounded-3xl border border-line">
+        <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-5 font-semibold">
+          More figures
+          <span aria-hidden="true" className="text-sm group-open:hidden">Show</span>
+        </summary>
+        <div className="flex flex-col gap-6 px-5 pb-5">
+          <ul className="grid grid-cols-2 gap-3">
+            <li>
+              <Metric label="Received this week" value={formatPence(d.receivedWeek.net)} note="Monday to Sunday" href="/coach/finances?period=week" />
+            </li>
+            <li>
+              <Metric label="Active clients" value={d.activeClients} href="/coach/clients?status=active" />
+            </li>
+            <li>
+              <Metric label="Sessions delivered" value={d.delivered.classes + d.delivered.pt} note={`This month: ${d.delivered.classes} classes, ${d.delivered.pt} one-to-one`} />
+            </li>
+            <li>
+              <Metric label="Upcoming confirmed" value={d.upcoming.classPlaces + d.upcoming.pt} note={`Next 7 days: ${d.upcoming.classPlaces} class places, ${d.upcoming.pt} one-to-one`} href="/coach/classes" />
+            </li>
+            <li>
+              <Metric label="Requests awaiting you" value={d.requests.new + d.requests.awaiting} note={`${d.requests.new} new, ${d.requests.awaiting} awaiting response`} href="/coach/requests" />
+            </li>
+            <li>
+              <Metric label="Active online clients" value={d.online.active} note={`Expected ${formatPence(d.online.expectedMonthly)}/month (not yet received)`} href="/coach/online" />
+            </li>
+          </ul>
+
+          <Panel title="Revenue" id="revenue-heading" actions={<TextLink href="/coach/finances">Finances</TextLink>}>
+            {d.months.some((m) => m.net !== 0) ? (
+              <RevenueChart id="dashboard-revenue" months={d.months} />
+            ) : (
+              <p className="border-y border-line py-4">No money received yet.</p>
+            )}
+            <p className="mt-3 text-sm text-muted">Money actually received, after refunds. Unpaid charges and expected subscription income are not included.</p>
+          </Panel>
+        </div>
+      </details>
     </>
   );
 }

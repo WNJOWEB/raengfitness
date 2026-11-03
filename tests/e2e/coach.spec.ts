@@ -42,7 +42,7 @@ test("a non-coach address is refused like a wrong password", async ({ page }) =>
 test("the coach signs in, stays signed in after the access token expires, and signs out", async ({ page, context }) => {
   await signIn(page);
   await expect(page).toHaveURL(/\/coach$/);
-  await expect(page.getByText(`Signed in as ${coach.email}`)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/Morning|Afternoon|Evening/);
 
   const cookies = await context.cookies();
   for (const name of ["akb_coach_access", "akb_coach_refresh"]) {
@@ -53,7 +53,7 @@ test("the coach signs in, stays signed in after the access token expires, and si
   // Simulate the short-lived access cookie expiring: the proxy refreshes the session.
   await context.clearCookies({ name: "akb_coach_access" });
   await page.goto("/coach");
-  await expect(page.getByText(`Signed in as ${coach.email}`)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/Morning|Afternoon|Evening/);
 
   // Sign out is in the account menu (the avatar), as in the owner's coach design.
   await page.getByRole("button", { name: "Account menu" }).click();

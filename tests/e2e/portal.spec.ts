@@ -492,6 +492,7 @@ test("the coach tabs (2026-10-28): check in today's class, the schedule, members
   expect((await sql<{ status: string }>(request, "select status from akb_class_attendance where client_id = $1", [clientId]))[0].status).toBe("no_show");
   // Everything the old dashboard held is still on the page.
   await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+  await page.getByText("More figures").click();
   await expect(page.getByRole("heading", { name: "Revenue" })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 

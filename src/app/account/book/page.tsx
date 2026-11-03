@@ -36,7 +36,10 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
   const m = o.membership;
   const left = o.period?.left ?? 0;
   const credit = o.class_credits[0] ?? null;
-  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due) });
+  // A class that has already gone and wasn't theirs is only noise: left out (their own attended and missed ones stay).
+  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due) })
+    .map((w) => ({ ...w, slots: w.slots.filter((s) => s.state !== "past") }))
+    .filter((w) => w.slots.length > 0);
   const payg = getService("group-classes").prices[0];
   const booking = getPrimaryCtaFor("group-class");
 
