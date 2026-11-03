@@ -12,6 +12,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
 import { Confirmation, type ConfirmationStep } from "@/components/ui/Confirmation";
 import { Section } from "@/components/ui/Section";
+import { LiveStatus } from "@/components/ui/LiveStatus";
 
 export const metadata: Metadata = pageMetadata({
   title: "Your class booking",
@@ -45,7 +46,7 @@ export default async function BookDonePage({ searchParams }: { searchParams: Pro
   const waiting = booking?.status === "awaiting_payment" && !cancelled && tries < MAX_TRIES;
   return (
     <Section labelledBy="done-heading">
-      {waiting ? <meta httpEquiv="refresh" content={`4;url=/book/done?booking=${id}&n=${tries + 1}`} /> : null}
+      {waiting ? <LiveStatus href={`/book/done?booking=${id}&n=${tries + 1}`} /> : null}
       <div className="max-w-xl">
         <Body booking={booking} cancelled={cancelled} gaveUp={booking?.status === "awaiting_payment" && !cancelled && tries >= MAX_TRIES} />
       </div>

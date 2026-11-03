@@ -10,6 +10,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
 import { Confirmation, type ConfirmationStep } from "@/components/ui/Confirmation";
 import { Section } from "@/components/ui/Section";
+import { LiveStatus } from "@/components/ui/LiveStatus";
 
 export const metadata: Metadata = pageMetadata({
   title: "Your payment",
@@ -44,7 +45,7 @@ export default async function PayDonePage({ searchParams }: { searchParams: Prom
   const waiting = link?.status === "awaiting" && !cancelled && tries < MAX_TRIES;
   return (
     <Section labelledBy="done-heading">
-      {waiting ? <meta httpEquiv="refresh" content={`4;url=${PAY_DONE_PATH}?link=${id}&n=${tries + 1}`} /> : null}
+      {waiting ? <LiveStatus href={`${PAY_DONE_PATH}?link=${id}&n=${tries + 1}`} /> : null}
       <div className="max-w-xl">
         <Body link={link} cancelled={cancelled} gaveUp={link?.status === "awaiting" && !cancelled && tries >= MAX_TRIES} />
       </div>

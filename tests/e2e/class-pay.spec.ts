@@ -182,7 +182,8 @@ test.describe("booking a group class and paying online", () => {
     await expect(page.getByText("You haven't been charged.")).toBeVisible();
     // Never "booked" and never refreshing by itself while cancelled.
     await expect(page.getByText("You're booked.")).toHaveCount(0);
-    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // It doesn't ask again by itself: the address stays put.
+    { const at = page.url(); await page.waitForTimeout(3500); expect(page.url()).toBe(at); }
     expect(await sql(request, "select b.status from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email])).toEqual([{ status: "awaiting_payment" }]);
     expect(await sql(request, "select count(*)::int as n from akb_payments p join akb_clients c on c.id = p.client_id where c.email = $1", [email])).toEqual([{ n: 0 }]);
     expect(await emailsTo(request, email)).toEqual([]);
@@ -230,16 +231,20 @@ test.describe("booking a group class and paying online", () => {
     await expect(page.locator("dl.cf-rise")).toContainText("£65.00");
     await expect(page.locator("dl.cf-rise")).toContainText("Regular membership");
     await expect(page.locator("dl.cf-rise")).toContainText(`RAENG-${open.slice(0, 8).toUpperCase()}`);
-    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(1);
+    // It asks again by itself, in place (no full reload).
+    await expect(page).toHaveURL(new RegExp(`link=${open}&n=1$`), { timeout: 6000 });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Confirming your payment.");
     // Back arrow: cancelled, not waiting, and no refresh.
     await page.goto(`${PAY}/pay/done?link=${open}&cancelled=1`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment cancelled.");
     await expect(page.getByRole("link", { name: "Go back and pay" })).toBeVisible();
-    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // It doesn't ask again by itself: the address stays put.
+    { const at = page.url(); await page.waitForTimeout(3500); expect(page.url()).toBe(at); }
     // Waiting for too long: stops asking, says it will show on the account.
     await page.goto(`${PAY}/pay/done?link=${open}&n=15`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Still confirming your payment.");
-    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // It doesn't ask again by itself: the address stays put.
+    { const at = page.url(); await page.waitForTimeout(3500); expect(page.url()).toBe(at); }
     // A "paid" claim in the address changes nothing: only the database's paid state shows success.
     await page.goto(`${PAY}/pay/done?link=${open}&paid=1&success=1`);
     await expect(page.getByText("Payment received.")).toHaveCount(0);

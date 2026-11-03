@@ -41,13 +41,17 @@ export function MembersDrawer({ children, label = "Members menu" }: { children: 
           if (e.target === ref.current || (e.target as HTMLElement).closest("a")) ref.current?.close();
         }}
       >
-        <div className="flex min-h-full flex-col">
+        {/* Opening the menu focuses the panel, not the close button, so a tap shows no focus box (iOS drew one round "Close"). Tab reaches the button next. */}
+        <div tabIndex={-1} autoFocus className="flex min-h-full flex-col outline-none">
           <button
             type="button"
             onClick={() => ref.current?.close()}
-            className="-mt-1 mb-2 self-end text-sm font-semibold underline underline-offset-4 hover:no-underline min-h-11"
+            aria-label="Close menu"
+            className="-mt-1 mb-2 grid size-11 shrink-0 place-items-center self-end rounded-full border border-line bg-white transition-colors hover:border-ink active:scale-95 motion-reduce:transition-none"
           >
-            Close
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 fill-none stroke-ink stroke-[1.8]" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
           {children}
         </div>

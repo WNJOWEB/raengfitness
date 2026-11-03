@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import Image from "next/image";
+import { site } from "@/content/site";
 import { cn } from "@/lib/cn";
 
 /**
@@ -28,12 +30,34 @@ interface ConfirmationProps {
   children?: ReactNode;
 }
 
+/** Waiting: the RAENG mark, still, inside a slowly turning ring (owner, 2026-11-03: a premium loading screen). */
 function Ring() {
   return (
-    <svg className="cf-ring" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <circle className="cf-track" cx="24" cy="24" r="20" />
-      <circle className="cf-arc" cx="24" cy="24" r="20" />
-    </svg>
+    <span className="cf-wait" aria-hidden="true">
+      <svg className="cf-ring" viewBox="0 0 48 48" focusable="false">
+        <circle className="cf-track" cx="24" cy="24" r="22" />
+        <circle className="cf-arc" cx="24" cy="24" r="22" />
+      </svg>
+      <Image className="cf-mark" src={site.logo.mark.src} width={site.logo.mark.width} height={site.logo.mark.height} alt="" priority />
+    </span>
+  );
+}
+
+/** A thin line that keeps moving while Stripe's word is awaited, and a word on what's happening. */
+function WaitingFoot() {
+  return (
+    <div className="cf-rise flex flex-col gap-3" style={{ "--cf-delay": "200ms" } as CSSProperties}>
+      <div className="cf-progress" aria-hidden="true">
+        <span />
+      </div>
+      <p className="flex items-center gap-2 text-sm">
+        <svg viewBox="0 0 16 16" className="size-4 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" />
+        </svg>
+        Secured by Stripe. Please keep this page open.
+      </p>
+    </div>
   );
 }
 
@@ -84,6 +108,8 @@ export function Confirmation({ state, headingId, eyebrow, title, lede, steps, de
           ))}
         </ol>
       ) : null}
+
+      {state === "waiting" ? <WaitingFoot /> : null}
 
       {details && details.length > 0 ? (
         <dl className="cf-rise rounded-[1.25rem] bg-white px-5" style={{ "--cf-delay": "180ms" } as CSSProperties}>

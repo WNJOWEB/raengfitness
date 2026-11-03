@@ -130,6 +130,13 @@ test.describe("member accounts", () => {
     const drawer = page.getByRole("dialog", { name: "Members menu" });
     await expect(drawer).toContainText("Regular · 7 credits left");
     await expect(drawer.getByRole("link", { name: "Book a class" })).toHaveAttribute("href", "/account/book");
+    // Opening it doesn't put a focus box on the close button (a tap is not a keyboard); the round × closes it.
+    const close = drawer.getByRole("button", { name: "Close menu" });
+    await expect(close).not.toBeFocused();
+    expect((await close.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+    await close.click();
+    await expect(drawer).toBeHidden();
+    await page.getByRole("button", { name: "Members menu" }).click();
     await page.keyboard.press("Escape");
     await expect(drawer).toBeHidden();
     await page.getByRole("button", { name: "Account menu" }).click();

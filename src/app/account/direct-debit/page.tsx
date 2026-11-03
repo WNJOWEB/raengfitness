@@ -5,6 +5,7 @@ import { BILLING_WEEKS } from "@/content/memberships";
 import { AccountUnavailable } from "@/components/members/Cards";
 import { MembersShell } from "@/components/members/MembersShell";
 import { Confirmation } from "@/components/ui/Confirmation";
+import { LiveStatus } from "@/components/ui/LiveStatus";
 import { formatLongDate, type DateKey } from "@/lib/availability/dates";
 import { formatPenceShort } from "@/lib/membership";
 import { pageMetadata } from "@/lib/metadata";
@@ -43,7 +44,7 @@ export default async function AccountDirectDebitPage({ searchParams }: { searchP
 
   return (
     <MembersShell view="plan" overview={o} settings={d.settings} coaching={d.coaching} now={d.now} done={d.done} error={d.error} sheet={null}>
-      {waiting ? <meta httpEquiv="refresh" content={`3;url=/account/direct-debit?returned=1&n=${tries + 1}`} /> : null}
+      {waiting ? <LiveStatus href={`/account/direct-debit?returned=1&n=${tries + 1}`} /> : null}
       {set ? (
         <Confirmation
           variant="members"

@@ -6,7 +6,7 @@ import { coachDb, isUuid } from "@/lib/coach/db";
 import { formatLongDate, type DateKey } from "@/lib/coach/time";
 import { SIGN_IN_PATH } from "@/lib/member-auth";
 import { startSignupDirectDebit } from "../direct-debit-actions";
-import { JOIN_DONE_PATH, SIGNUP_DD_PATH, signupStatus, type SignupStatus } from "@/lib/membership-checkout";
+import { JOIN_DONE_PATH, signupStatus, type SignupStatus } from "@/lib/membership-checkout";
 import { formatPenceShort } from "@/lib/membership";
 import { referenceFor } from "@/lib/reference";
 import { directDebitEnabled } from "@/lib/stripe/config";
@@ -14,6 +14,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
 import { Confirmation, type ConfirmationStep } from "@/components/ui/Confirmation";
 import { Section } from "@/components/ui/Section";
+import { LiveStatus } from "@/components/ui/LiveStatus";
 import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
@@ -50,17 +51,15 @@ export default async function JoinDonePage({ searchParams }: { searchParams: Pro
   const waitingForPayment = signup?.status === "awaiting_payment" && !cancelled && tries < MAX_TRIES;
   const payGaveUp = signup?.status === "awaiting_payment" && !cancelled && tries >= MAX_TRIES;
   const waitingForDirectDebit = Boolean(returned && signup?.status === "active" && signup.dd !== "active" && tries < MAX_TRIES);
-  // A paid sign-up with Direct Debit on is forwarded to Stripe's bank page after a few seconds (a button does it at once).
-  // Coming back from that page ("returned", "skipped", "unavailable", "done") is never forwarded again.
-  const forward = ddOn && signup?.status === "active" && signup.dd !== "active" && !params.dd && id !== null;
+  // Direct Debit is offered on the confirmation as a next step with its own button, never opened by itself
+  // (owner, 2026-11-03: read the confirmation first).
   const ddMessage = params.dd === "unavailable" ? "Sorry, the Direct Debit page couldn't be opened just now. Please try again in a minute." : null;
   return (
     <Section labelledBy="done-heading">
-      {waitingForPayment ? <meta httpEquiv="refresh" content={`3;url=${JOIN_DONE_PATH}?signup=${id}&n=${tries + 1}`} /> : null}
-      {waitingForDirectDebit ? <meta httpEquiv="refresh" content={`3;url=${JOIN_DONE_PATH}?signup=${id}&dd=returned&n=${tries + 1}`} /> : null}
-      {forward ? <meta httpEquiv="refresh" content={`5;url=${SIGNUP_DD_PATH}?signup=${id}`} /> : null}
+      {waitingForPayment ? <LiveStatus href={`${JOIN_DONE_PATH}?signup=${id}&n=${tries + 1}`} /> : null}
+      {waitingForDirectDebit ? <LiveStatus href={`${JOIN_DONE_PATH}?signup=${id}&dd=returned&n=${tries + 1}`} /> : null}
       <div className="max-w-xl">
-        <Body signup={signup} signupId={id} ddMessage={ddMessage} ddOn={ddOn} forwarding={forward} returned={returned} gaveUp={returned && tries >= MAX_TRIES} cancelled={cancelled} payGaveUp={payGaveUp} />
+        <Body signup={signup} signupId={id} ddMessage={ddMessage} ddOn={ddOn} returned={returned} gaveUp={returned && tries >= MAX_TRIES} cancelled={cancelled} payGaveUp={payGaveUp} />
       </div>
     </Section>
   );
@@ -73,7 +72,6 @@ function Body({
   signupId,
   ddMessage,
   ddOn,
-  forwarding,
   returned,
   gaveUp,
   cancelled,
@@ -83,7 +81,6 @@ function Body({
   signupId: string | null;
   ddMessage: string | null;
   ddOn: boolean;
-  forwarding: boolean;
   returned: boolean;
   gaveUp: boolean;
   cancelled: boolean;
@@ -144,9 +141,9 @@ function Body({
   }
   if (signup.status === "awaiting_payment") {
     const steps: ConfirmationStep[] = [
+      { label: "Payment sent to Stripe", status: "done" },
       { label: "Waiting for Stripe's confirmation", status: "active" },
       { label: "Starting your membership", status: "todo" },
-      ...(ddOn ? ([{ label: "Setting up your Direct Debit", status: "todo" }] as ConfirmationStep[]) : []),
     ];
     return (
       <Confirmation state="waiting" headingId="done-heading" eyebrow={`${signup.plan_name} membership`} title="Confirming your payment." lede="Stripe is confirming your card payment. This usually takes a few seconds, and this page updates by itself." steps={steps}>
@@ -264,9 +261,10 @@ function Body({
         </div>
       ) : ddOn && signupId ? (
         <div className="rounded-[1.25rem] bg-white p-5">
-          <p className="font-semibold">Set up your Direct Debit.</p>
+          <p className="eyebrow">Next step</p>
+          <p className="mt-1 font-semibold">Set up your Direct Debit.</p>
           <p className="mt-1">
-            Your first {BILLING_WEEKS} weeks are paid. Set up a Direct Debit now and your membership continues every {BILLING_WEEKS} weeks without you doing anything. Your bank details go straight to Stripe, not to us. You can cancel at any time.
+            Your first {BILLING_WEEKS} weeks are paid. With a Direct Debit, each {BILLING_WEEKS} weeks after that is collected from your bank without you doing anything. Your bank details go straight to Stripe, not to us, and you can cancel at any time.
           </p>
           {ddMessage ? (
             <p role="alert" className="mt-3 font-semibold">
@@ -279,7 +277,6 @@ function Body({
               Set up Direct Debit
             </PendingButton>
           </form>
-          {forwarding ? <p className="mt-3 text-sm font-semibold">Taking you to your bank details in a moment. Tap the button if you&apos;d rather go now.</p> : null}
           <p className="mt-3 text-sm">
             {signup.card
               ? `Prefer to pay by card? There's nothing more to do: your ${signup.card} is charged automatically every ${BILLING_WEEKS} weeks, and we email you 5 days before each payment.`
@@ -294,7 +291,7 @@ function Body({
           </p>
         </div>
       ) : null}
-      <Link href={SIGN_IN_PATH} className={buttonClasses(signup.dd === "active" || signup.card ? "action" : "secondary", "w-full px-6 sm:w-auto")}>
+      <Link href={SIGN_IN_PATH} className={buttonClasses(signup.dd !== "active" && ddOn && signupId ? "secondary" : signup.dd === "active" || signup.card ? "action" : "secondary", "w-full px-6 sm:w-auto")}>
         Sign in to your account
       </Link>
     </Confirmation>

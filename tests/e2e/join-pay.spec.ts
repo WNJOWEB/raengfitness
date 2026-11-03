@@ -87,11 +87,15 @@ test.describe("joining and paying online", () => {
     // The health and risk tick is kept with the sign-up, as with a class booking: the wording's version and when.
     expect(await sql(request, "select e.entity, e.detail->>'version' as version from akb_events e join akb_clients c on c.id = e.client_id where c.email = $1 and e.action = 'waiver_accepted'", [email])).toEqual([{ entity: "membership_signup", version: "2026-10-31" }]);
 
-    // Direct Debit is the first option: the page says so, forwards to Stripe's bank page after a few seconds on its own, and the saved card is the fallback.
+    // Direct Debit is the next step, with its own button: the confirmation stays put so it can be read (owner, 2026-11-03), and the saved card is the fallback.
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Taking you to your bank details in a moment")).toBeVisible();
-    await expect(page.getByText("Your bank details go straight to Stripe, not to us.")).toBeVisible();
+    await expect(page.getByText("Your bank details go straight to Stripe, not to us")).toBeVisible();
     await expect(page.getByText("Prefer to pay by card? There's nothing more to do: your Visa ending 4242 is charged automatically every 4 weeks")).toBeVisible();
+    await expect(page.getByText("Taking you to your bank details")).toHaveCount(0);
+    await page.waitForTimeout(7000);
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're in.");
+    await page.getByRole("button", { name: "Set up Direct Debit" }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`), { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Set up Direct Debit" })).toBeVisible();
     // Until Stripe says the Direct Debit is set up, the card is still the member's method.
@@ -174,7 +178,8 @@ test.describe("joining and paying online", () => {
     await page.goto(`${PAY}/account/direct-debit?returned=1`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Confirming your Direct Debit.");
     await expect(page.getByText("Bank details sent to Stripe (done)")).toBeVisible();
-    await expect(page.locator('meta[http-equiv="refresh"]')).toHaveAttribute("content", "3;url=/account/direct-debit?returned=1&n=1");
+    // It asks again by itself, in place (no full reload).
+    await expect(page).toHaveURL(`${PAY}/account/direct-debit?returned=1&n=1`, { timeout: 6000 });
     await page.screenshot({ path: test.info().outputPath("member-dd-confirming.png"), fullPage: true });
     // Anyone who didn't come back from Stripe goes to the plan page.
     await page.goto(`${PAY}/account/direct-debit`);
@@ -212,13 +217,13 @@ test.describe("joining and paying online", () => {
     await page.goto(`${PAY}/memberships/join/done?signup=${signup}&dd=returned`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Confirming your Direct Debit.");
     await expect(page.getByText("Waiting for Stripe's confirmation (in progress)")).toBeVisible();
-    await expect(page.locator('meta[http-equiv="refresh"]')).toHaveAttribute("content", /^3;url=\/memberships\/join\/done\?signup=.*&dd=returned&n=1$/);
+    await expect(page).toHaveURL(/\/memberships\/join\/done\?signup=.*&dd=returned&n=1$/, { timeout: 6000 });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: test.info().outputPath("done-confirming-dd.png"), fullPage: true });
     // After about 45 seconds of asking it stops, and says so in plain words.
     await page.goto(`${PAY}/memberships/join/done?signup=${signup}&dd=returned&n=15`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Still confirming your Direct Debit.");
-    await expect(page.locator('meta[http-equiv="refresh"]')).toHaveCount(0);
+    { const at = page.url(); await page.waitForTimeout(3500); expect(page.url()).toBe(at); }
     // The button still works.
     await page.goto(`${PAY}/memberships/join/done?signup=${signup}&dd=skipped`);
     await page.getByRole("button", { name: "Set up Direct Debit" }).click();
@@ -257,7 +262,8 @@ test.describe("joining and paying online", () => {
     await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=.*cancelled=1`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment cancelled.");
     await expect(page.getByText("You haven't been charged and your membership hasn't started.")).toBeVisible();
-    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // It doesn't ask again by itself: the address stays put.
+    { const at = page.url(); await page.waitForTimeout(3500); expect(page.url()).toBe(at); }
     await expect(page.getByText("You're in.")).toHaveCount(0);
     expect(await sql(request, "select count(*)::int as n from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email])).toEqual([{ n: 0 }]);
     expect(await emailsTo(request, email)).toEqual([]);
@@ -265,7 +271,8 @@ test.describe("joining and paying online", () => {
     const [signup] = await sql(request, "select s.id from akb_membership_signups s join akb_clients c on c.id = s.client_id where c.email = $1", [email]);
     await page.goto(`${PAY}/memberships/join/done?signup=${signup.id}&n=15`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Still confirming your payment.");
-    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // It doesn't ask again by itself: the address stays put.
+    { const at = page.url(); await page.waitForTimeout(3500); expect(page.url()).toBe(at); }
     // The same Stripe page is offered again: pay it and the membership starts, once.
     await page.goto(`${PAY}/memberships/join/done?signup=${signup.id}&cancelled=1`);
     await page.getByRole("link", { name: "Go back and pay" }).click();
