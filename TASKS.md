@@ -103,7 +103,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] **P1** Privacy notice page (`/privacy`; reviewed, owner 2026-11-03)
 - [ ] **P1** Test `https://ig.me/m/alex.kbells` on a phone; if it opens a DM reliably, use it as the primary contact button (not verifiable from the build environment)
 - [ ] **P2** Lighthouse on the preview URL
-- [ ] **P2** CI (GitHub Actions): `npm run check` + e2e on PRs
+- [x] **P2** CI (GitHub Actions, `.github/workflows/checks.yml`, 2026-11-03): lint, types, unit tests, build and the browser tests on every push and pull request; no secrets (local stand-ins)
 
 ### Acceptance criteria (Phase 1)
 - Headline, booking button and most of the hero video visible without scrolling on a 390×844 phone; whole video on 1024×768 / 1366×768 / 1440×900.
