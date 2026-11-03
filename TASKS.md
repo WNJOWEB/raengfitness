@@ -102,7 +102,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [ ] **P1** Real-device pass: iOS Safari (MP4 playback), Android Chrome, VoiceOver/TalkBack, 200% zoom
 - [x] **P1** Privacy notice page (`/privacy`; reviewed, owner 2026-11-03)
 - [ ] **P1** Test `https://ig.me/m/alex.kbells` on a phone; if it opens a DM reliably, use it as the primary contact button (not verifiable from the build environment)
-- [ ] **P2** Lighthouse on the preview URL
+- [x] **P2** Lighthouse on the live site (2026-11-03, phone): accessibility, best practices and SEO 100 on home, memberships, classes, booking and join (sign-in's SEO 69 is its deliberate noindex); performance 95 to 100, home 81 before preloading the hero poster, 93 to 98 after (LCP 2.1 to 3.0 s)
 - [x] **P2** CI (GitHub Actions, `.github/workflows/checks.yml`, 2026-11-03): lint, types, unit tests, build and the browser tests on every push and pull request; no secrets (local stand-ins)
 
 ### Acceptance criteria (Phase 1)
