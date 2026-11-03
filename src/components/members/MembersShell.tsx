@@ -15,6 +15,7 @@ import { ConfirmSheet } from "./ConfirmSheet";
 import { external, Icon, NEW_TAB } from "./icons";
 import { MembersDrawer } from "./MembersDrawer";
 import type { SheetPayload } from "./sheet";
+import { TabPending } from "./TabPending";
 import { Toast } from "./Toast";
 
 const PUBLIC_LINKS: [string, string][] = [
@@ -153,6 +154,7 @@ export function MembersShell({
               <Link href={MEMBERS_VIEW_PATH[v]} aria-current={v === view ? "page" : undefined} className="members-tab">
                 <Icon name={v} />
                 {v === "home" ? "Home" : v === "book" ? "Book" : "Plan"}
+                <TabPending />
               </Link>
             </li>
           ))}

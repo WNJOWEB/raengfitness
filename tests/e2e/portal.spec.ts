@@ -754,7 +754,7 @@ test("speed (2026-11-02): a coach tab tap answers at once with the page's shape 
   await page.waitForTimeout(1500);
   await page.getByRole("link", { name: "Schedule" }).first().click();
   await expect(page.locator('[aria-busy="true"]').first()).toBeAttached({ timeout: 700 });
-  await expect(page.getByText("Loading the page…")).toBeAttached();
+  await expect(page.getByRole("heading", { name: "Loading the page…" })).toBeAttached();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 10_000 });
   await expect(page).toHaveURL(/\/coach\/schedule/);
 });

@@ -141,7 +141,7 @@ test.describe("joining and paying online", () => {
     await page.goto(`${PAY}/account/plan`);
     // Alex's feedback (2026-11-03): no payment options or instructions on the plan page (renewals are automatic from joining); only cancelling stays.
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your membership.");
-    await expect(page.getByText("Cancel my membership")).toBeVisible();
+    await expect(page.getByText("Cancel my membership", { exact: true })).toBeVisible();
     for (const gone of ["Set up Direct Debit", "Switch to Direct Debit", "Change card", "Save a card"]) {
       await expect(page.getByRole("button", { name: gone })).toHaveCount(0);
     }

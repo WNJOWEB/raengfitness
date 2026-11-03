@@ -70,9 +70,9 @@ Asked by the owner: buttons and taps feel slow in the coach dashboard and the me
 ## What was done (2026-11-03)
 
 1. **Region:** `vercel.json` now has `"regions": ["dub1"]` (Dublin, next to the Irish database). Takes effect on the next production deploy.
-2. **Loading screens:** `/account` shows the members header, the tab bar and the shape of a page at once (`MembersLoading`); every coach page's plain "Loading…" line is now the same quiet skeleton (`CoachLoading`). The sign-in pages are left as they were.
+2. **Instant response to a tap:** in the members area the tapped tab looks pressed at once (`TabPending`, using Next's `useLinkStatus`), and so do the coach tabs; every coach page's plain "Loading…" line is now a quiet skeleton (`CoachLoading`). A full loading screen for the members pages was built and **removed again**: held-back pages need JavaScript to appear, so with scripts off the members pages came out half empty. The members pages are sent whole, as before, so booking and signing in still work without JavaScript.
 3. **Emails after the reply:** booking, cancelling (member and coach), cancelling a membership, the coach's pause, resume and cancel, and recording a payment now answer first and email afterwards (`after()`); the customer's and Alex's emails also go out together. Confirming or declining a request still waits, because it marks "told" only when the email went.
 4. **Pending buttons:** `PendingButton` on Set up Direct Debit, Change card, Save a card, Cancel my membership, Sign out, Save details, reminders and calendar.
 5. **Coach:** the sign-in check is shared within a request (`cache`), and the renewal catch-up runs after the page is sent instead of before it.
 
-Tests: a browser test slows the server by 1.5 s and checks that a tab tap shows the loading screen within 0.7 s and that a pressed button says so (members), and that a coach tab tap does too.
+Tests: a browser test slows the server by 1.5 s and checks that a tapped members tab looks pressed within 0.7 s and that a pressed button says so, and that a coach tab tap shows its skeleton within 0.7 s. The existing no-JavaScript booking test still passes.

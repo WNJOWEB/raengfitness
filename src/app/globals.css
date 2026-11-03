@@ -1208,3 +1208,25 @@
     opacity: 0.55;
   }
 }
+
+/* A tapped tab looks pressed at once, before the next page has arrived (TabPending). */
+.members-tab:has(.tab-pending) {
+  font-weight: 700;
+  opacity: 1;
+}
+.tab-pending {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 28px;
+  height: 2px;
+  margin-left: -14px;
+  border-radius: 2px;
+  background: var(--color-ink);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tab-pending {
+    transform-origin: left;
+    animation: mx-fill 900ms ease-out both;
+  }
+}

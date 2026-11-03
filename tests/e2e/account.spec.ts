@@ -542,7 +542,7 @@ test.describe("member accounts", () => {
     await expect(page).toHaveURL(/link=invalid/);
   });
 
-  test("speed (2026-11-02): a tab tap answers at once with the page's shape while a slow server answers, and a pressed button says so", async ({ page, request }) => {
+  test("speed (2026-11-02): a tapped tab looks pressed at once while a slow server answers, and a pressed button says so", async ({ page, request }) => {
     test.slow();
     const email = `speed-${Date.now()}@example.com`;
     await seedMember(request, email);
@@ -558,15 +558,12 @@ test.describe("member accounts", () => {
       if (!prefetch) await new Promise((r) => setTimeout(r, 1500));
       await route.continue();
     });
-    // Give the phone a moment to receive the loading shapes it prefetches for the tab bar.
-    await page.waitForTimeout(1500);
-
     await page.getByRole("navigation", { name: "Members" }).getByRole("link", { name: "Plan" }).click();
-    // At once (well before the 1.5 s): the loading screen, the same header and tab bar, nothing missing.
-    await expect(page.locator('[aria-busy="true"]').first()).toBeAttached({ timeout: 700 });
-    await expect(page.getByText("Loading your page…")).toBeAttached();
+    // At once (well before the 1.5 s): the tapped tab looks pressed, so the wait never looks like a missed tap.
+    await expect(page.locator(".tab-pending")).toBeAttached({ timeout: 700 });
+    await expect(page.getByRole("link", { name: /^Plan \(loading\)$/ })).toBeAttached();
     await expect(page.getByRole("heading", { level: 1, name: "Your membership." })).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+    await expect(page.locator(".tab-pending")).toHaveCount(0);
 
     // A button that talks to the server says it was pressed, and can't be pressed twice.
     await page.goto(`${PROD}/account/profile`);

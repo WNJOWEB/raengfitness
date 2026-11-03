@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/members/icons";
+import { TabPending } from "@/components/members/TabPending";
 
 const TABS = [
   { key: "today", label: "Today", href: "/coach", icon: "sun", owns: (p: string) => p === "/coach" },
@@ -27,6 +28,7 @@ export function CoachTabs({ inbox }: { inbox: number }) {
             <Link href={t.href} aria-current={t.owns(pathname) ? "page" : undefined} className="members-tab">
               <Icon name={t.icon} />
               {t.label}
+              <TabPending />
               {t.key === "inbox" && inbox > 0 ? <span className="sr-only">, {inbox} waiting</span> : null}
             </Link>
             {/* Outside the link: inactive tabs are dimmed, and the count must stay at full contrast. */}
