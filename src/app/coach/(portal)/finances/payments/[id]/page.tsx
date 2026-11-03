@@ -51,8 +51,8 @@ async function PaymentView({ params, searchParams }: { params: PageProps<"/coach
   return (
     <>
       <div className="mt-4 border-b border-ink pb-6">
-        <p className="eyebrow text-muted">Payment</p>
-        <h1 className="mt-2 font-display text-h2">{formatPence(p.amount_pence)}</h1>
+        <p className="members-eyebrow">Payment</p>
+        <h1 className="mt-2 text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance">{formatPence(p.amount_pence)}</h1>
         <p className="mt-2 flex flex-wrap items-center gap-2">
           <span>
             {formatDate(p.paid_on)} · {PAYMENT_METHOD[p.method]} from {client ? <TextLink href={`/coach/clients/${client.id}?tab=payments`}>{client.full_name}</TextLink> : "a deleted client"}

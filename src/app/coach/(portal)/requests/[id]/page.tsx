@@ -69,8 +69,8 @@ async function RequestView({ params, searchParams }: { params: PageProps<"/coach
   return (
     <>
       <div className="mt-4 flex flex-col gap-3 border-b border-ink pb-6">
-        <p className="eyebrow text-muted">{request.kind === "online" ? "Online coaching enquiry" : "Booking request"}</p>
-        <h1 className="font-display text-h2 break-words">{request.name}</h1>
+        <p className="members-eyebrow">{request.kind === "online" ? "Online coaching enquiry" : "Booking request"}</p>
+        <h1 className="mt-2 text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance break-words">{request.name}</h1>
         <p className="flex flex-wrap items-center gap-2">
           <Badge tone={request.status === "new" ? "strong" : "plain"}>{REQUEST_STATUS[request.status] ?? request.status}</Badge>
           <span className="text-sm text-muted">
@@ -379,7 +379,7 @@ async function Tell({ request }: { request: BookingRequest }) {
       <textarea id="message-text" readOnly rows={8} defaultValue={message.body} className="mt-2 block w-full border border-muted bg-white p-3 text-base" />
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {request.email ? (
-          <a href={mailtoLink(request.email, message)} className="inline-flex min-h-11 items-center bg-ink px-5 text-sm font-semibold uppercase tracking-[0.1em] text-paper border border-ink hover:bg-white hover:text-ink">
+          <a href={mailtoLink(request.email, message)} className="inline-flex min-h-11 items-center bg-ink rounded-full px-5 text-sm font-semibold text-paper border border-ink hover:bg-white hover:text-ink">
             Open in email
           </a>
         ) : null}

@@ -56,8 +56,8 @@ async function SubscriptionView({ params }: { params: PageProps<"/coach/online/[
   return (
     <>
       <div className="mt-4 border-b border-ink pb-6">
-        <p className="eyebrow text-muted">Online coaching</p>
-        <h1 className="mt-2 font-display text-h2 break-words">{client ? client.full_name : "Deleted client"}</h1>
+        <p className="members-eyebrow">Online coaching</p>
+        <h1 className="mt-2 text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance break-words">{client ? client.full_name : "Deleted client"}</h1>
         <p className="mt-2 flex flex-wrap items-center gap-2">
           <span>
             {s.plan} · {formatPence(s.price_pence)}/month

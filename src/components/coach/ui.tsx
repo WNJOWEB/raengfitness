@@ -94,7 +94,7 @@ const linkStyles = {
 
 export function ActionLink({ href, children, variant = "secondary", className }: { href: string; children: ReactNode; variant?: keyof typeof linkStyles; className?: string }) {
   return (
-    <Link href={href} className={cn("inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold uppercase tracking-[0.1em] transition-colors", linkStyles[variant], className)}>
+    <Link href={href} className={cn("inline-flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-semibold transition-colors", linkStyles[variant], className)}>
       {children}
     </Link>
   );
@@ -167,14 +167,14 @@ export function SearchBar({ action, children, label = "Search" }: { action: stri
   return (
     <form action={action} method="get" role="search" aria-label={label} className="mt-6 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
       {children}
-      <button type="submit" className="inline-flex min-h-11 items-center justify-center bg-ink px-5 text-sm font-semibold uppercase tracking-[0.1em] text-paper border border-ink hover:bg-white hover:text-ink">
+      <button type="submit" className="inline-flex min-h-11 items-center justify-center bg-ink rounded-full px-5 text-sm font-semibold text-paper border border-ink hover:bg-white hover:text-ink">
         Apply
       </button>
     </form>
   );
 }
 
-const plainControl = "mt-1 block min-h-11 w-full border border-muted bg-white px-3 text-base hover:border-ink focus-visible:border-ink sm:w-auto";
+const plainControl = "mt-1 block min-h-11 w-full rounded-2xl border border-muted bg-white px-3 text-base hover:border-ink focus-visible:border-ink sm:w-auto";
 
 export function SearchInput({ name, label, defaultValue, type = "search" }: { name: string; label: string; defaultValue?: string; type?: "search" | "date" }) {
   return (

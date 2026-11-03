@@ -83,8 +83,8 @@ async function ClientView({ params, searchParams }: { params: PageProps<"/coach/
     <>
       <div className="mt-4 flex flex-col gap-3 border-b border-ink pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="eyebrow text-muted">Client since {formatDate(client.created_at.slice(0, 10))}</p>
-          <h1 className="mt-2 font-display text-h2 break-words">{client.full_name}</h1>
+          <p className="members-eyebrow">Client since {formatDate(client.created_at.slice(0, 10))}</p>
+          <h1 className="mt-2 text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance break-words">{client.full_name}</h1>
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <Badge tone={client.status === "active" ? "strong" : "plain"}>{CLIENT_STATUS[client.status]}</Badge>
             {client.email ? (
@@ -147,15 +147,22 @@ async function Overview({ db, client, today }: TabProps) {
   if (!loaded.ok) return <LoadError message={loadMessage(loaded.error)} />;
   const [consents, events] = loaded.data;
   return (
+    <>
+    <Memberships db={db} client={client} today={today} />
     <div className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
       <Panel title="Details" id="details-heading">
-        <ActionForm action={updateClientAction} label="Client details">
-          <input type="hidden" name="client" value={client.id} />
-          <ClientFields client={client} />
-          <div>
-            <SubmitButton pendingLabel="Saving…">Save details</SubmitButton>
+        <details>
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold underline underline-offset-4">Edit details</summary>
+          <div className="mt-4">
+            <ActionForm action={updateClientAction} label="Client details">
+              <input type="hidden" name="client" value={client.id} />
+              <ClientFields client={client} />
+              <div>
+                <SubmitButton pendingLabel="Saving…">Save details</SubmitButton>
+              </div>
+            </ActionForm>
           </div>
-        </ActionForm>
+        </details>
       </Panel>
       <div>
         <Panel title="Consent records" id="consent-heading">
@@ -212,6 +219,7 @@ async function Overview({ db, client, today }: TabProps) {
         </Panel>
       </div>
     </div>
+    </>
   );
 }
 

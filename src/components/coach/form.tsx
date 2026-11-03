@@ -88,7 +88,7 @@ function useField(name: string) {
 }
 
 const control =
-  "mt-2 block w-full min-h-11 border border-muted bg-white px-3 py-2 text-base text-ink transition-colors duration-150 hover:border-ink focus-visible:border-ink aria-[invalid=true]:border-2 aria-[invalid=true]:border-ink disabled:opacity-60";
+  "mt-2 block w-full min-h-11 rounded-2xl border border-muted bg-white px-3 py-2 text-base text-ink transition-colors duration-150 hover:border-ink focus-visible:border-ink aria-[invalid=true]:border-2 aria-[invalid=true]:border-ink disabled:opacity-60";
 
 function Label({ htmlFor, children, optional }: { htmlFor: string; children: ReactNode; optional?: boolean }) {
   return (
@@ -263,7 +263,7 @@ export function SubmitButton({ children, pendingLabel, name, value, variant = "p
       value={value}
       disabled={pending}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center px-5 text-sm font-semibold uppercase tracking-[0.1em] transition-colors duration-150 disabled:cursor-wait disabled:opacity-60",
+        "inline-flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-semibold transition-colors duration-150 disabled:cursor-wait disabled:opacity-60",
         buttonStyles[variant],
         className,
       )}

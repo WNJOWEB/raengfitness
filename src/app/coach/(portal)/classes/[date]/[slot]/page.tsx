@@ -79,8 +79,8 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
   return (
     <>
       <div className="mt-4 border-b border-ink pb-6">
-        <p className="eyebrow text-muted">{CLASS_NAME}</p>
-        <h1 className="mt-2 font-display text-h2">{formatLongDate(date)}</h1>
+        <p className="members-eyebrow">{CLASS_NAME}</p>
+        <h1 className="mt-2 text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance">{formatLongDate(date)}</h1>
         <p className="mt-2 flex flex-wrap items-center gap-2">
           <span>
             {formatClock(slot.start)}–{formatClock(ends)}

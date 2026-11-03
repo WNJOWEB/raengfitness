@@ -66,8 +66,8 @@ async function SessionView({ params, searchParams }: { params: PageProps<"/coach
   return (
     <>
       <div className="mt-4 border-b border-ink pb-6">
-        <p className="eyebrow text-muted">One-to-one session</p>
-        <h1 className="mt-2 font-display text-h2">{formatLongDate(start.date)}</h1>
+        <p className="members-eyebrow">One-to-one session</p>
+        <h1 className="mt-2 text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance">{formatLongDate(start.date)}</h1>
         <p className="mt-2 flex flex-wrap items-center gap-2">
           <span>
             {formatClock(start.time)}–{formatClock(toLondon(s.ends_at).time)} with{" "}

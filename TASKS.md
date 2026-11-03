@@ -266,7 +266,8 @@ See Coach portal below.
 - [x] Coach Finances: This week / This month / Last month buttons first; custom dates and the service filter behind "Custom dates or one service"
 - [x] Coach Classes: next two weeks, then the calendar, then Class size; the month list is behind "List the month"
 - [x] Coach page headings (Classes, Finances, Clients and the rest) match the main tabs (small caps label, big heading)
-- [ ] Still to audit: the coach drawer, booking sheets, Plan page Direct Debit and card states, the public site
+- [x] Second round (2026-11-03): coach buttons and fields rounded to match the tabs; client profile opens with the membership and folds the edit form under "Edit details"; detail pages (client, class, session, membership, payment, request) use the same heading style. Coach drawer, Plan (card), Book, Contact and Join checked: fine
+- [ ] Not re-checked by picture: the member booking sheet, account menu and Plan with Direct Debit (covered by the browser tests)
 
 ## Alex's decisions (2026-11-02, via the owner)
 - [x] Refund policy: **option B**. No cash refunds for late cancellations, missed classes or a started membership period. If Alex cancels a class someone paid for and they can't make another date, it is refunded to their card; a payment taken in error is always refunded. On the site: `content/policy.ts` (`refunds`, `coachCancellations`), the FAQ "Can I get a refund?" and the cancelled-class email.
