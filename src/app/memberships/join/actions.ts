@@ -77,7 +77,7 @@ export async function submitMembershipRequest(
     if (checkout.reason === "membership_running") {
       return {
         status: "error",
-        message: "Your cancelled membership still has credits to use this period. Sign in to your account to book with them; you can join again once they're used or the period ends. To restart sooner, message Alex.",
+        message: "Your cancelled membership still has credits to use this period. Sign in to your account to book with them, or restart your membership from the Plan page there. You can join again once they're used or the period ends.",
         errors: { email: "This email's cancelled membership still has credits to use." },
       };
     }

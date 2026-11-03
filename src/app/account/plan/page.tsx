@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { site } from "@/content/site";
-import { formatLongDate, type DateKey } from "@/lib/availability/dates";
+import { addDays, formatLongDate, type DateKey } from "@/lib/availability/dates";
 import { formatDayMonth } from "@/lib/coach/time";
 import { formatPenceShort } from "@/lib/membership";
 import { pageMetadata } from "@/lib/metadata";
@@ -9,7 +9,8 @@ import { periodProgress } from "@/lib/member-view";
 import { AccountUnavailable, ClassCredits, PayAsYouGo, PaymentDue } from "@/components/members/Cards";
 import { PlanCoaching } from "@/components/members/CoachingCards";
 import { MembersShell } from "@/components/members/MembersShell";
-import { cancelMembership } from "../actions";
+import { cancelMembership, restartMembership } from "../actions";
+import { canRestartMembership } from "@/lib/stripe/direct-debit";
 import { loadMembers } from "../data";
 import { PendingButton } from "@/components/ui/PendingButton";
 import { RevealPhone } from "@/components/ui/RevealPhone";
@@ -36,6 +37,15 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
   if (!d.overview.ok) return <AccountUnavailable />;
   const o = d.overview.data;
   const m = o.membership;
+  // Cancelled while the paid period runs (and wasn't refunded): it can be restarted (owner, 2026-11-03).
+  const restartable = m?.status === "cancelled" ? await canRestartMembership(d.member.db, d.member.clientId) : false;
+  const renewsOn = o.period ? formatLongDate(addDays(o.period.end as DateKey, 1)) : null;
+  const howPaid =
+    d.dd.status === "active" && d.dd.method === "card"
+      ? `${formatPenceShort(m?.price_pence ?? 0)} will be charged to your ${d.dd.label || "card"} that day, and we'll email you 5 days before.`
+      : d.dd.status === "active" && d.dd.method === "bacs"
+        ? `${formatPenceShort(m?.price_pence ?? 0)} will be collected by Direct Debit a few days before.`
+        : `We'll email you a link to pay ${formatPenceShort(m?.price_pence ?? 0)} then.`;
 
   return (
     <MembersShell view="plan" overview={o} settings={d.settings} coaching={d.coaching} now={d.now} done={d.done} error={d.error} sheet={null}>
@@ -102,6 +112,23 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
             ))}
           </dl>
 
+          {restartable ? (
+            <section aria-labelledby="restart-heading" className="rounded-3xl bg-white p-5.5">
+              <p className="members-eyebrow">Changed your mind?</p>
+              <h2 id="restart-heading" className="mt-1 text-2xl font-extrabold tracking-[-0.02em]">
+                Restart your membership
+              </h2>
+              <p className="mt-1 text-ink">
+                Your {m.plan_name} membership carries on as before and your credits stay as they are. Nothing is taken now.
+                {renewsOn ? ` It renews on ${renewsOn}. ${howPaid}` : ""}
+              </p>
+              <form action={restartMembership}>
+                <PendingButton pendingLabel="Restarting…" className="members-btn members-btn-solid mt-4 w-full sm:w-auto">
+                  Restart my membership
+                </PendingButton>
+              </form>
+            </section>
+          ) : null}
         </>
       ) : (
         <>

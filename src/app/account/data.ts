@@ -20,6 +20,7 @@ export const DONE: Record<string, string> = {
   booked_class_credit: "Booked with your class credit. Nothing to pay.",
   profile_saved: "Saved. Your details are updated.",
   card_updated: "Thanks, your card is saved. Your renewals will be charged to it.",
+  membership_restarted: "Your membership is back on. Your credits are as they were, and it renews at the end of this period.",
   membership_cancelled: "Your membership is cancelled. You keep the credits you've paid for until the end of this period, and nothing more will be taken.",
   reminders_on: "Class reminders are on. You'll get an email on the morning of each class you're booked on.",
   reminders_off: "Class reminders are off.",
@@ -52,6 +53,7 @@ export const ERRORS: Record<string, string> = {
   card_unavailable: "Sorry, the card page couldn't be opened just now. Please try again in a minute, or message Alex.",
   direct_debit_unavailable: "Sorry, Direct Debit set-up couldn't be opened just now. Please try again in a minute, or message Alex.",
   failed: "Sorry, something went wrong. Please try again, or message Alex.",
+  not_restartable: "This membership can't be restarted now (its period has ended, or it was refunded). Join again from the memberships page.",
 };
 
 type Params = Record<string, string | string[] | undefined>;

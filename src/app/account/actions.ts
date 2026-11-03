@@ -41,7 +41,7 @@ import { sendNotice } from "@/lib/notices";
 import { DONE } from "./data";
 import { sendEmailWithRetry } from "@/lib/send-email";
 import { stripeConfig } from "@/lib/stripe/config";
-import { cancelOwnMembership, endUnusedDirectDebit, startCardUpdate, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
+import { cancelOwnMembership, endUnusedDirectDebit, restartOwnMembership, startCardUpdate, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
 
 export type SignInField = "email" | "code";
 
@@ -318,6 +318,34 @@ export async function updateRenewalCard(): Promise<void> {
   );
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=card_unavailable`);
   redirect(result.url);
+}
+
+/**
+ * The member restarts the membership they cancelled, while the period they
+ * paid for runs (owner, 2026-11-03): same plan, credits kept, nothing charged
+ * now; it renews on the usual date. Member and Alex are told.
+ */
+export async function restartMembership(): Promise<void> {
+  const member = await requireMember();
+  const result = await restartOwnMembership(member.db, member.clientId);
+  if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=not_restartable`);
+  after(async () => {
+    try {
+      const who = await whoIs(member);
+      if (who) {
+        const renews = result.renewsOn ? ` It renews on ${formatLongDate(result.renewsOn as DateKey)}.` : "";
+        await sendNotice({
+          label: "membership-restart",
+          key: `membership-restart/${member.clientId}/${minute()}`,
+          customer: { email: who.email, subject: "Your RAENG membership is back on", text: `Your membership is back on. Your credits are as they were.${renews} To stop it again, cancel from your account at any time.` },
+          alex: { subject: `Membership restarted: ${who.name}`, text: `${who.name} (${who.email}) restarted the membership they had cancelled, from their account.${renews}` },
+        });
+      }
+    } catch {
+      console.error("Membership restart emails failed");
+    }
+  });
+  redirect(`${ACCOUNT_PATH}/plan?done=membership_restarted`);
 }
 
 /** The member cancels their own membership: nothing more is taken; credits already given stay until the period ends. */

@@ -4,7 +4,7 @@ import { addDays, londonToday } from "../coach/time";
 import { testDb } from "../coach/test-support";
 import { beginSignupDirectDebit, sendRenewalLinks, startCheckout } from "../membership-checkout";
 import type { MembershipRequest } from "../membership-request";
-import { cancelOwnMembership, collectDirectDebits, endUnusedDirectDebit, endUnusedDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
+import { canRestartMembership, cancelOwnMembership, collectDirectDebits, restartOwnMembership, endUnusedDirectDebit, endUnusedDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
 import { notifyDirectDebitSetUp } from "./dd-notice";
 import { deliverStripeEvent, stripeStandIn, testStripe } from "./test-support";
 
@@ -377,5 +377,49 @@ describe("cancelling the membership cancels the Direct Debit (owner, 2026-11-03)
     expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
     expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("kept");
     expect(detaches(s)).toHaveLength(0);
+  });
+});
+
+describe("restarting a cancelled membership from the account (owner, 2026-11-03)", () => {
+  it("while the paid period runs: active again, credits kept, nothing charged, renews as before; once only", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    const [before] = await sql("select next_period_on::text as next from akb_memberships where id = $1", [m.membership]);
+    await sql("update akb_membership_periods set credits = 8 where membership_id = $1", [m.membership]);
+    expect(await canRestartMembership(db, m.client)).toBe(false); // still active
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    expect(await canRestartMembership(db, m.client)).toBe(true);
+    const payments = await sql("select count(*)::int as n from akb_payments where client_id = $1", [m.client]);
+
+    expect(await restartOwnMembership(db, m.client)).toEqual({ ok: true, renewsOn: before.next });
+    expect(await sql("select status, cancelled_on from akb_memberships where id = $1", [m.membership])).toEqual([{ status: "active", cancelled_on: null }]);
+    expect(await sql("select credits_left from akb_membership_period_balances where membership_id = $1", [m.membership])).toEqual([{ credits_left: 8 }]);
+    expect(await sql("select count(*)::int as n from akb_payments where client_id = $1", [m.client])).toEqual(payments);
+    expect(await sql("select count(*)::int as n from akb_events where entity_id = $1 and action = 'restarted_by_member'", [m.membership])).toEqual([{ n: 1 }]);
+    // A second tap does nothing more.
+    expect(await restartOwnMembership(db, m.client)).toEqual({ ok: false });
+    // Renewals carry on as for any active member.
+    await setUpDirectDebit(s, m);
+    await dueIn(m, 3);
+    await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
+    expect(await intentCalls(s, m)).toHaveLength(1);
+  });
+
+  it("not once the period's payment was refunded (join again and pay instead)", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    const [p] = await sql("select p.charge_id from akb_membership_periods p where p.membership_id = $1", [m.membership]);
+    await rpc<null>(db, "akb_void_charge", { p_charge: p.charge_id, p_reason: "Membership cancelled and refunded" });
+    expect(await canRestartMembership(db, m.client)).toBe(false);
+    expect(await restartOwnMembership(db, m.client)).toEqual({ ok: false });
+  });
+
+  it("not once the period has ended", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    await sql("update akb_membership_periods set period_start = $2::date - 28, period_end = $2::date - 1 where membership_id = $1", [m.membership, londonToday()]);
+    expect(await canRestartMembership(db, m.client)).toBe(false);
   });
 });

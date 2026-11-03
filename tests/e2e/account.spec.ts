@@ -534,6 +534,19 @@ test.describe("member accounts", () => {
     await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject === "Membership cancelled: Member Tester")).toBe(true);
     // Nothing is left to cancel or set up.
     await expect(page.getByRole("button", { name: "Yes, cancel my membership" })).toHaveCount(0);
+
+    // Changed their mind while the period runs: restart it (owner, 2026-11-03). Credits kept, nothing taken now.
+    const restart = page.getByRole("region", { name: "Restart your membership" });
+    await expect(restart).toContainText("Nothing is taken now.");
+    await expect(restart).toContainText("It renews on");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath("plan-restart.png"), fullPage: true });
+    await restart.getByRole("button", { name: "Restart my membership" }).click();
+    await expect(page.getByRole("status")).toContainText("Your membership is back on.");
+    expect((await sql(request, "select m.status from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email]))[0]).toEqual({ status: "active" });
+    await expect(page.getByRole("region", { name: "Restart your membership" })).toHaveCount(0);
+    await expect(page.locator("summary", { hasText: "Cancel my membership" })).toBeVisible();
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG membership is back on")).toBe(true);
   });
 
   test("an address with no account gets the same answer and no email", async ({ page, request }) => {

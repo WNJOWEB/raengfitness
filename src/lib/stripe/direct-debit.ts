@@ -403,3 +403,19 @@ export async function endUnusedDirectDebits(db: Db, stripe: StripeConfig, fetchI
   for (const r of rows.data) if ((await endUnusedDirectDebit(db, stripe, r.client_id, fetchImpl)) === "ended") n += 1;
   return n;
 }
+
+/** Whether the member can restart their cancelled membership today (migration 20261113000000). */
+export async function canRestartMembership(db: Db, clientId: string): Promise<boolean> {
+  const r = await rpc<string | null>(db, "akb_member_restartable", { p_client: clientId });
+  return r.ok && Boolean(r.data);
+}
+
+/**
+ * The member restarts their cancelled membership while its paid period runs:
+ * active again, same plan, credits kept, nothing charged now; it renews on the
+ * usual date. Returns that date.
+ */
+export async function restartOwnMembership(db: Db, clientId: string): Promise<{ ok: true; renewsOn: string | null } | { ok: false }> {
+  const r = await rpc<string | null>(db, "akb_member_restart_membership", { p_client: clientId });
+  return r.ok ? { ok: true, renewsOn: r.data } : { ok: false };
+}
