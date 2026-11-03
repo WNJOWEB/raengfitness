@@ -121,7 +121,8 @@ export const membershipCancellation = {
  * caused by its own negligence (Unfair Contract Terms Act 1977; Consumer
  * Rights Act 2015), so it says it does not try to; what it does is record
  * that the person is fit to take part, knows the risks, agrees to follow the
- * coach, and is responsible for their own belongings and choices. Change
+ * coach, and is responsible for their own belongings and choices. Reviewed
+ * (owner, 2026-11-03). Change
  * `version` whenever the wording changes: it is stored with each acceptance.
  */
 export const classWaiver = {

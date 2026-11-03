@@ -3,6 +3,7 @@ import { rpc, type Db } from "../coach/db";
 import { addDays, londonToday } from "../coach/time";
 import { testDb } from "../coach/test-support";
 import { beginSignupDirectDebit, sendRenewalLinks, startCheckout } from "../membership-checkout";
+import { createChargeLink } from "./sync";
 import type { MembershipRequest } from "../membership-request";
 import { canRestartMembership, cancelOwnMembership, collectDirectDebits, restartOwnMembership, endUnusedDirectDebit, endUnusedDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
 import { notifyDirectDebitSetUp } from "./dd-notice";
@@ -258,6 +259,46 @@ describe("failed collections", () => {
     const before = s.emails.length;
     await notifyDirectDebitFailures(db, env, s.fetchImpl);
     expect(s.emails.length).toBe(before);
+  });
+
+  it("paying what's owed restarts the paused membership by itself (owner, 2026-11-03)", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    await setUpDirectDebit(s, m);
+    await dueIn(m, 2);
+    const today = londonToday();
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await collectDirectDebits(db, stripe, addDays(today, (attempt - 1) * 3), s.fetchImpl);
+      const [col] = await sql("select payment_intent_id from akb_dd_collections c join akb_membership_periods p on p.id = c.period_id where p.membership_id = $1", [m.membership]);
+      await deliverStripeEvent(db, s.api, "payment_intent.payment_failed", { id: String(col.payment_intent_id) });
+    }
+    expect((await sql("select status from akb_memberships where id = $1", [m.membership]))[0].status).toBe("paused");
+    await notifyDirectDebitFailures(db, env, s.fetchImpl);
+    expect(s.emails.find((e) => e.to[0] === m.email && e.subject === "Your RAENG membership is paused")?.text).toContain("pay what's owed from your account and it restarts straight away");
+
+    // The Plan page's payment: a Stripe page for the owed period (not "being collected").
+    await sql("update akb_membership_periods set period_start = $2::date - 1, period_end = $2::date + 26 where membership_id = $1 and period_start > $2::date - 20", [m.membership, today]);
+    const due = await rpc<{ charge_id: string; outstanding_pence: number }>(db, "akb_member_payment_due", { p_client: m.client });
+    if (!due.ok || !due.data) throw new Error("nothing due");
+    // As the Plan page makes it (paymentDue), through the Stripe stand-in: a page to pay, not "being collected".
+    const link = await createChargeLink(db, stripe, due.data.charge_id, s.fetchImpl, { renewal: { clientId: m.client, email: m.email, name: m.name } });
+    if (!link.ok) throw new Error(`no link: ${link.reason}`);
+    const session = link.url.split("/").pop()!;
+    s.api.pay(session, due.data.outstanding_pence);
+    expect((await deliverStripeEvent(db, s.api, "checkout.session.completed", { id: session })).status).toBe(200);
+    expect((await sql("select status from akb_memberships where id = $1", [m.membership]))[0].status).toBe("active");
+    expect(await sql("select count(*)::int as n from akb_events where entity_id = $1 and action = 'resumed_after_payment'", [m.membership])).toEqual([{ n: 1 }]);
+    expect(await sql("select paused from akb_dd_collections c join akb_membership_periods p on p.id = c.period_id where p.membership_id = $1", [m.membership])).toEqual([{ paused: false }]);
+  });
+
+  it("a pause Alex set himself isn't lifted by a payment", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    expect((await rpc<null>(db, "akb_set_membership_status", { p_membership: m.membership, p_status: "paused", p_on: londonToday() })).ok).toBe(true);
+    const [p] = await sql("select charge_id from akb_membership_periods where membership_id = $1", [m.membership]);
+    // Something allocated to the (already paid) period changes nothing.
+    await sql("update akb_payment_allocations set amount_pence = amount_pence where charge_id = $1", [p.charge_id]);
+    expect((await sql("select status from akb_memberships where id = $1", [m.membership]))[0].status).toBe("paused");
   });
 
   it("doesn't retry sooner than three days, and a refused collection counts as a failed try", async () => {

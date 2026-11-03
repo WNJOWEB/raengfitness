@@ -7,6 +7,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - **Membership portal and coach portal: make them easy on a phone for Alex and members** (owner's focus; phone audit below in "Portal audit")
 - Google Search Console and Google Business Profile (owner and Alex together)
 - Alex's bio, portrait, qualifications, testimonials (nothing shown until supplied)
+- Decided 2026-11-03 (owner): keep the closing Ready to start band; privacy notice and health and risk terms reviewed; a paused membership restarts by itself once its owed payment is made
 - Live payment tests done (2026-11-03): class pay, cancel and refund; Starter join by card, Direct Debit set-up, cancel and refund; coach card link. Still to watch: the first real Direct Debit collection clear (needs a real member on Direct Debit; the demo ones are cancelled)
 - Paused-membership restart policy; small group coaching details; what 1:1 coaching includes
 - Real-phone check of both portals; compare speed after the Dublin deploy
@@ -99,7 +100,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] **P0** Check the next Vercel preview serves the homepage (framework fix) — DEPLOYMENT.md "Get a preview URL" — done: the site serves from production
 - [x] **P0** In the owning project: production branch, `SITE_URL` (Production), `CONTENT_PREVIEW=true` (Preview only) — done: `SITE_URL` set on Production
 - [ ] **P1** Real-device pass: iOS Safari (MP4 playback), Android Chrome, VoiceOver/TalkBack, 200% zoom
-- [x] **P1** Privacy notice page (`/privacy`; needs Alex's review)
+- [x] **P1** Privacy notice page (`/privacy`; reviewed, owner 2026-11-03)
 - [ ] **P1** Test `https://ig.me/m/alex.kbells` on a phone; if it opens a DM reliably, use it as the primary contact button (not verifiable from the build environment)
 - [ ] **P2** Lighthouse on the preview URL
 - [ ] **P2** CI (GitHub Actions): `npm run check` + e2e on PRs
@@ -240,7 +241,7 @@ See Coach portal below.
 - [x] Alex's feedback, 2026-10-29 (home, memberships, nav layout, online coaching off, small group coaching named): see DESIGN.md. Not yet live until merged
 - [ ] **Needs Alex** Small group coaching: price, group size, times and how to book (today it only links to FAQs & Contact)
 - [x] **Needs Alex** Membership cancellation: how to cancel a membership and when it takes effect (his mockup had a placeholder; nothing is invented) — done: members cancel from the Plan page; stops the next period, credits stay until the period ends
-- [ ] **Needs Alex** Whether the closing "Ready to start? Book now" band stays (he says there are too many Book now buttons)
+- [x] **Needs Alex** Whether the closing "Ready to start? Book now" band stays: kept (owner, 2026-11-03)
 - [ ] P2 When online coaching returns: set `onlineCoachingOffered` true, remove the two redirects in next.config.ts, restore the routes in lib/routes.ts, the nav link, the home row and the tests (git history)
 - [x] Class size (owner, 2026-10-29): 12 places per class, Alex changes it in Classes → Class size (a date can have its own), "Fully booked" on home tiles and /classes with the next class offered. Migration `20261102000000_akb_default_class_capacity.sql` **not yet applied**
 - [x] The owner's redesign brief (2026-10-28) is done: home Why kettlebells and Classes, /classes, /coaching, /online-coaching and /about are built, and the owner is happy with them (2026-10-29); nothing left to redesign from the zip
@@ -256,7 +257,7 @@ See Coach portal below.
 - [ ] **P2** A "Sign out everywhere" button for a member in the coach area (today: `select akb_member_end_sessions('<client id>')`)
 - [x] Payments moved from Square to Stripe (2026-10-30, owner): Checkout, signed webhook, refunds, reconcile; Direct Debit memberships (card first, then Bacs Direct Debit every 4 weeks, early collection, retries then pause, member cancel any time). Built against a Stripe stand-in.
 - [x] Renewals by saved card (2026-11-02, owner): first payment keeps the card with an agreement on Stripe's page, charged on the day each period starts, reminder 5 days before, receipt after, retries day 3 and 7 then pause, change card from the plan page, cancel any time. Direct Debit is on (`DIRECT_DEBIT_ENABLED=true`, 2026-11-03).
-- [ ] P1 Owner: confirm the renewal wording on Stripe's page and in the emails; (wording signed off 2026-11-03). Still open: whether a member who pays their way out of a paused membership should restart automatically (today Alex restarts it)
+- [x] P1 Owner: renewal wording signed off 2026-11-03; a membership paused for failed payments restarts by itself once what's owed is paid (owner, 2026-11-03; migration `20261114000000`; the Plan page and the paused email say so). A pause Alex sets himself stays his
 - [x] Stripe account created, live key and webhook set, `20261104000000_akb_stripe.sql` and `20261105000000_akb_direct_debit.sql` applied (2026-11-02). `20261106000000_akb_card_renewals.sql` applied. Bacs Direct Debit approved and on
 - [x] **P1** Owner/Alex: confirm the membership cancellation wording (content/policy.ts `membershipCancellation`): collections are submitted ~6 days before each period, so cancelling later than that still takes the next payment — done: wording signed off by Alex (owner, 2026-11-03)
 - [x] Participation and risk disclaimer ticked before every booking (2026-10-31, owner): wording in `content/policy.ts` (`classWaiver`), required on the server, version and time stored with the booking

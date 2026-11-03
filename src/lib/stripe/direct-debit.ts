@@ -189,7 +189,7 @@ export async function notifyDirectDebitFailures(db: Db, env: Env = process.env, 
           `We couldn't take ${owed} ${card ? `from your card${how.ok && how.data.label ? ` (${how.data.label})` : ""}` : "by Direct Debit"} for your membership period ${formatDate(p.period_start as DateKey)} to ${formatDate(p.period_end as DateKey)}.`,
           "",
           r.paused
-            ? "We've tried three times, so your membership is paused and no more payments will be taken. Reply to this email and we'll sort it out together."
+            ? `We've tried three times, so your membership is paused and no more payments will be taken. To start it again, pay what's owed from your account and it restarts straight away: ${memberLinkOrigin(env)}${ACCOUNT_PATH}/plan\n\nOr reply to this email and we'll sort it out together.`
             : card
               ? `We'll try again ${nextTry(r.attempts)}. To fix it now, pay the amount from your account: paying there also saves the new card for your next renewals. Your bank may also need you to confirm the payment.`
               : "We'll try again in a few days. Please make sure the money is in your account. If it keeps failing, your membership will be paused.",

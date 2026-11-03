@@ -71,7 +71,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
             {m.status !== "active" ? (
               <p className="mt-1 font-semibold">
                 {m.status === "paused"
-                  ? "Paused. Message Alex to start it again."
+                  ? d.due && !d.due.direct
+                    ? "Paused because a payment didn't go through. Pay what's owed above and it starts again straight away."
+                    : "Paused. Message Alex to start it again."
                   : `Cancelled${m.cancelled_on ? ` from ${formatLongDate(m.cancelled_on as DateKey)}` : ""}. Credits you have can still be used until the end of this period.`}
               </p>
             ) : null}
