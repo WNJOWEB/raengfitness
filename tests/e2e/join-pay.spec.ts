@@ -52,9 +52,10 @@ test.describe("joining and paying online", () => {
     const email = `payer-${Date.now()}@example.com`;
     await toCheckStep(page, "regular", "Online Payer", email);
     await expect(page.getByRole("heading", { name: "Check and pay" })).toBeVisible();
-    await expect(page.getByText("Stripe's secure page takes £65 for your first 4 weeks")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Key terms" })).toContainText("£65 today, then £65 every 4 weeks, taken automatically until you cancel.");
+    await expect(page.getByText("Next, you'll pay securely on Stripe's page. Your membership starts as soon as it's paid.")).toBeVisible();
     // Renewals are automatic now (no payment link by email every 4 weeks).
-    await expect(page.getByText("your membership renews automatically every 4 weeks until you cancel")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Key terms" })).toContainText("A period you've already paid for isn't refunded.");
     await expect(page.getByText("payment link by email")).toHaveCount(0);
     // The total sits above the button, which says what happens next (not "Pay £65").
     await expect(page.getByText("Total today")).toBeVisible();

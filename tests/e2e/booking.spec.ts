@@ -434,9 +434,15 @@ test.describe("production configuration", () => {
     await continueButton(page).click();
 
     await expect(page.getByRole("heading", { name: "Check and send" })).toBeFocused();
-    await expect(page.getByText("Unused credits expire at the end of each membership period and do not roll over.")).toBeVisible();
-    await expect(page.getByText("Less than 24 hours before class:")).toBeVisible();
-    await expect(page.getByText(/tells you how to pay for your first 4 weeks \(£65\)/)).toBeVisible();
+    // The key terms, short, with the full wording a tap away.
+    const keyTerms = page.getByRole("region", { name: "Key terms" });
+    await expect(keyTerms).toContainText("tells you how to pay £65 for your first 4 weeks. It then renews every 4 weeks until you cancel.");
+    await expect(keyTerms).toContainText("8 every 4 weeks, one per class");
+    await expect(keyTerms).toContainText("Unused credits don't roll over.");
+    await expect(keyTerms).toContainText("Later, or not turning up: the credit is used.");
+    await expect(keyTerms).toContainText("Any time from your account");
+    await expect(keyTerms.getByRole("link", { name: "Read the full terms (opens in a new tab)" })).toHaveAttribute("href", "/terms");
+    await expect(page.getByText("Nothing to pay now.", { exact: true })).toBeVisible();
     await page.waitForTimeout(3100);
     // Agreeing to the terms is required.
     await page.getByRole("button", { name: "Send request" }).click();

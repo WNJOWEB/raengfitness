@@ -17,7 +17,7 @@ import { formatPenceShort, planFigures } from "@/lib/membership";
 import type { MembershipField } from "@/lib/membership-request";
 import { formatTime } from "@/lib/schedule";
 import { BILLING_WEEKS, membershipPlans } from "@/content/memberships";
-import { cancellationPolicy, classWaiver, membershipTerms } from "@/content/policy";
+import { classWaiver, membershipKeyTerms } from "@/content/policy";
 import { cn } from "@/lib/cn";
 import { ActionBar, ChoiceGroup, CompactSummary, DemoNotice, Disclosure, PrivacyLine, StepHeading, Stepper, SubmissionMeta, TextField, useSubmissionMeta, WaiverField } from "./ui";
 
@@ -399,7 +399,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
             <section aria-labelledby="step-heading">
               <StepHeading
                 ref={headingRef}
-                intro={pay ? `Read how your membership works, then pay for your first ${BILLING_WEEKS} weeks.` : "Read how your membership works, then send your request. Nothing to pay now."}
+                intro={pay ? `Check your membership and the key terms, then pay for your first ${BILLING_WEEKS} weeks.` : "Check your membership and the key terms, then send your request."}
               >
                 <span id="step-heading">{pay ? "Check and pay" : "Check and send"}</span>
               </StepHeading>
@@ -456,52 +456,20 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                   ))}
                 </dl>
 
-                <div className="card px-5 py-5 sm:px-6">
-                  <h3 className="card-title">How your membership works</h3>
-                  <ul className="mt-3 space-y-2">
-                    {membershipTerms.map((t) => (
-                      <li key={t} className="flex gap-2">
-                        <span aria-hidden="true">·</span>
-                        {t}
-                      </li>
+                <section aria-labelledby="key-terms" className="card px-5 py-5 sm:px-6">
+                  <h3 id="key-terms" className="card-title">Key terms</h3>
+                  <dl className="mt-3 divide-y divide-line">
+                    {membershipKeyTerms(plan, BILLING_WEEKS, pay).map((t) => (
+                      <div key={t.title} className="py-3 first:pt-0">
+                        <dt className="font-semibold">{t.title}</dt>
+                        <dd className="mt-0.5 text-sm">{t.body}</dd>
+                      </div>
                     ))}
-                  </ul>
-                  <h3 className="card-title mt-6">Cancelling a class</h3>
-                  <ul className="mt-3 space-y-2">
-                    {cancellationPolicy.cancellations.map((c) => (
-                      <li key={c.when} className="flex gap-2">
-                        <span aria-hidden="true">·</span>
-                        <span>
-                          <span className="font-semibold">{c.when}:</span> {c.outcome}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link href="/memberships#cancellation" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4 hover:no-underline">
-                    Read the full policy<span className="sr-only"> (opens in a new tab)</span>
+                  </dl>
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4 hover:no-underline">
+                    Read the full terms<span className="sr-only"> (opens in a new tab)</span>
                   </Link>
-                </div>
-
-                <div className="card px-5 py-5 sm:px-6">
-                  {pay ? (
-                    <>
-                      <h3 className="card-title">Pay securely with Stripe</h3>
-                      <p className="mt-1.5">
-                        Next, Stripe&apos;s secure page takes £{plan.priceGbp} for your first {BILLING_WEEKS} weeks. Your membership starts as soon as
-                        it&apos;s paid{chosenClass ? " and your first class is booked" : ""}. After that, your membership renews automatically every{" "}
-                        {BILLING_WEEKS} weeks until you cancel.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="card-title">Nothing to pay now</h3>
-                      <p className="mt-1.5">
-                        Alex confirms your membership by email, sets it up and tells you how to pay for your first {BILLING_WEEKS} weeks
-                        (£{plan.priceGbp}).
-                      </p>
-                    </>
-                  )}
-                </div>
+                </section>
 
                 <div>
                   <label className={cn("card flex cursor-pointer items-start gap-4 px-5 py-4 sm:px-6", errors.agree && "outline-2 outline-ink")}>
@@ -519,7 +487,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                       aria-describedby={errors.agree ? "agree-error" : undefined}
                       className="mt-0.5 size-6 shrink-0 accent-ink"
                     />
-                    <span>I&apos;ve read and agree to the membership terms and the class cancellation policy, and understand my membership renews every {BILLING_WEEKS} weeks.</span>
+                    <span>I&apos;ve read and agree to the membership terms and the class cancellation policy, and understand my membership renews every {BILLING_WEEKS} weeks until I cancel.</span>
                   </label>
                   {errors.agree ? (
                     <p id="agree-error" className="mt-2 text-sm font-semibold">
@@ -553,12 +521,22 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                 <input type="hidden" name="message" value={details.message} />
                 <SubmissionMeta meta={meta} />
 
-                {pay && !demo ? (
-                  <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
-                    <span>Total today</span>
-                    <span>£{plan.priceGbp}</span>
-                  </p>
-                ) : null}
+                <div className="rule-list space-y-2 pt-4 text-sm">
+                  {pay ? (
+                    <>
+                      <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
+                        <span>Total today</span>
+                        <span>£{plan.priceGbp}</span>
+                      </p>
+                      <p>
+                        Next, you&apos;ll pay securely on Stripe&apos;s page. Your membership starts as soon as it&apos;s paid
+                        {chosenClass ? " and your first class is booked" : ""}.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="font-semibold">Nothing to pay now.</p>
+                  )}
+                </div>
                 <PrivacyLine action={demo ? "continuing" : "sending this request"} booking={pay && !demo} what="membership" />
                 <ActionBar
                   onBack={() => setStep(2)}

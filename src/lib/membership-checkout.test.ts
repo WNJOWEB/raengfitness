@@ -166,3 +166,70 @@ describe("joining and paying online", () => {
     expect(api.emails.length).toBe(before);
   });
 });
+
+describe("a Stripe refund of a membership's first period", () => {
+  /** Joins and pays; returns what the refund and the checks need. */
+  async function paidMember(api: ReturnType<typeof services>, withClass: boolean) {
+    const first = withClass ? upcomingClass() : null;
+    const data = request({ plan: "starter", ...(first ? { session: first.cls.label, classDate: first.date } : {}) });
+    const out = await startCheckout(db, stripe, data, first?.cls ?? null, { agreedAt: new Date().toISOString(), idempotencyKey: `join-key-${n}`, env, fetchImpl: api.fetchImpl });
+    if (!out.ok) throw new Error(out.reason);
+    const session = await orderFor(out.signupId);
+    const intent = api.stripeApi.pay(session, 4000);
+    expect((await deliver(api, session)).status).toBe(200);
+    const [row] = await sql(
+      "select s.membership_id, s.charge_id, p.id as period_id from akb_membership_signups s join akb_membership_periods p on p.membership_id = s.membership_id where s.id = $1",
+      [out.signupId],
+    );
+    return { intent, membership: String(row.membership_id), charge: String(row.charge_id), period: String(row.period_id), signupId: out.signupId };
+  }
+  const cancel = (membership: string) => rpc<null>(db, "akb_set_membership_status", { p_membership: membership, p_status: "cancelled", p_on: londonToday() });
+  const refund = async (api: ReturnType<typeof services>, intent: string, amount: number) =>
+    (await deliverStripeEvent(db, api.stripeApi, "refund.updated", { id: api.stripeApi.refund(intent, amount) })).body;
+  const state = async (t: { charge: string; period: string }) => ({
+    ...(await sql("select outstanding_pence, voided_at is not null as voided from akb_charge_balances where id = $1", [t.charge]))[0],
+    ...(await sql("select credits, credits_left from akb_membership_period_balances where id = $1", [t.period]))[0],
+  });
+
+  it("cancelled, then refunded in full: nothing owed and the unused credits end, once", async () => {
+    const api = services();
+    const t = await paidMember(api, false);
+    expect((await cancel(t.membership)).ok).toBe(true);
+    const id = api.stripeApi.refund(t.intent, 4000);
+    expect((await deliverStripeEvent(db, api.stripeApi, "refund.updated", { id })).body).toEqual({ outcome: "recorded" });
+    expect((await deliverStripeEvent(db, api.stripeApi, "refund.updated", { id })).body).toEqual({ outcome: "duplicate" });
+    expect(await state(t)).toEqual({ outstanding_pence: 0, voided: true, credits: 0, credits_left: 0 });
+    expect(await sql("select detail->>'withdrawn' as withdrawn from akb_events where entity_id = $1 and action = 'credits_withdrawn'", [t.membership])).toEqual([{ withdrawn: "4" }]);
+  });
+
+  it("a credit already used (the first class) stays used; only the rest end", async () => {
+    const api = services();
+    const t = await paidMember(api, true);
+    expect((await cancel(t.membership)).ok).toBe(true);
+    expect(await refund(api, t.intent, 4000)).toEqual({ outcome: "recorded" });
+    expect(await state(t)).toEqual({ outstanding_pence: 0, voided: true, credits: 1, credits_left: 0 });
+  });
+
+  it("refunded in part, or while the membership is still running: as before, the fee is owed again for the coach to decide", async () => {
+    const api = services();
+    const part = await paidMember(api, false);
+    expect((await cancel(part.membership)).ok).toBe(true);
+    expect(await refund(api, part.intent, 1000)).toEqual({ outcome: "recorded" });
+    expect(await state(part)).toEqual({ outstanding_pence: 1000, voided: false, credits: 4, credits_left: 4 });
+
+    const running = await paidMember(api, false);
+    expect(await refund(api, running.intent, 4000)).toEqual({ outcome: "recorded" });
+    expect(await state(running)).toEqual({ outstanding_pence: 4000, voided: false, credits: 4, credits_left: 4 });
+  });
+
+  it("the health and risk tick is kept with the sign-up once, without anything about health", async () => {
+    const api = services();
+    const t = await paidMember(api, false);
+    const { recordJoinWaiver } = await import("./membership-checkout");
+    await recordJoinWaiver(db, t.signupId, { version: "2026-10-31", at: "2026-11-03T12:00:00.000Z" });
+    await recordJoinWaiver(db, t.signupId, { version: "2026-10-31", at: "2026-11-03T12:00:00.000Z" });
+    expect(await sql("select entity, detail from akb_events where entity_id = $1 and action = 'waiver_accepted'", [t.signupId])).toEqual([
+      { entity: "membership_signup", detail: { version: "2026-10-31", at: "2026-11-03T12:00:00.000Z" } },
+    ]);
+  });
+});

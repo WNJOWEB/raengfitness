@@ -51,6 +51,35 @@ export const membershipKeyFacts = [
 ] as const;
 
 /**
+ * The key terms shown just before joining (owner, 2026-11-03: "industry
+ * standard, not too clunky, with all the relevant information"). A short form
+ * of the wording above and of `membershipCancellation` below; nothing new. The
+ * full wording is on /terms, linked beside it.
+ */
+export function membershipKeyTerms(plan: { priceGbp: number; credits: number }, weeks: number, payOnline: boolean): { title: string; body: string }[] {
+  return [
+    {
+      title: "Payment",
+      body: payOnline
+        ? `£${plan.priceGbp} today, then £${plan.priceGbp} every ${weeks} weeks, taken automatically until you cancel.`
+        : `Alex confirms your membership and tells you how to pay £${plan.priceGbp} for your first ${weeks} weeks. It then renews every ${weeks} weeks until you cancel.`,
+    },
+    {
+      title: "Class credits",
+      body: `${plan.credits} every ${weeks} weeks, one per class, for any Monday, Wednesday or Saturday class. Unused credits don't roll over.`,
+    },
+    {
+      title: "Cancelling a class",
+      body: "24 hours or more before: your credit comes back. Later, or not turning up: the credit is used.",
+    },
+    {
+      title: "Cancelling your membership",
+      body: "Any time from your account, or by messaging Alex. We email you before each payment. A period you've already paid for isn't refunded.",
+    },
+  ];
+}
+
+/**
  * Membership terms in Alex's mockup wording (via the owner, 2026-10-29), shown
  * on /memberships. His "Membership cancellation" block was placeholder text, so
  * the owner wrote how it works (2026-10-30): `membershipCancellation` below.
