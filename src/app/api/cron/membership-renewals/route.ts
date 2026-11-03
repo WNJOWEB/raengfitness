@@ -5,7 +5,7 @@ import { rpc } from "@/lib/coach/db";
 import { renewMemberships } from "@/lib/coach/memberships";
 import { londonToday } from "@/lib/coach/time";
 import { sendRenewalLinks } from "@/lib/membership-checkout";
-import { collectDirectDebits, notifyDirectDebitFailures, notifyRenewalPayments, sendRenewalReminders } from "@/lib/stripe/direct-debit";
+import { collectDirectDebits, notifyDirectDebitFailures, notifyRenewalPayments, endUnusedDirectDebits, sendRenewalReminders } from "@/lib/stripe/direct-debit";
 import { stripeConfig } from "@/lib/stripe/config";
 
 /**
@@ -48,8 +48,10 @@ export async function GET(request: Request) {
   const ddNotified = stripe ? await notifyDirectDebitFailures(db).catch(() => 0) : null;
   const renewedNotices = stripe ? await notifyRenewalPayments(db).catch(() => 0) : null;
   const reminders = stripe ? await sendRenewalReminders(db, stripe, londonToday()).catch(() => 0) : null;
+  // Direct Debits no longer needed (membership cancelled, nothing still collecting) are cancelled with Stripe.
+  const ddEnded = stripe ? await endUnusedDirectDebits(db, stripe).catch(() => 0) : null;
   return NextResponse.json(
-    { ok: true, periodsCreated: result.data, signInsRemoved: tidied.ok ? tidied.data : null, payLinksSent: links ? links.sent : null, directDebitsSubmitted: collections ? collections.submitted : null, directDebitFailures: ddNotified, renewalReceipts: renewedNotices, renewalReminders: reminders, classHoldsReleased: holds.ok ? holds.data : null },
+    { ok: true, periodsCreated: result.data, signInsRemoved: tidied.ok ? tidied.data : null, payLinksSent: links ? links.sent : null, directDebitsSubmitted: collections ? collections.submitted : null, directDebitFailures: ddNotified, renewalReceipts: renewedNotices, renewalReminders: reminders, directDebitsEnded: ddEnded, classHoldsReleased: holds.ok ? holds.data : null },
     { headers: noStore },
   );
 }

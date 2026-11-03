@@ -4,7 +4,7 @@ import { addDays, londonToday } from "../coach/time";
 import { testDb } from "../coach/test-support";
 import { beginSignupDirectDebit, sendRenewalLinks, startCheckout } from "../membership-checkout";
 import type { MembershipRequest } from "../membership-request";
-import { collectDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
+import { cancelOwnMembership, collectDirectDebits, endUnusedDirectDebit, endUnusedDirectDebits, notifyDirectDebitFailures, startDirectDebitSetup } from "./direct-debit";
 import { notifyDirectDebitSetUp } from "./dd-notice";
 import { deliverStripeEvent, stripeStandIn, testStripe } from "./test-support";
 
@@ -311,5 +311,71 @@ describe("refunds", () => {
     s.api.refund(intent, 1000);
     expect((await deliverStripeEvent(db, s.api, "charge.refunded", { id: "ch_dd", payment_intent: intent })).body).toEqual({ outcome: "recorded" });
     expect((await sql("select count(*)::int as n from akb_refunds r join akb_payments p on p.id = r.payment_id where p.provider_payment_id = $1", [intent]))[0].n).toBe(1);
+  });
+});
+
+describe("cancelling the membership cancels the Direct Debit (owner, 2026-11-03)", () => {
+  const ddRow = async (client: string) => (await sql("select dd_status, method from akb_stripe_customers where client_id = $1", [client]))[0];
+  const detaches = (s: ReturnType<typeof services>) => s.api.calls.filter((c) => c.method === "POST" && /\/v1\/payment_methods\/[\w-]+\/detach$/.test(c.path));
+
+  it("detaches the Bacs method at Stripe (which cancels the mandate), marks it ended and logs it, once", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    await setUpDirectDebit(s, m);
+    // While the membership runs, nothing is ended.
+    expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("kept");
+    expect(detaches(s)).toHaveLength(0);
+
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("ended");
+    expect(detaches(s)).toHaveLength(1);
+    expect(await ddRow(m.client)).toEqual({ dd_status: "ended", method: "bacs" });
+    expect(await sql("select detail->>'reason' as reason from akb_events where client_id = $1 and action = 'direct_debit_ended'", [m.client])).toEqual([{ reason: "membership_cancelled" }]);
+    // Again (the daily job, a double tap): nothing more.
+    expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("kept");
+    expect(detaches(s)).toHaveLength(1);
+    // And nothing is collected for a cancelled membership.
+    await dueIn(m, 3);
+    await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
+    expect(await intentCalls(s, m)).toHaveLength(0);
+  });
+
+  it("a collection still on its way through Bacs is left to finish; the daily job ends the Direct Debit once it has", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    await setUpDirectDebit(s, m);
+    await dueIn(m, 3);
+    await collectDirectDebits(db, stripe, londonToday(), s.fetchImpl);
+    const [col] = await sql("select c.payment_intent_id from akb_dd_collections c join akb_membership_periods p on p.id = c.period_id where p.membership_id = $1", [m.membership]);
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("kept");
+    expect(await ddRow(m.client)).toMatchObject({ dd_status: "active" });
+
+    const intent = String(col.payment_intent_id);
+    s.api.succeedIntent(intent);
+    await deliverStripeEvent(db, s.api, "payment_intent.succeeded", { id: intent });
+    expect(await endUnusedDirectDebits(db, stripe, s.fetchImpl)).toBeGreaterThanOrEqual(1);
+    expect(await ddRow(m.client)).toMatchObject({ dd_status: "ended" });
+  });
+
+  it("if Stripe can't be reached it stays as it was, and the daily job tries again", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    await setUpDirectDebit(s, m);
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    s.api.setDown(true);
+    expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("failed");
+    expect(await ddRow(m.client)).toMatchObject({ dd_status: "active" });
+    s.api.setDown(false);
+    expect(await endUnusedDirectDebits(db, stripe, s.fetchImpl)).toBeGreaterThanOrEqual(1);
+    expect(await ddRow(m.client)).toMatchObject({ dd_status: "ended" });
+  });
+
+  it("a card member has nothing to end", async () => {
+    const s = services();
+    const m = await paidMember(s);
+    expect(await cancelOwnMembership(db, m.client, londonToday())).toMatchObject({ ok: true });
+    expect(await endUnusedDirectDebit(db, stripe, m.client, s.fetchImpl)).toBe("kept");
+    expect(detaches(s)).toHaveLength(0);
   });
 });

@@ -282,6 +282,7 @@ See Coach portal below.
 - [x] Booking journeys made consistent (owner, 2026-11-03): the membership join now asks for a phone number (required, as on a class booking), requires the health and risk tick before joining (stored with the sign-up, as with a class booking), shows the same short summary at the top on phones, says the email signs you in next time, and uses the same wording for browser fill-in and privacy. One shared summary and health-and-risk component (`components/booking/ui.tsx`)
 - [x] Join check step in the usual short form (owner, 2026-11-03): your choices, four key terms (payment, credits, cancelling a class, cancelling the membership; `membershipKeyTerms` in content/policy.ts, a short form of the published wording), a link to the full terms on /terms, then the two ticks, the total and the pay button
 - [x] A full Stripe refund of a cancelled membership's period cancels its fee and ends its unused credits (migration `20261110000000`), as for a cancelled class
+- [x] Cancelling a membership cancels its Direct Debit with Stripe (owner, 2026-11-03): straight away, or by the daily job once a collection in progress has cleared
 
 ## Stripe sandbox (2026-11-03, owner: test the payments properly)
 - [x] A real-Stripe test suite is built (`npm run test:sandbox`): pay page settings, saved-card renewal, declined card, card needing the bank's confirmation, refunds. Free, local database, no live data. Details in DEPLOYMENT.md.

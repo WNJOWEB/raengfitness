@@ -12,6 +12,8 @@ import { getMembership, MEMBERSHIP_STATUSES, returnCredit, setMembershipStatus, 
 import { formatDate } from "@/lib/coach/time";
 import { getRequest } from "@/lib/coach/requests";
 import { sendNotice } from "@/lib/notices";
+import { stripeConfig } from "@/lib/stripe/config";
+import { endUnusedDirectDebit } from "@/lib/stripe/direct-debit";
 import { FormReader } from "@/lib/coach/validate";
 
 const CHECK = "Please check the highlighted fields.";
@@ -54,6 +56,12 @@ export async function membershipStatusAction(_prev: ActionState, formData: FormD
   if (!found.data) return failure("That membership no longer exists.");
   const result = await setMembershipStatus(ctx.db, id, status, on);
   if (!result.ok) return failure(dbMessage(result.error));
+  // Cancelled: the member's Direct Debit is cancelled with Stripe too (owner, 2026-11-03; the daily job retries).
+  const stripe = status === "cancelled" ? stripeConfig() : null;
+  if (stripe) {
+    const clientId = found.data.client_id;
+    after(() => endUnusedDirectDebit(ctx.db, stripe, clientId).then(() => undefined, () => undefined));
+  }
   // The member is told what Alex did to their membership, after the reply (best effort; the change itself has happened).
   const person = await getClient(ctx.db, found.data.client_id);
   if (person.ok && person.data) {

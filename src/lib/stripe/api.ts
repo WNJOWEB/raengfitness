@@ -369,6 +369,18 @@ export interface StripePaymentMethod {
   label: string;
 }
 
+/**
+ * Detaches a saved payment method from its customer. For a Bacs Direct Debit
+ * this cancels its mandate: Stripe tells the bank (the member's banking app
+ * then shows it as cancelled) and emails the member, as Bacs requires.
+ */
+export function detachPaymentMethod(config: StripeConfig, id: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<{ id: string }>> {
+  return call(config, "POST", `/v1/payment_methods/${encodeURIComponent(id)}/detach`, {}, (json) => {
+    const mid = str(obj(json)?.id);
+    return mid ? { id: mid } : null;
+  }, fetchImpl, `detach-${id}`);
+}
+
 const BRANDS: Record<string, string> = { visa: "Visa", mastercard: "Mastercard", amex: "American Express", discover: "Discover", diners: "Diners Club", jcb: "JCB", unionpay: "UnionPay" };
 
 export function getPaymentMethod(config: StripeConfig, id: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<StripePaymentMethod>> {

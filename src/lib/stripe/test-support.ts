@@ -67,6 +67,14 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
       }
       return Response.json(intents.get(intentByKey.get(key)!));
     }
+    // Detaching a saved method (for Bacs, this cancels its mandate). Stripe refuses a second detach.
+    const detach = path.match(/^\/v1\/payment_methods\/([\w-]+)\/detach$/);
+    if (init.method === "POST" && detach) {
+      const m = methods.get(detach[1]);
+      if (!m || m.detached) return Response.json({ error: {} }, { status: m ? 400 : 404 });
+      methods.set(detach[1], { ...m, detached: true, customer: null });
+      return Response.json(methods.get(detach[1]));
+    }
     const oneMethod = path.match(/^\/v1\/payment_methods\/([\w-]+)$/);
     if (init.method !== "POST" && oneMethod) return methods.has(oneMethod[1]) ? Response.json(methods.get(oneMethod[1])) : Response.json({ error: {} }, { status: 404 });
     const oneIntent = path.match(/^\/v1\/payment_intents\/([\w-]+)$/);

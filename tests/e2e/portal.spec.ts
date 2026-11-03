@@ -624,7 +624,7 @@ test("memberships: start the plan chosen on the site, pay places with credits, 2
     expect(renew.status()).toBe(200);
     expect(renew.headers()["cache-control"]).toContain("no-store");
     const body = (await renew.json()) as Record<string, unknown>;
-    expect(Object.keys(body).sort()).toEqual(["classHoldsReleased", "directDebitFailures", "directDebitsSubmitted", "ok", "payLinksSent", "periodsCreated", "renewalReceipts", "renewalReminders", "signInsRemoved"]);
+    expect(Object.keys(body).sort()).toEqual(["classHoldsReleased", "directDebitFailures", "directDebitsEnded", "directDebitsSubmitted", "ok", "payLinksSent", "periodsCreated", "renewalReceipts", "renewalReminders", "signInsRemoved"]);
     // Stripe isn't configured here, so no pay links are sent (null, not 0).
     expect(body.payLinksSent).toBeNull();
     // The same daily run tidies member sign-ins (a count, not null: the clean-up ran).

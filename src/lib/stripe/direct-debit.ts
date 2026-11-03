@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { bookingDeliveryConfig } from "../booking-request";
-import { rpc, select, update, type Db } from "../coach/db";
+import { insert, rpc, select, update, type Db } from "../coach/db";
 import { formatDate, type DateKey } from "../coach/time";
 import type { Env } from "../env";
 import { ACCOUNT_PATH, memberLinkOrigin } from "../member-auth";
 import { formatPenceShort } from "../membership";
 import { sendNotice } from "../notices";
 import { sendEmail } from "../send-email";
-import { createDirectDebitPayment, createDirectDebitSetupSession } from "./api";
+import { createDirectDebitPayment, createDirectDebitSetupSession, detachPaymentMethod } from "./api";
 import type { StripeConfig } from "./config";
 import { ensureStripeCustomer, renewalConsent } from "./customer";
 import { syncPaymentIntent } from "./sync";
@@ -356,4 +356,50 @@ export async function cancelOwnMembership(db: Db, clientId: string, today: DateK
   if (!done.ok) return { ok: false };
   const period = await select<{ period_end: string }>(db, "akb_membership_periods", [["select", "period_end"], ["membership_id", `eq.${membership.id}`], ["order", "period_end.desc"], ["limit", "1"]]);
   return { ok: true, endsOn: period.ok ? (period.data[0]?.period_end ?? null) : null };
+}
+
+/**
+ * Ends a member's Direct Debit once nothing needs it (owner, 2026-11-03: cancel
+ * the Direct Debit when the membership is cancelled, as gyms do): no active or
+ * paused membership, and no collection still on its way through Bacs (that one
+ * is left to finish; the daily job ends the Direct Debit afterwards). Detaching
+ * the payment method at Stripe cancels the mandate; then it is marked ended.
+ * Returns "ended", "kept" (still needed, or nothing to end) or "failed" (Stripe
+ * couldn't be reached: the daily job tries again). Safe to repeat.
+ */
+export async function endUnusedDirectDebit(db: Db, stripe: StripeConfig, clientId: string, fetchImpl: typeof fetch = fetch): Promise<"ended" | "kept" | "failed"> {
+  const rows = await select<{ method: string; dd_status: string; payment_method_id: string | null; environment: string; mandate_id: string | null }>(db, "akb_stripe_customers", [
+    ["select", "method,dd_status,payment_method_id,environment,mandate_id"],
+    ["client_id", `eq.${clientId}`],
+  ]);
+  const dd = rows.ok ? rows.data[0] : undefined;
+  if (!dd || dd.method !== "bacs" || dd.dd_status !== "active" || !dd.payment_method_id || dd.environment !== stripe.environment) return "kept";
+  const live = await select<{ id: string }>(db, "akb_memberships", [["select", "id"], ["client_id", `eq.${clientId}`], ["status", "in.(active,paused)"], ["limit", "1"]]);
+  if (!live.ok || live.data.length > 0) return "kept";
+  const inFlight = await select<{ period_id: string }>(db, "akb_dd_collections", [["select", "period_id"], ["client_id", `eq.${clientId}`], ["status", "eq.submitted"], ["limit", "1"]]);
+  if (!inFlight.ok || inFlight.data.length > 0) return "kept";
+  const detached = await detachPaymentMethod(stripe, dd.payment_method_id, fetchImpl);
+  // Already detached at Stripe (404 or 400): treat as ended.
+  if (!detached.ok && detached.status !== 404 && detached.status !== 400) {
+    console.error(`Ending a Direct Debit failed (${detached.status ?? "network"})`);
+    return "failed";
+  }
+  const done = await update(db, "akb_stripe_customers", [["client_id", `eq.${clientId}`], ["dd_status", "eq.active"]], { dd_status: "ended", updated_at: new Date().toISOString() });
+  if (!done.ok) return "failed";
+  await insert(db, "akb_events", { client_id: clientId, entity: "membership", entity_id: null, action: "direct_debit_ended", detail: { reason: "membership_cancelled", mandate: dd.mandate_id } });
+  return "ended";
+}
+
+/** The daily job: ends every Direct Debit no longer needed (see endUnusedDirectDebit). Returns how many ended. */
+export async function endUnusedDirectDebits(db: Db, stripe: StripeConfig, fetchImpl: typeof fetch = fetch): Promise<number> {
+  const rows = await select<{ client_id: string }>(db, "akb_stripe_customers", [
+    ["select", "client_id"],
+    ["method", "eq.bacs"],
+    ["dd_status", "eq.active"],
+    ["environment", `eq.${stripe.environment}`],
+  ]);
+  if (!rows.ok) return 0;
+  let n = 0;
+  for (const r of rows.data) if ((await endUnusedDirectDebit(db, stripe, r.client_id, fetchImpl)) === "ended") n += 1;
+  return n;
 }

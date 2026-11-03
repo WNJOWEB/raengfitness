@@ -38,7 +38,7 @@ import { sendNotice } from "@/lib/notices";
 import { DONE } from "./data";
 import { sendEmailWithRetry } from "@/lib/send-email";
 import { stripeConfig } from "@/lib/stripe/config";
-import { cancelOwnMembership, startCardUpdate, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
+import { cancelOwnMembership, endUnusedDirectDebit, startCardUpdate, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
 
 export type SignInField = "email";
 
@@ -296,8 +296,10 @@ export async function cancelMembership(): Promise<void> {
   const member = await requireMember();
   const result = await cancelOwnMembership(member.db, member.clientId, londonToday());
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=failed`);
-  // The emails go after the reply.
+  // The emails go after the reply, and the Direct Debit is cancelled with Stripe (owner, 2026-11-03; the daily job retries).
   after(async () => {
+    const stripe = stripeConfig();
+    if (stripe) await endUnusedDirectDebit(member.db, stripe, member.clientId).catch(() => undefined);
     try {
       const who = await whoIs(member);
       if (who) {
