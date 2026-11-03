@@ -87,7 +87,8 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] **P1** Remove `BOOKING_DEMO` from Vercel Preview so previews show the real flow (or keep it to demo) — done: `BOOKING_DEMO` is set to false on Preview (2026-11-02)
 - [x] **P1** Capacity per class and holiday weeks, so full/cancelled dates can be shown — done: 15 places, per class if needed
 - [x] **P0** Alex reviews `/privacy` and agrees to confirm requests by reply — done: privacy wording signed off by Alex (owner, 2026-11-03)
-- [ ] **P0** Account ownership: Vercel (plan suitable for commercial use), GitHub repo, domain — DEPLOYMENT.md
+- [x] **P0** Vercel plan suitable for commercial use: owner 2026-11-03: being sorted as the project moves to Alex's own Vercel account
+- [ ] **P0** Account ownership moving to Alex: Vercel project, GitHub repo, domain, Stripe, Supabase, Resend (DEPLOYMENT.md). Environment variables and the Stripe webhook address need re-checking after any move
 - [x] **P0** Choose and register the domain — done: raengfitness.co.uk is live
 - [ ] **P0** Confirm or withhold timetable, duration, prices (CONTENT.md questions). Site launches safely either way
 - [x] **P1** Confirm people shown in the hero video are happy to appear; confirm footage from other gyms is fine — done: owner 2026-11-03: Alex keeps written consent from anyone shown; content going forward is mostly generic kettlebell and gym pictures
