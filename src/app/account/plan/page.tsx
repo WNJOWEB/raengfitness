@@ -102,19 +102,6 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
             ))}
           </dl>
 
-          {m.status !== "cancelled" ? (
-            <details className="rounded-3xl bg-white p-5">
-              <summary className="cursor-pointer font-semibold">Cancel my membership</summary>
-              <p className="mt-3 text-ink">
-                You can cancel at any time. Nothing more will be taken. You keep the credits you&apos;ve already paid for until the end of this period, and they aren&apos;t refunded.
-              </p>
-              <form action={cancelMembership}>
-                <PendingButton pendingLabel="Cancelling…" className="members-btn mt-4 w-full sm:w-auto">
-                  Yes, cancel my membership
-                </PendingButton>
-              </form>
-            </details>
-          ) : null}
         </>
       ) : (
         <>
@@ -162,6 +149,20 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
           </li>
         </ul>
       </section>
+
+      {m && m.status !== "cancelled" ? (
+        <details className="pb-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm underline underline-offset-4">Cancel my membership</summary>
+          <div className="mt-2 rounded-3xl bg-white p-5">
+            <p className="text-ink">You can cancel at any time. Nothing more will be taken. You keep the credits you&apos;ve already paid for until the end of this period, and they aren&apos;t refunded.</p>
+            <form action={cancelMembership}>
+              <PendingButton pendingLabel="Cancelling…" className="members-btn mt-4 w-full sm:w-auto">
+                Yes, cancel my membership
+              </PendingButton>
+            </form>
+          </div>
+        </details>
+      ) : null}
     </MembersShell>
   );
 }
