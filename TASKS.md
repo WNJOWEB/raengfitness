@@ -280,7 +280,9 @@ See Coach portal below.
 
 ## Stripe sandbox (2026-11-03, owner: test the payments properly)
 - [x] A real-Stripe test suite is built (`npm run test:sandbox`): pay page settings, saved-card renewal, declined card, card needing the bank's confirmation, refunds. Free, local database, no live data. Details in DEPLOYMENT.md.
-- [ ] Owner: add the sandbox's secret key (`sk_test_...`, Stripe sandbox, Developers, API keys) to the cloud environment as `STRIPE_TEST_SECRET_KEY` (the environment's settings, never in chat), then start a new session and ask for the sandbox tests to be run. Not yet run against the real sandbox.
+- [x] Owner added the sandbox key (`STRIPE_TEST_SECRET_KEY`) and the suite was run in a new session: 5 of 5 passed against Stripe's real test account (2026-11-03). Checked independently in the sandbox: the class pay page lasted exactly 35 minutes with the back-arrow address, the replaced page was closed (expired), the membership page carried the saved-card agreement, the saved card was charged off-session for £65, a declined card was tried on three separate days, and a card needing the bank's confirmation failed as a try, never a payment.
+- [ ] Not covered by the sandbox suite: paying on Stripe's hosted page in a browser (3-D Secure in the page), Bacs Direct Debit, and Stripe's own delivery of webhooks to the live address (real events were replayed into the site, signed locally).
+- [x] (old note) Owner: add the sandbox's secret key (`sk_test_...`, Stripe sandbox, Developers, API keys) to the cloud environment as `STRIPE_TEST_SECRET_KEY` (the environment's settings, never in chat), then start a new session and ask for the sandbox tests to be run. Not yet run against the real sandbox.
 
 ## Demo members (2026-11-03, owner)
 - [x] Both demo members cancelled and set to Former; their booked classes cancelled; the demo Direct Debit's bank account removed in Stripe (so nothing is collected on 24 or 30 November). The records stay, because payment and booking history can't be erased.
