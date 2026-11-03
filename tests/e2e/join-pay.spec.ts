@@ -145,10 +145,10 @@ test.describe("joining and paying online", () => {
     await page.goto(`${PAY}/account/sign-in`);
     await page.getByRole("textbox", { name: "Your email" }).fill(email);
     await page.waitForTimeout(3100);
-    await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+    await page.getByRole("button", { name: "Email me a sign-in code" }).click();
     await expect(page.getByRole("status")).toContainText("Check your email");
-    await expect.poll(async () => (await emailsTo(request, email)).filter((e) => e.payload.subject === "Your RAENG sign-in link").length).toBe(1);
-    const [signIn] = (await emailsTo(request, email)).filter((e) => e.payload.subject === "Your RAENG sign-in link");
+    await expect.poll(async () => (await emailsTo(request, email)).filter((e) => e.payload.subject.startsWith("Your RAENG sign-in code: ")).length).toBe(1);
+    const [signIn] = (await emailsTo(request, email)).filter((e) => e.payload.subject.startsWith("Your RAENG sign-in code: "));
     const link = new URL(/https?:\/\/\S+\/account\/confirm\?token=[A-Za-z0-9_-]{43}/.exec(signIn.payload.text)![0]);
     await page.goto(`${PAY}${link.pathname}${link.search}`);
     // Opening the link doesn't sign in on its own (email scanners open links): the button does.

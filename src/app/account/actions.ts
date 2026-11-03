@@ -17,14 +17,17 @@ import {
   bookWithCredit,
   cancelPaidPlace,
   cancelPlace,
-  createLoginLink,
+  createSignIn,
   isToken,
   LEGACY_COOKIE_PATH,
   MEMBER_SESSION_COOKIE,
   memberLinkOrigin,
   memberOverview,
   memberCookieOptions,
+  normaliseCode,
+  randomCode,
   randomToken,
+  redeemLoginCode,
   redeemLoginLink,
   sha256Hex,
   SIGN_IN_PATH,
@@ -40,7 +43,7 @@ import { sendEmailWithRetry } from "@/lib/send-email";
 import { stripeConfig } from "@/lib/stripe/config";
 import { cancelOwnMembership, endUnusedDirectDebit, startCardUpdate, startDirectDebitSetup } from "@/lib/stripe/direct-debit";
 
-export type SignInField = "email";
+export type SignInField = "email" | "code";
 
 /**
  * Sends a one-time sign-in link to a customer's email (a member, or anyone
@@ -63,14 +66,16 @@ export async function requestSignInLink(_previous: FormState<SignInField>, formD
 
   const token = randomToken();
   const tokenHash = await sha256Hex(token);
-  const created = await createLoginLink(db, email, tokenHash);
+  // The same email carries a code (owner, 2026-11-03): iPhone mail apps open links in their own browser.
+  const code = randomCode();
+  const created = await createSignIn(db, email, tokenHash, await sha256Hex(code));
   if (!created.ok) {
     console.error(`Member sign-in link failed (${created.error.kind} ${created.error.code})`);
     return { status: "error", message: "Sorry, something went wrong. Please try again in a minute.", errors: {} };
   }
   if (created.data) {
     const sent = await sendEmailWithRetry(mail, {
-      ...signInEmail(signInLink(token)),
+      ...signInEmail(signInLink(token), code),
       to: email,
       replyTo: mail.to,
       idempotencyKey: `member-sign-in/${tokenHash}`,
@@ -79,6 +84,30 @@ export async function requestSignInLink(_previous: FormState<SignInField>, formD
     if (!sent.ok) console.error(`Member sign-in email failed (${sent.status ?? "network"})`);
   }
   return { status: "success", message: email, errors: {} };
+}
+
+/**
+ * Signs in with the 6-digit code from the email, typed on the sign-in page in
+ * the browser the member is using. Every failure gives the same answer, so it
+ * never says whether the address has an account; 5 wrong codes and it stops
+ * accepting them (the database counts).
+ */
+export async function confirmSignInCode(_previous: FormState<SignInField>, formData: FormData): Promise<FormState<SignInField>> {
+  const db = coachDb();
+  const email = singleLine(text(formData, "email")).toLowerCase();
+  const code = normaliseCode(text(formData, "code"));
+  if (!db) return { status: "error", message: "Signing in isn't available just now. Please try again in a minute.", errors: {} };
+  if (!code) return { status: "error", message: "Enter the 6 digits from the email.", errors: { code: "Enter the 6 digits from the email." } };
+  if (emailError(email)) return { status: "error", message: "Please ask for a new code.", errors: {} };
+  const session = randomToken();
+  const result = await redeemLoginCode(db, email, await sha256Hex(code), await sha256Hex(session));
+  if (!result.ok || !result.data) {
+    const wrong = "That code isn't right, or it has expired. Check it against the newest email, or ask for a new one.";
+    return { status: "error", message: wrong, errors: { code: wrong } };
+  }
+  await labelSession(db, await sha256Hex(session), deviceLabel((await headers()).get("user-agent"))).catch(() => null);
+  (await cookies()).set(MEMBER_SESSION_COOKIE, session, memberCookieOptions());
+  redirect(ACCOUNT_PATH);
 }
 
 /**

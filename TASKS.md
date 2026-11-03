@@ -244,7 +244,7 @@ See Coach portal below.
 - [ ] P2 When online coaching returns: set `onlineCoachingOffered` true, remove the two redirects in next.config.ts, restore the routes in lib/routes.ts, the nav link, the home row and the tests (git history)
 - [x] Class size (owner, 2026-10-29): 12 places per class, Alex changes it in Classes → Class size (a date can have its own), "Fully booked" on home tiles and /classes with the next class offered. Migration `20261102000000_akb_default_class_capacity.sql` **not yet applied**
 - [x] The owner's redesign brief (2026-10-28) is done: home Why kettlebells and Classes, /classes, /coaching, /online-coaching and /about are built, and the owner is happy with them (2026-10-29); nothing left to redesign from the zip
-- [ ] **P1** Sign-in code in the email alongside the link (iPhone mail apps open links in their own browser, so the member is signed in there, not in Safari)
+- [x] **P1** Sign-in code in the email alongside the link (done 2026-11-03: 6 digits in the subject and first line; typed on the sign-in page, `autocomplete=one-time-code`; one use with its link, 15 minutes, 5 wrong tries; migration `20261111000000`) (iPhone mail apps open links in their own browser, so the member is signed in there, not in Safari)
 - [ ] P2 Sessions that extend while in use (now a fixed 30 days from sign-in)
 - [ ] P2 Class reminder email the day before (the morning-of reminder is built, see above; this is the optional earlier one)
 - [ ] P2 Payment history and receipts in the account; edit name, phone and email

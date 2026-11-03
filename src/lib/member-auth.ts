@@ -28,6 +28,21 @@ export function isToken(value: string | null | undefined): value is string {
   return typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value);
 }
 
+/** A 6-digit sign-in code (uniform: values that would bias the remainder are drawn again). */
+export function randomCode(): string {
+  const box = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(box);
+    if (box[0] < 4_294_000_000) return String(box[0] % 1_000_000).padStart(6, "0");
+  }
+}
+
+/** The 6 digits typed by the member, without spaces; null unless that's all it is. */
+export function normaliseCode(value: string): string | null {
+  const digits = value.replace(/[\s-]/g, "");
+  return /^\d{6}$/.test(digits) ? digits : null;
+}
+
 /** Lower-case hex SHA-256, as the database stores it. */
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -62,18 +77,24 @@ export function signInLink(token: string, env: Env = process.env): string {
   return `${memberLinkOrigin(env)}${CONFIRM_PATH}?token=${token}`;
 }
 
-/** The sign-in email. Plain text. */
-export function signInEmail(link: string): { subject: string; text: string } {
+/**
+ * The sign-in email. Plain text. The code is in the subject too, so it shows in
+ * the phone's notification (and iPhone offers it above the keyboard).
+ */
+export function signInEmail(link: string, code: string): { subject: string; text: string } {
+  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
   return {
-    subject: "Your RAENG sign-in link",
+    subject: `Your RAENG sign-in code: ${spaced}`,
     text: [
-      "Here's your link to sign in to your RAENG account:",
+      `Your sign-in code is ${spaced}`,
+      "",
+      "Type it on the sign-in page you came from. Or sign in with this link:",
       "",
       link,
       "",
-      "It works once, for the next 15 minutes. On the page it opens, press Sign in.",
+      "The code and the link work once, for the next 15 minutes.",
       "",
-      "If you didn't ask for this, you can ignore this email: nobody can sign in without the link.",
+      "If you didn't ask for this, you can ignore this email: nobody can sign in without the code or the link.",
     ].join("\n"),
   };
 }
@@ -84,6 +105,16 @@ export function signInEmail(link: string): { subject: string; text: string } {
 
 export function createLoginLink(db: Db, email: string, tokenHash: string): Promise<DbResult<boolean>> {
   return rpc<boolean>(db, "akb_member_create_login_link", { p_email: email, p_token_hash: tokenHash });
+}
+
+/** The link plus its code (migration 20261111000000). Returns whether an email should go. */
+export function createSignIn(db: Db, email: string, tokenHash: string, codeHash: string): Promise<DbResult<boolean>> {
+  return rpc<boolean>(db, "akb_member_create_sign_in", { p_email: email, p_token_hash: tokenHash, p_code_hash: codeHash });
+}
+
+/** Signs in with the emailed code. Null for wrong, expired, used, too many tries or no account. */
+export function redeemLoginCode(db: Db, email: string, codeHash: string, sessionHash: string): Promise<DbResult<string | null>> {
+  return rpc<string | null>(db, "akb_member_redeem_login_code", { p_email: email, p_code_hash: codeHash, p_session_hash: sessionHash });
 }
 
 export function redeemLoginLink(db: Db, tokenHash: string, sessionHash: string): Promise<DbResult<string | null>> {

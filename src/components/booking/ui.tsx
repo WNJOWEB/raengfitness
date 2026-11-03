@@ -151,7 +151,7 @@ interface TextFieldProps {
   optional?: boolean;
   type?: "text" | "email" | "tel";
   autoComplete?: string;
-  inputMode?: "text" | "email" | "tel";
+  inputMode?: "text" | "email" | "tel" | "numeric";
   maxLength?: number;
   multiline?: boolean;
   placeholder?: string;

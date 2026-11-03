@@ -34,7 +34,7 @@ export default async function MemberSignInPage({ searchParams }: { searchParams:
         <h1 id="sign-in-heading" className="mt-3 font-display text-h1 text-balance">
           Sign in.
         </h1>
-        <p className="mt-5 text-lede">See your classes and credits, and book or cancel. We&apos;ll email you a link: no password needed.</p>
+        <p className="mt-5 text-lede">See your classes and credits, and book or cancel. We&apos;ll email you a sign-in code: no password needed.</p>
         {note ? (
           <p role="status" className="card mt-8 px-5 py-4 font-semibold">
             {note}

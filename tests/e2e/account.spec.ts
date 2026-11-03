@@ -35,7 +35,7 @@ async function askForLink(page: Page, email: string) {
   await page.goto(`${PROD}/account/sign-in`);
   await page.getByRole("textbox", { name: "Your email" }).fill(email);
   await page.waitForTimeout(3100);
-  await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
   await expect(page.getByRole("status")).toContainText("Check your email");
 }
 
@@ -46,6 +46,70 @@ function linkPath(email: RecordedEmail): string {
 }
 
 test.describe("member accounts", () => {
+  test("signs in with the code from the email, typed where they asked for it (iPhone mail apps open links elsewhere)", async ({ page, request }) => {
+    const email = `code-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    await askForLink(page, email);
+    // The code box is right there, with iPhone's one-time-code hint and a number keypad.
+    const box = page.getByRole("textbox", { name: "Sign-in code" });
+    await expect(box).toHaveAttribute("autocomplete", "one-time-code");
+    await expect(box).toHaveAttribute("inputmode", "numeric");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath("sign-in-code.png"), fullPage: true });
+    const [mail] = await emailsTo(request, email);
+    const code = /^Your sign-in code is (\d{3}) (\d{3})/.exec(mail.payload.text)!;
+    const wrong = code[1] === "000" ? "111 111" : "000 000";
+
+    // A wrong code says so, and doesn't sign in.
+    await box.fill(wrong);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("That code isn't right, or it has expired.").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/account\/sign-in$/);
+
+    // The right one, typed with its space, signs in here.
+    await box.fill(`${code[1]} ${code[2]}`);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(page.getByRole("heading", { level: 1, name: /^(Morning|Afternoon|Evening), Member\.$/ })).toBeVisible();
+    // Used: the code and the link are one, so the link no longer works either.
+    await page.context().clearCookies();
+    await page.goto(PROD + linkPath(mail));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account\/sign-in\?link=invalid$/);
+  });
+
+  test("five wrong codes and no code is accepted, even the right one, until a new email later", async ({ page, request }) => {
+    const email = `code-lock-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    await askForLink(page, email);
+    const [mail] = await emailsTo(request, email);
+    const right = /^Your sign-in code is (\d{3}) (\d{3})/.exec(mail.payload.text)!.slice(1).join("");
+    const wrong = right === "000000" ? "111111" : "000000";
+    const box = page.getByRole("textbox", { name: "Sign-in code" });
+    for (let i = 0; i < 5; i++) {
+      await box.fill(wrong);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await expect(page.getByText("That code isn't right, or it has expired.").first()).toBeVisible();
+    }
+    await box.fill(right);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("That code isn't right, or it has expired.").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/account\/sign-in$/);
+    // Only hashes are stored.
+    const [row] = await sql(request, "select l.code_hash, l.code_attempts from akb_member_login_links l join akb_clients c on c.id = l.client_id where c.email = $1", [email]);
+    expect(row.code_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.code_attempts).toBe(5);
+  });
+
+  test("an address without an account gets the same answer and the same code box, and no code works", async ({ page, request }) => {
+    const email = `nobody-${Date.now()}@example.com`;
+    await askForLink(page, email);
+    expect(await emailsTo(request, email)).toEqual([]);
+    await page.getByRole("textbox", { name: "Sign-in code" }).fill("123456");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("That code isn't right, or it has expired.").first()).toBeVisible();
+  });
+
   test("a member signs in with an emailed link, books and cancels with credits, and signs out", async ({ page, request, browser }) => {
     // The whole members journey in one test: sign in, Home, Book, the menus, cancel, Plan, no JavaScript, sign out.
     test.slow();
@@ -60,8 +124,8 @@ test.describe("member accounts", () => {
     await askForLink(page, email);
     const sent = await emailsTo(request, email);
     expect(sent).toHaveLength(1);
-    expect(sent[0].payload.subject).toBe("Your RAENG sign-in link");
-    expect(sent[0].payload.text).toContain("It works once, for the next 15 minutes.");
+    expect(sent[0].payload.subject).toMatch(/^Your RAENG sign-in code: \d{3} \d{3}$/);
+    expect(sent[0].payload.text).toContain("The code and the link work once, for the next 15 minutes.");
     const path = linkPath(sent[0]);
 
     // Opening the link doesn't sign in on its own (email scanners open links): the button does.

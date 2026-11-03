@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isToken, memberCookieOptions, memberLinkOrigin, randomToken, sha256Hex, signInEmail, signInLink } from "./member-auth";
+import { isToken, memberCookieOptions, memberLinkOrigin, normaliseCode, randomCode, randomToken, sha256Hex, signInEmail, signInLink } from "./member-auth";
 
 describe("member sign-in tokens", () => {
   it("makes 43-character url-safe tokens that never repeat", () => {
@@ -31,9 +31,32 @@ describe("the emailed link", () => {
   });
 
   it("says how long it lasts and what to do if you didn't ask", () => {
-    const email = signInEmail("https://raeng.example/account/confirm?token=x");
+    const email = signInEmail("https://raeng.example/account/confirm?token=x", "482913");
     expect(email.text).toContain("15 minutes");
     expect(email.text).toContain("If you didn't ask for this");
+  });
+
+  it("carries the code in the subject (it shows in the phone's notification) and first in the text, beside the link", () => {
+    const email = signInEmail("https://raeng.example/account/confirm?token=x", "482913");
+    expect(email.subject).toBe("Your RAENG sign-in code: 482 913");
+    expect(email.text.split("\n")[0]).toBe("Your sign-in code is 482 913");
+    expect(email.text).toContain("https://raeng.example/account/confirm?token=x");
+  });
+});
+
+describe("sign-in codes", () => {
+  it("are 6 digits, leading zeros kept, and vary", () => {
+    const codes = new Set(Array.from({ length: 200 }, () => randomCode()));
+    for (const c of codes) expect(c).toMatch(/^\d{6}$/);
+    expect(codes.size).toBeGreaterThan(190);
+  });
+
+  it("accept what people type (spaces or a dash) and nothing else", () => {
+    expect(normaliseCode("482 913")).toBe("482913");
+    expect(normaliseCode(" 482-913 ")).toBe("482913");
+    expect(normaliseCode("48291")).toBeNull();
+    expect(normaliseCode("48291a")).toBeNull();
+    expect(normaliseCode("4829134")).toBeNull();
   });
 });
 
