@@ -8,6 +8,7 @@ export const publicRoutes = [
   "/contact",
   "/about",
   "/privacy",
+  "/terms",
   "/book",
   "/book/group-class",
   "/book/one-to-one",

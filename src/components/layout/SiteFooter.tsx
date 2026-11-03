@@ -128,6 +128,9 @@ export function SiteFooter() {
             <span>
               {site.location.town}, {site.location.region}
             </span>
+            <Link href="/terms" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:no-underline">
+              Terms
+            </Link>
             <Link href="/privacy" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:no-underline">
               Privacy notice
             </Link>

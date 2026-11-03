@@ -269,6 +269,14 @@ See Coach portal below.
 - [x] Second round (2026-11-03): coach buttons and fields rounded to match the tabs; client profile opens with the membership and folds the edit form under "Edit details"; detail pages (client, class, session, membership, payment, request) use the same heading style. Coach drawer, Plan (card), Book, Contact and Join checked: fine
 - [ ] Not re-checked by picture: the member booking sheet, account menu and Plan with Direct Debit (covered by the browser tests)
 
+## Bug audit (2026-11-03)
+- [x] Full checks: lint, types, 377 unit tests, 301 browser tests pass; live pages, sitemap and webhook check fine; no stuck payments, sign-ups or Direct Debits in the database; every email delivered
+- [x] Supabase warning about `rls_auto_enable` closed (`20261107000000_revoke_rls_auto_enable.sql`, applied)
+- [x] The customer receipt that failed once (2 Nov, 422) was for a test client with no email; the code already skips a client with no email address
+- [x] `/terms` page: the published membership, cancellation, refund and health-and-risk wording in one place (no new wording), linked from the footer
+- [ ] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter)
+- [ ] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection
+
 ## Alex's decisions (2026-11-02, via the owner)
 - [x] Refund policy: **option B**. No cash refunds for late cancellations, missed classes or a started membership period. If Alex cancels a class someone paid for and they can't make another date, it is refunded to their card; a payment taken in error is always refunded. On the site: `content/policy.ts` (`refunds`, `coachCancellations`), the FAQ "Can I get a refund?" and the cancelled-class email.
 - [x] Records kept (owner's pick, 2026-11-02): payment and booking records 6 years; name, email, phone and notes deleted or anonymised 2 years after the last booking, payment or message; enquiries that never became a booking 12 months. On `/privacy`. **Deletion is manual for now**: review once a year (clients with no activity for 2 years, enquiries older than 12 months); a coach-portal list to help is a possible follow-up.
