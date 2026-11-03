@@ -243,6 +243,14 @@ export function createCustomer(
   );
 }
 
+/** Updates a customer's email (when the member changes theirs), so Stripe's receipts and Direct Debit notices follow. */
+export function updateCustomerEmail(config: StripeConfig, customerId: string, email: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<{ id: string }>> {
+  return call(config, "POST", `/v1/customers/${encodeURIComponent(customerId)}`, { email }, (json) => {
+    const id = str(obj(json)?.id);
+    return id ? { id } : null;
+  }, fetchImpl);
+}
+
 /**
  * Stripe-hosted page that collects a Direct Debit mandate (bank details) for a
  * customer without taking money. `clientReference` comes back on the session so

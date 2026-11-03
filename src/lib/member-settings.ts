@@ -23,6 +23,8 @@ export interface MemberSettings {
   email: string;
   phone: string;
   class_reminders: boolean;
+  /** Also an email the day before each class (owner, 2026-11-03). */
+  reminder_day_before?: boolean;
   calendar_feed: boolean;
 }
 
@@ -40,6 +42,8 @@ export const updateProfile = (db: Db, clientId: string, name: string, phone: str
   rpc<null>(db, "akb_member_update_profile", { p_client: clientId, p_name: name, p_phone: phone });
 
 export const setReminders = (db: Db, clientId: string, on: boolean) => rpc<null>(db, "akb_member_set_reminders", { p_client: clientId, p_on: on });
+
+export const setDayBefore = (db: Db, clientId: string, on: boolean) => rpc<null>(db, "akb_member_set_day_before", { p_client: clientId, p_on: on });
 
 export const labelSession = (db: Db, sessionHash: string, device: string) => rpc<null>(db, "akb_member_label_session", { p_session_hash: sessionHash, p_device: device });
 
@@ -102,26 +106,70 @@ export interface DueReminder {
 
 export const dueReminders = (db: Db, date: string) => rpc<DueReminder[]>(db, "akb_class_reminders_due", { p_date: date });
 export const reminderSent = (db: Db, attendanceId: string) => rpc<null>(db, "akb_class_reminder_sent", { p_attendance: attendanceId });
+/** Classes tomorrow (from `date`), for members who asked to be told the day before. */
+export const dueDayBefore = (db: Db, date: string) => rpc<DueReminder[]>(db, "akb_class_day_before_due", { p_date: date });
+export const dayBeforeSent = (db: Db, attendanceId: string) => rpc<null>(db, "akb_class_day_before_sent", { p_attendance: attendanceId });
 
 const londonTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false });
 
-/** The reminder email. Plain text: the class, where, and how to see or stop reminders. */
-export function reminderEmail(r: DueReminder, env: Env = process.env): { subject: string; text: string } {
+/** The reminder email. Plain text: the class, where, and how to see or stop reminders. `dayBefore`: sent the day before ("tomorrow"). */
+export function reminderEmail(r: DueReminder, env: Env = process.env, dayBefore = false): { subject: string; text: string } {
   const time = londonTime.format(new Date(r.starts_at));
   const slot = publishedClasses().find((c) => c.id === r.slot);
   const first = r.name.trim().split(/\s+/)[0] || "there";
   const origin = memberLinkOrigin(env);
   return {
-    subject: `Reminder: ${groupClass.name} today at ${time}`,
+    subject: `Reminder: ${groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}`,
     text: [
       `Hi ${first},`,
       "",
-      `A reminder that you're booked on ${groupClass.name} today at ${time}${slot?.durationMinutes ? ` (${slot.durationMinutes} minutes)` : ""}.`,
+      `A reminder that you're booked on ${groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}${slot?.durationMinutes ? ` (${slot.durationMinutes} minutes)` : ""}.`,
       "",
       `${site.name}, ${formatAddressLines().join(", ")}`,
       "",
       `Your bookings: ${origin}${ACCOUNT_PATH}`,
       `Turn these reminders off any time: ${origin}${NOTIFICATIONS_PATH}`,
+    ].join("\n"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Changing the account's email (owner, 2026-11-03; migration 20261116000000)
+// ---------------------------------------------------------------------------
+
+/** Starts a change: raises akb:same_email, akb:email_taken or akb:too_many. */
+export const startEmailChange = (db: Db, clientId: string, newEmail: string, codeHash: string) =>
+  rpc<null>(db, "akb_member_email_change_start", { p_client: clientId, p_new_email: newEmail, p_code_hash: codeHash });
+
+/** Confirms it with the code: the old and new address, or null for a wrong, expired or used code. */
+export const confirmEmailChange = (db: Db, clientId: string, codeHash: string) =>
+  rpc<{ old_email: string; new_email: string } | null>(db, "akb_member_email_change_confirm", { p_client: clientId, p_code_hash: codeHash });
+
+/** The code, to the new address. Plain text. */
+export function emailChangeCodeEmail(code: string): { subject: string; text: string } {
+  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
+  return {
+    subject: `Your RAENG email change code: ${spaced}`,
+    text: [
+      `Your code is ${spaced}`,
+      "",
+      "Type it on your Profile page to make this your RAENG email. It works once, for the next 15 minutes.",
+      "",
+      "If you didn't ask for this, you can ignore this email: nothing changes without the code.",
+    ].join("\n"),
+  };
+}
+
+/** The note to the old address once it's changed. Shows only part of the new one. */
+export function emailChangedNotice(newEmail: string): { subject: string; text: string } {
+  const [user, domain] = newEmail.split("@");
+  const hidden = `${user.slice(0, 2)}${"•".repeat(Math.max(1, user.length - 2))}@${domain}`;
+  return {
+    subject: "Your RAENG email has been changed",
+    text: [
+      `Your RAENG account's email has been changed to ${hidden}. From now on you sign in with that address and our emails go there.`,
+      "",
+      "If you didn't do this, reply to this email straight away and we'll sort it out.",
     ].join("\n"),
   };
 }

@@ -5,7 +5,7 @@ import { AccountUnavailable } from "@/components/members/Cards";
 import { MembersShell } from "@/components/members/MembersShell";
 import { SettingsHeading } from "@/components/members/Settings";
 import { loadMembers } from "../data";
-import { saveReminders } from "../settings-actions";
+import { saveDayBefore, saveReminders } from "../settings-actions";
 import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
@@ -25,13 +25,14 @@ export default async function AccountNotificationsPage({ searchParams }: { searc
   const d = await loadMembers(searchParams);
   if (!d.overview.ok) return <AccountUnavailable />;
   const on = d.settings?.class_reminders ?? false;
+  const dayBefore = d.settings?.reminder_day_before ?? false;
   const emailReady = bookingDeliveryConfig() !== null;
 
   return (
     <MembersShell view={null} overview={d.overview.data} settings={d.settings} coaching={d.coaching} now={d.now} done={d.done} error={d.error} sheet={null}>
       <SettingsHeading eyebrow="Account" title="Notifications." />
-      <section aria-labelledby="reminders-heading" className="flex flex-col gap-3 rounded-3xl border-[1.5px] border-ink p-5.5">
-        <p className="members-eyebrow">Class reminders</p>
+      <section aria-labelledby="reminders-eyebrow reminders-heading" className="flex flex-col gap-3 rounded-3xl border-[1.5px] border-ink p-5.5">
+        <p id="reminders-eyebrow" className="members-eyebrow">On the morning of the class</p>
         <h2 id="reminders-heading" className="text-[1.5rem] font-extrabold tracking-[-0.03em]">
           {on ? "On" : "Off"}
         </h2>
@@ -41,6 +42,19 @@ export default async function AccountNotificationsPage({ searchParams }: { searc
           <input type="hidden" name="reminders" value={on ? "off" : "on"} />
           <PendingButton pendingLabel="Saving…" className={`members-btn w-full sm:w-auto ${on ? "" : "members-btn-solid"}`}>
             {on ? "Turn reminders off" : "Turn reminders on"}
+          </PendingButton>
+        </form>
+      </section>
+      <section aria-labelledby="day-before-eyebrow day-before-heading" className="flex flex-col gap-3 rounded-3xl border-[1.5px] border-ink p-5.5">
+        <p id="day-before-eyebrow" className="members-eyebrow">The day before</p>
+        <h2 id="day-before-heading" className="text-[1.5rem] font-extrabold tracking-[-0.03em]">
+          {dayBefore ? "On" : "Off"}
+        </h2>
+        <p>An email the day before each class you&apos;re booked on, to help you plan ahead. Works alongside the morning reminder, or on its own.</p>
+        <form action={saveDayBefore} className="mt-1">
+          <input type="hidden" name="day_before" value={dayBefore ? "off" : "on"} />
+          <PendingButton pendingLabel="Saving…" className={`members-btn w-full sm:w-auto ${dayBefore ? "" : "members-btn-solid"}`}>
+            {dayBefore ? "Turn day-before reminders off" : "Turn day-before reminders on"}
           </PendingButton>
         </form>
       </section>

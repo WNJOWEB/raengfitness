@@ -1,3 +1,4 @@
+import { PAYMENTS_PATH } from "@/lib/member-payments";
 import Link from "next/link";
 import { signOutMember } from "@/app/account/actions";
 import { site } from "@/content/site";
@@ -61,10 +62,16 @@ export function AccountMenuContent({ overview: o, settings, coaching }: { overvi
           </Link>
         </li>
         <li>
+          <Link href={PAYMENTS_PATH} className="members-menu-item">
+            <Icon name="money" className={MENU_ICON} />
+            Payments and receipts
+          </Link>
+        </li>
+        <li>
           <Link href={NOTIFICATIONS_PATH} className="members-menu-item">
             <Icon name="bell" className={MENU_ICON} />
             Notifications
-            {settings ? <em className="ml-auto text-xs text-ink not-italic">{settings.class_reminders ? "On" : "Off"}</em> : null}
+            {settings ? <em className="ml-auto text-xs text-ink not-italic">{settings.class_reminders || settings.reminder_day_before ? "On" : "Off"}</em> : null}
           </Link>
         </li>
         <li>

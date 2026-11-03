@@ -3,7 +3,7 @@ import { bookingDeliveryConfig } from "@/lib/booking-request";
 import { coachDb } from "@/lib/coach/db";
 import { londonToday } from "@/lib/coach/time";
 import { cronAuthorized } from "@/lib/cron-auth";
-import { dueReminders, reminderEmail, reminderSent } from "@/lib/member-settings";
+import { dayBeforeSent, dueDayBefore, dueReminders, reminderEmail, reminderSent } from "@/lib/member-settings";
 import { sendEmailWithRetry } from "@/lib/send-email";
 
 /**
@@ -47,6 +47,25 @@ export async function GET(request: Request) {
     const recorded = await reminderSent(db, reminder.attendance_id);
     if (!recorded.ok) console.error(`Class reminder sent but not recorded (${recorded.error.kind})`);
   }
+  // The day-before reminders (owner, 2026-11-03): tomorrow's classes, for members who asked.
+  let dayBeforeSentCount = 0;
+  const tomorrow = await dueDayBefore(db, londonToday());
+  if (!tomorrow.ok) console.error(`Day-before reminders failed (${tomorrow.error.kind} ${tomorrow.error.code})`);
+  for (const reminder of tomorrow.ok ? tomorrow.data : []) {
+    const result = await sendEmailWithRetry(mail, {
+      ...reminderEmail(reminder, process.env, true),
+      to: reminder.email,
+      replyTo: mail.to,
+      idempotencyKey: `class-reminder-day-before/${reminder.attendance_id}`,
+    });
+    if (!result.ok) {
+      failed++;
+      continue;
+    }
+    dayBeforeSentCount++;
+    const recorded = await dayBeforeSent(db, reminder.attendance_id);
+    if (!recorded.ok) console.error(`Day-before reminder sent but not recorded (${recorded.error.kind})`);
+  }
   if (failed) console.error(`Class reminders: ${failed} couldn't be sent`);
-  return NextResponse.json({ ok: true, sent, failed }, { headers: noStore });
+  return NextResponse.json({ ok: true, sent, dayBefore: dayBeforeSentCount, failed }, { headers: noStore });
 }

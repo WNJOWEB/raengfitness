@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { site } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { AccountUnavailable } from "@/components/members/Cards";
 import { MembersShell } from "@/components/members/MembersShell";
@@ -7,6 +6,7 @@ import { SettingsHeading } from "@/components/members/Settings";
 import { LIMITS } from "@/lib/form-validation";
 import { loadMembers } from "../data";
 import { saveProfile } from "../settings-actions";
+import { EmailChangeForm } from "./EmailChangeForm";
 import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
@@ -16,12 +16,11 @@ export const metadata: Metadata = pageMetadata({
   noindex: true,
 });
 
-const external = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 /**
- * Profile and details (account menu): the member's own name and phone. The
- * email is how they sign in and how bookings find them, so it's shown but
- * changes only through Alex.
+ * Profile and details (account menu): the member's own name and phone, and
+ * their email, which they can change by confirming a code sent to the new
+ * address (owner, 2026-11-03).
  */
 export default async function AccountProfilePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const d = await loadMembers(searchParams);
@@ -53,17 +52,19 @@ export default async function AccountProfilePage({ searchParams }: { searchParam
           </label>
           <input id="profile-email" type="email" readOnly value={c.email} aria-describedby="profile-email-note" className="members-input" />
           <p id="profile-email-note" className="text-sm">
-            You sign in with this address, so to change it message Alex on{" "}
-            <a href={site.social.instagram.url} {...external} className="underline underline-offset-4">
-              Instagram<span className="sr-only"> (opens in a new tab)</span>
-            </a>
-            .
+            You sign in with this address. To change it, use Change your email below.
           </p>
         </div>
         <PendingButton pendingLabel="Saving…" className="members-btn members-btn-solid w-full sm:w-auto">
           Save details
         </PendingButton>
       </form>
+      <section aria-labelledby="email-change-heading" className="flex flex-col gap-3 rounded-3xl bg-white p-5.5">
+        <h2 id="email-change-heading" className="text-[1.25rem] font-extrabold tracking-[-0.02em]">
+          Change your email
+        </h2>
+        <EmailChangeForm current={c.email} />
+      </section>
     </MembersShell>
   );
 }

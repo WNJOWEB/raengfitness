@@ -8,6 +8,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
  */
 const PROD = `http://localhost:${process.env.E2E_PRODUCTION_PORT ?? 3201}`;
 const MOCK = `http://localhost:${process.env.MOCK_EMAIL_PORT ?? 3299}`;
+const NOT_FOUND_HEADING = "Page not found.";
 const SUPABASE = `http://localhost:${process.env.MOCK_SUPABASE_PORT ?? 3298}`;
 
 interface RecordedEmail {
@@ -283,7 +284,7 @@ test.describe("member accounts", () => {
     // Profile: change the name; the greeting follows. The email can't be changed here.
     await menu.getByRole("link", { name: /^Profile and details/ }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Your details." })).toBeVisible();
-    await expect(page.getByLabel("Email")).toHaveAttribute("readonly", "");
+    await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute("readonly", "");
     await page.getByLabel("Name").fill("  Sam   Tester ");
     await page.getByLabel(/^Phone/).fill("07700 900456");
     await page.getByRole("button", { name: "Save details" }).click();
@@ -301,10 +302,11 @@ test.describe("member accounts", () => {
 
     // Notifications: off until chosen; on, then the daily job sends one email, once.
     await page.goto(`${PROD}/account/notifications`);
-    await expect(page.getByRole("heading", { level: 2, name: "Off" })).toBeVisible();
+    const morning = page.getByRole("region", { name: /^On the morning of the class/ });
+    await expect(morning.getByRole("heading", { level: 2, name: "Off" })).toBeVisible();
     await page.getByRole("button", { name: "Turn reminders on" }).click();
     await expect(page.getByRole("status")).toContainText("Class reminders are on.");
-    await expect(page.getByRole("heading", { level: 2, name: "On" })).toBeVisible();
+    await expect(morning.getByRole("heading", { level: 2, name: "On" })).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     const cron = { headers: { authorization: "Bearer e2e-cron-secret-0123456789" } };
     expect((await request.get(`${PROD}/api/cron/class-reminders`)).status()).toBe(401);
@@ -318,6 +320,23 @@ test.describe("member accounts", () => {
     expect((await emailsTo(request, email)).filter((e) => e.payload.subject.startsWith("Reminder:"))).toHaveLength(1);
     await page.getByRole("button", { name: "Turn reminders off" }).click();
     await expect(page.getByRole("status")).toHaveText("Class reminders are off.");
+
+    // The day before (owner, 2026-11-03): its own switch; a class tomorrow gets one "tomorrow" email, once.
+    await sql(request, "select akb_member_book_class($1, 'e2e-reminder-2', akb_london_today() + 1, now() + interval '1 day 3 hours', 60)", [client.id]);
+    await page.getByRole("button", { name: "Turn day-before reminders on" }).click();
+    await expect(page.getByRole("status")).toContainText("Day-before reminders are on.");
+    await expect(page.getByRole("region", { name: /^The day before/ }).getByRole("heading", { level: 2, name: "On" })).toBeVisible();
+    const second = await (await request.get(`${PROD}/api/cron/class-reminders`, cron)).json();
+    expect(second).toMatchObject({ ok: true, dayBefore: 1 });
+    const tomorrowMail = (await emailsTo(request, email)).filter((e) => / tomorrow at /.test(e.payload.subject));
+    expect(tomorrowMail).toHaveLength(1);
+    expect(tomorrowMail[0].payload.text).toContain("tomorrow at");
+    await request.get(`${PROD}/api/cron/class-reminders`, cron);
+    expect((await emailsTo(request, email)).filter((e) => / tomorrow at /.test(e.payload.subject))).toHaveLength(1);
+    await page.getByRole("button", { name: "Turn day-before reminders off" }).click();
+    await expect(page.getByRole("status")).toHaveText("Day-before reminders are off.");
+    // That second place is only for this check: cancelled again, so the calendar below has the one class.
+    await sql(request, "update akb_class_attendance a set status = 'cancelled' from akb_class_sessions s where s.id = a.class_session_id and s.slot = 'e2e-reminder-2' and a.client_id = $1", [client.id]);
 
     // Calendar sync: make the link (shown once), the feed has the class, a wrong link is a 404, turning off ends it.
     await page.goto(`${PROD}/account/calendar-sync`);
@@ -547,6 +566,50 @@ test.describe("member accounts", () => {
     await expect(page.getByRole("region", { name: "Restart your membership" })).toHaveCount(0);
     await expect(page.locator("summary", { hasText: "Cancel my membership" })).toBeVisible();
     await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG membership is back on")).toBe(true);
+  });
+
+  test("payments and receipts, and changing the email with a code to the new address (owner, 2026-11-03)", async ({ page, request }) => {
+    const email = `extras-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    const [client] = await sql(request, "select id from akb_clients where lower(email) = $1", [email]);
+    await sql(request, "select akb_record_payment($1, 'group', 6500, akb_london_today(), 'bank_transfer', '', '', $2, '[]'::jsonb)", [client.id, `extras-${Date.now()}`]);
+    await askForLink(page, email);
+    await page.goto(PROD + linkPath((await emailsTo(request, email))[0]));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+
+    // Payments and receipts, from the account menu.
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.locator("#account-menu").getByRole("link", { name: "Payments and receipts" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Payments and receipts." })).toBeVisible();
+    const row = page.getByRole("list", { name: "Your payments" }).getByRole("link").first();
+    await expect(row).toContainText("£65.00");
+    await row.click();
+    const receipt = page.getByRole("article", { name: /£65\.00 paid/ });
+    await expect(receipt).toContainText("Bank transfer");
+    await expect(receipt).toContainText(/RAENG-[0-9A-F]{8}/);
+    await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath("receipt.png"), fullPage: true });
+    // Someone else's payment id is not found.
+    await page.goto(`${PROD}/account/payments/00000000-0000-4000-8000-000000000000`);
+    await expect(page.getByRole("article", { name: /paid/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(NOT_FOUND_HEADING);
+
+    // Change the email: a code to the new address; the old one is told.
+    await page.goto(`${PROD}/account/profile`);
+    const newEmail = `extras-new-${Date.now()}@example.com`;
+    await page.getByLabel("New email").fill(newEmail);
+    await page.getByRole("button", { name: "Send me a code" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "We've sent a code to" })).toContainText(newEmail);
+    const [codeMail] = (await emailsTo(request, newEmail)).filter((e) => e.payload.subject.startsWith("Your RAENG email change code:"));
+    const code = /^Your code is (\d{3}) (\d{3})/.exec(codeMail.payload.text)!;
+    await page.getByLabel("Code").fill(`${code[1]}${code[2]}`);
+    await page.getByRole("button", { name: "Change my email" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Your email is changed." })).toBeVisible();
+    expect((await sql(request, "select email from akb_clients where id = $1", [client.id]))[0].email).toBe(newEmail);
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG email has been changed")).toBe(true);
   });
 
   test("an address with no account gets the same answer and no email", async ({ page, request }) => {

@@ -1296,3 +1296,21 @@
     animation: mx-fill 900ms ease-out both;
   }
 }
+
+/*
+ * A receipt prints on its own (account Payments, 2026-11-03): everything else
+ * on the page is hidden on paper, and the receipt sits at the top.
+ */
+@media print {
+  body:has(.print-receipt) * {
+    visibility: hidden;
+  }
+  body:has(.print-receipt) .print-receipt,
+  body:has(.print-receipt) .print-receipt * {
+    visibility: visible;
+  }
+  .print-receipt {
+    position: absolute;
+    inset: 0 0 auto 0;
+  }
+}

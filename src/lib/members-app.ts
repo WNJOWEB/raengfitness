@@ -11,6 +11,7 @@ export const MEMBERS_APP_PATHS = [
   "/account/security",
   "/account/calendar-sync",
   "/account/notifications",
+  "/account/payments",
   "/account/coaching",
   "/account/coaching/programme",
   "/account/coaching/check-in",
@@ -31,5 +32,7 @@ export function isMembersApp(pathname: string | null): boolean {
   const path = pathname.replace(/\/$/, "") || "/";
   // The coach portal (owner's coach design, 2026-10-28) has the same kind of frame; its login page keeps the site's.
   if (path === "/coach" || (path.startsWith("/coach/") && path !== "/coach/login")) return true;
+  // A receipt (/account/payments/<id>) is inside the members area too.
+  if (path.startsWith("/account/payments/")) return true;
   return (MEMBERS_APP_PATHS as readonly string[]).includes(path);
 }

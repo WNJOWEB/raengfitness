@@ -31,7 +31,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
   return (
     <MembersShell view={null} overview={d.overview.data} settings={d.settings} coaching={d.coaching} now={d.now} done={d.done} error={d.error} sheet={null}>
       <SettingsHeading eyebrow="Account" title="Sign-in and security.">
-        There&apos;s no password. Each time you sign in we email a link that works once, for 15 minutes, and a device then stays signed in for 30 days.
+        There&apos;s no password. Each time you sign in we email a code and a link that work once, for 15 minutes, and a device then stays signed in for 30 days.
       </SettingsHeading>
 
       <section aria-labelledby="devices-heading" className="flex flex-col gap-3">
