@@ -181,6 +181,9 @@ test.describe("booking prototype (demo availability)", () => {
     // calendar can open with only one left, so use the next month then.
     const dates = page.locator('input[name="date"]:not([disabled])');
     const nextMonth = page.getByRole("button", { name: "Next month" });
+    // Let the calendar finish drawing before counting what can be chosen (counting early read none and jumped a month, at random).
+    await page.getByRole("group", { name: /Date/ }).getByRole("radio").first().waitFor();
+    await dates.first().waitFor({ timeout: 3000 }).catch(() => undefined); // late in a month there may be none left
     if ((await dates.count()) < 2 && (await nextMonth.isEnabled())) await nextMonth.click();
     await dates.first().focus();
     await page.keyboard.press("Space");
