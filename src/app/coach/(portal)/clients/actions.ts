@@ -21,7 +21,7 @@ import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
 import { addCharge, getCharge, SERVICE_KEYS, voidCharge } from "@/lib/coach/ledger";
 import { stripeConfig } from "@/lib/stripe/config";
-import { createChargeLink } from "@/lib/stripe/sync";
+import { closeCancelledLinks, createChargeLink } from "@/lib/stripe/sync";
 import type { ConsentKind } from "@/lib/coach/types";
 import { FormReader } from "@/lib/coach/validate";
 
@@ -184,6 +184,9 @@ export async function voidChargeAction(_prev: ActionState, formData: FormData): 
   if (!charge.data) return failure("That charge no longer exists.");
   const result = await voidCharge(ctx.db, id, reason);
   if (!result.ok) return failure(dbMessage(result.error));
+  // Its Stripe page (if one was open) is closed too, so it can't be paid; the daily reconcile retries.
+  const stripe = stripeConfig();
+  if (stripe) await closeCancelledLinks(ctx.db, stripe, fetch, id).catch(() => 0);
   refresh();
   return success(charge.data.paid_pence > 0 ? "Charge cancelled. The money paid towards it is now their credit." : "Charge cancelled.");
 }

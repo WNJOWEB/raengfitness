@@ -117,6 +117,15 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
       }
       return Response.json(sessions.get(key ? byKey.get(key)! : `cs_test_${ids}`));
     }
+    // Closing a page: only an open one (Stripe answers 400 for an expired or completed one).
+    const expireOne = path.match(/^\/v1\/checkout\/sessions\/([\w-]+)\/expire$/);
+    if (init.method === "POST" && expireOne) {
+      const sess = sessions.get(expireOne[1]);
+      if (!sess) return Response.json({ error: {} }, { status: 404 });
+      if (sess.status !== "open") return Response.json({ error: {} }, { status: 400 });
+      sessions.set(expireOne[1], { ...sess, status: "expired" });
+      return Response.json(sessions.get(expireOne[1]));
+    }
     const one = path.match(/^\/v1\/checkout\/sessions\/([\w-]+)$/);
     if (init.method !== "POST" && one) return sessions.has(one[1]) ? Response.json(sessions.get(one[1])) : Response.json({ error: {} }, { status: 404 });
     if (path === "/v1/checkout/sessions") {

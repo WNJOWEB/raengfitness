@@ -416,6 +416,40 @@ export async function reconcileOpenLinks(db: Db, stripe: StripeConfig, fetchImpl
   return summary;
 }
 
+/**
+ * Closes the Stripe pages of payment links whose charge was cancelled (the
+ * database marks the link cancelled; the page itself stayed payable until it
+ * expired). Only checkout pages from the last day (Stripe's limit), each once:
+ * `stripe_closed_at` is set when Stripe has closed it or says it's no longer
+ * open. Pass `chargeId` to close one charge's page straight away. Returns how
+ * many were closed. A page paid before it closed is still recorded by its
+ * session id, as before (it becomes credit).
+ */
+export async function closeCancelledLinks(db: Db, stripe: StripeConfig, fetchImpl: typeof fetch = fetch, chargeId?: string): Promise<number> {
+  const links = await select<{ id: string; square_link_id: string | null }>(db, "akb_square_payment_links", [
+    ["select", "id,square_link_id"],
+    ["environment", `eq.${stripe.environment}`],
+    ["status", "eq.cancelled"],
+    ["stripe_closed_at", "is.null"],
+    ["created_at", `gte.${new Date(Date.now() - 25 * 3_600_000).toISOString()}`],
+    ...(chargeId ? ([["charge_id", `eq.${chargeId}`]] as [string, string][]) : []),
+    ["limit", "50"],
+  ]);
+  if (!links.ok) return 0;
+  let closed = 0;
+  for (const link of links.data) {
+    const page = link.square_link_id;
+    if (page?.startsWith("cs_")) {
+      const done = await expireCheckoutSession(stripe, page, fetchImpl);
+      // 400: Stripe says it is no longer open (already expired or completed). Anything else: try again later.
+      if (!done.ok && done.status !== 400 && done.status !== 404) continue;
+    }
+    const marked = await update(db, "akb_square_payment_links", [["id", `eq.${link.id}`], ["stripe_closed_at", "is.null"]], { stripe_closed_at: new Date().toISOString() });
+    if (marked.ok) closed += 1;
+  }
+  return closed;
+}
+
 export interface LiveLink {
   charge_id: string;
   url: string;

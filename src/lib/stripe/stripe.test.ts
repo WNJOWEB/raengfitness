@@ -6,7 +6,7 @@ import { testDb } from "../coach/test-support";
 import { stripeConfig, stripeWebhookConfig } from "./config";
 import { stripeSignature, verifyStripeSignature } from "./signature";
 import { notifyChargePayments } from "./receipts";
-import { chargeLinkStatus, createChargeLink, handleStripeWebhook, reconcileOpenLinks } from "./sync";
+import { chargeLinkStatus, closeCancelledLinks, createChargeLink, handleStripeWebhook, reconcileOpenLinks } from "./sync";
 import { deliverStripeEvent, signedEvent, stripeStandIn, testStripe, testWebhook, type StripeStandIn } from "./test-support";
 
 const stripe = testStripe;
@@ -411,6 +411,35 @@ describe("receipts for payments on a coach Card link", () => {
     await notifyChargePayments(db, mailEnv, m.fetchImpl); // the link above is still unpaid
     expect(m.sent.filter((e) => e.subject.includes("£2.50"))).toEqual([]);
     expect(sessionId).toBeTruthy();
+  });
+});
+
+describe("a cancelled charge's Stripe page (2026-11-03)", () => {
+  it("is closed at Stripe once, straight away for one charge, and the daily run catches the rest", async () => {
+    const a = api();
+    const one = await openLink(a, 1000);
+    const two = await openLink(a, 1200);
+    for (const c of [one, two]) await voidCharge(db, c.charge, "Not needed");
+    expect(await sql("select status, stripe_closed_at is null as open_at_stripe from akb_square_payment_links where id = $1", [one.linkId])).toEqual([{ status: "cancelled", open_at_stripe: true }]);
+    // Alex cancels one: that page closes at once.
+    expect(await closeCancelledLinks(db, stripe, a.fetchImpl, one.charge)).toBe(1);
+    expect(a.sessions.get(one.sessionId)?.status).toBe("expired");
+    expect(a.sessions.get(two.sessionId)?.status).toBe("open");
+    // The daily run closes the other; nothing twice.
+    expect(await closeCancelledLinks(db, stripe, a.fetchImpl)).toBeGreaterThanOrEqual(1);
+    expect(a.sessions.get(two.sessionId)?.status).toBe("expired");
+    const before = a.calls.filter((c) => c.path.endsWith("/expire")).length;
+    await closeCancelledLinks(db, stripe, a.fetchImpl);
+    expect(a.calls.filter((c) => c.path.endsWith("/expire")).length).toBe(before);
+  });
+
+  it("a page Stripe already closed (or that was paid) is noted as closed, not tried again and again", async () => {
+    const a = api();
+    const link = await openLink(a, 900);
+    a.expire(link.sessionId);
+    await voidCharge(db, link.charge, "Not needed");
+    expect(await closeCancelledLinks(db, stripe, a.fetchImpl, link.charge)).toBe(1);
+    expect(await sql("select stripe_closed_at is not null as closed from akb_square_payment_links where id = $1", [link.linkId])).toEqual([{ closed: true }]);
   });
 });
 

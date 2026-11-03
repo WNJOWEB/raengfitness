@@ -3,7 +3,7 @@ import { notifyChargePayments } from "@/lib/stripe/receipts";
 import { coachDb } from "@/lib/coach/db";
 import { cronAuthorized } from "@/lib/cron-auth";
 import { stripeConfig } from "@/lib/stripe/config";
-import { reconcileOpenLinks } from "@/lib/stripe/sync";
+import { closeCancelledLinks, reconcileOpenLinks } from "@/lib/stripe/sync";
 import { publishedClasses } from "@/lib/class-sessions";
 import { notifyNewMembers } from "@/lib/membership-checkout";
 import { notifyClassBookings } from "@/lib/class-checkout";
@@ -25,5 +25,7 @@ export async function GET(request: Request) {
   const receipts = await notifyChargePayments(db).catch(() => 0);
   const renewed = await notifyRenewalPayments(db).catch(() => 0);
   const failures = await notifyDirectDebitFailures(db).catch(() => 0);
-  return NextResponse.json({ ...summary, welcomed, classBookings, receipts, renewed, failures }, { status: summary.ok ? 200 : 503, headers: noStore });
+  // Stripe pages of cancelled charges still open (anything not closed straight away).
+  const pagesClosed = await closeCancelledLinks(db, stripe).catch(() => 0);
+  return NextResponse.json({ ...summary, welcomed, classBookings, receipts, renewed, failures, pagesClosed }, { status: summary.ok ? 200 : 503, headers: noStore });
 }
