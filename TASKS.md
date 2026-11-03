@@ -7,7 +7,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - **Membership portal and coach portal: make them easy on a phone for Alex and members** (owner's focus; phone audit below in "Portal audit")
 - Google Search Console and Google Business Profile (owner and Alex together)
 - Alex's bio, portrait, qualifications, testimonials (nothing shown until supplied)
-- Watch the first real Direct Debit collection clear; cancel or keep the two demo memberships before 24 November
+- Watch the first real Direct Debit collection clear (needs a real member on Direct Debit; the demo ones are cancelled)
 - Paused-membership restart policy; small group coaching details; what 1:1 coaching includes
 - Real-phone check of both portals; compare speed after the Dublin deploy
 - Older unticked lines below are historic; the ones above are what matters.
@@ -276,6 +276,10 @@ See Coach portal below.
 - [x] `/terms` page: the published membership, cancellation, refund and health-and-risk wording in one place (no new wording), linked from the footer
 - [ ] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter)
 - [ ] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection
+
+## Demo members (2026-11-03, owner)
+- [x] Both demo members cancelled and set to Former; their booked classes cancelled; the demo Direct Debit's bank account removed in Stripe (so nothing is collected on 24 or 30 November). The records stay, because payment and booking history can't be erased.
+- [x] The "cancel the demo memberships before 24 November" item is closed.
 
 ## Alex's decisions (2026-11-02, via the owner)
 - [x] Refund policy: **option B**. No cash refunds for late cancellations, missed classes or a started membership period. If Alex cancels a class someone paid for and they can't make another date, it is refunded to their card; a payment taken in error is always refunded. On the site: `content/policy.ts` (`refunds`, `coachCancellations`), the FAQ "Can I get a refund?" and the cancelled-class email.
