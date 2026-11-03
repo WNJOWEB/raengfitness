@@ -80,7 +80,7 @@ test.describe("joining and paying online", () => {
     await expect(page.getByText("Paid today")).toBeVisible();
     await expect(page.getByText("£65 by Visa ending 4242")).toBeVisible();
     await expect(page.getByText("8 every 4 weeks")).toBeVisible();
-    await expect(page.locator("dl")).toContainText(/RAENG-[0-9A-F]{8}/);
+    await expect(page.locator("dl.cf-rise")).toContainText(/RAENG-[0-9A-F]{8}/);
 
     // Direct Debit is the first option: the page says so, forwards to Stripe's bank page after a few seconds on its own, and the saved card is the fallback.
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });

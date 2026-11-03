@@ -96,14 +96,14 @@ test.describe("booking a group class and paying online", () => {
     // The confirmation says what was booked and paid, with a reference, and what to do next: not just "thanks".
     const facts = page.getByRole("definition");
     await expect(page.getByText("Group class", { exact: true }).first()).toBeVisible();
-    await expect(page.locator("dl")).toContainText("£12.00 paid by card");
-    await expect(page.locator("dl")).toContainText(/RAENG-[0-9A-F]{8}/);
-    await expect(page.locator("dl")).toContainText("Cumbernauld");
+    await expect(page.locator("dl.cf-rise")).toContainText("£12.00 paid by card");
+    await expect(page.locator("dl.cf-rise")).toContainText(/RAENG-[0-9A-F]{8}/);
+    await expect(page.locator("dl.cf-rise")).toContainText("Cumbernauld");
     await expect(page.getByRole("link", { name: "View my bookings" })).toHaveAttribute("href", "/account/sign-in");
     await expect(page.getByRole("link", { name: "Book a class" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to the homepage" })).toHaveCount(0);
     void facts;
-    const reference = (await page.locator("dl").innerText()).match(/RAENG-[0-9A-F]{8}/)![0];
+    const reference = (await page.locator("dl.cf-rise").innerText()).match(/RAENG-[0-9A-F]{8}/)![0];
     // Refreshing the confirmation changes nothing: still one booking and one payment.
     await page.reload();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
@@ -143,7 +143,7 @@ test.describe("booking a group class and paying online", () => {
     await page.getByRole("button", { name: "Book with your credit" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
-    await expect(page.locator("dl")).toContainText("Paid with a class credit");
+    await expect(page.locator("dl.cf-rise")).toContainText("Paid with a class credit");
     // Booked for the credit's owner, whatever email was typed.
     const rows = await sql(request, "select b.status, b.charge_id from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1 order by b.created_at", [email]);
     expect(rows).toEqual([
@@ -227,9 +227,9 @@ test.describe("booking a group class and paying online", () => {
     const open = await link("open");
     await page.goto(`${PAY}/pay/done?link=${open}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Confirming your payment.");
-    await expect(page.locator("dl")).toContainText("£65.00");
-    await expect(page.locator("dl")).toContainText("Regular membership");
-    await expect(page.locator("dl")).toContainText(`RAENG-${open.slice(0, 8).toUpperCase()}`);
+    await expect(page.locator("dl.cf-rise")).toContainText("£65.00");
+    await expect(page.locator("dl.cf-rise")).toContainText("Regular membership");
+    await expect(page.locator("dl.cf-rise")).toContainText(`RAENG-${open.slice(0, 8).toUpperCase()}`);
     expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(1);
     // Back arrow: cancelled, not waiting, and no refresh.
     await page.goto(`${PAY}/pay/done?link=${open}&cancelled=1`);
@@ -247,8 +247,8 @@ test.describe("booking a group class and paying online", () => {
     const paid = await link("paid", true);
     await page.goto(`${PAY}/pay/done?link=${paid}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment received.");
-    await expect(page.locator("dl")).toContainText("£65.00");
-    await expect(page.locator("dl")).toContainText("Date");
+    await expect(page.locator("dl.cf-rise")).toContainText("£65.00");
+    await expect(page.locator("dl.cf-rise")).toContainText("Date");
     await expect(page.getByRole("link", { name: "Sign in to your account" })).toHaveAttribute("href", "/account/sign-in");
     await expect(page.getByRole("link", { name: "Back to the homepage" })).toHaveCount(0);
     await page.reload();
