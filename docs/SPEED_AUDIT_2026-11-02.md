@@ -69,7 +69,7 @@ Asked by the owner: buttons and taps feel slow in the coach dashboard and the me
 
 ## What was done (2026-11-03)
 
-1. **Region:** `vercel.json` now has `"regions": ["dub1"]` (Dublin, next to the Irish database). Takes effect on the next production deploy.
+1. **Region:** `vercel.json` now has `"regions": ["dub1"]` (Dublin, next to the Irish database). Deployed to production 2026-11-03.
 2. **Instant response to a tap:** in the members area the tapped tab looks pressed at once (`TabPending`, using Next's `useLinkStatus`), and so do the coach tabs; every coach page's plain "Loading…" line is now a quiet skeleton (`CoachLoading`). A full loading screen for the members pages was built and **removed again**: held-back pages need JavaScript to appear, so with scripts off the members pages came out half empty. The members pages are sent whole, as before, so booking and signing in still work without JavaScript.
 3. **Emails after the reply:** booking, cancelling (member and coach), cancelling a membership, the coach's pause, resume and cancel, and recording a payment now answer first and email afterwards (`after()`); the customer's and Alex's emails also go out together. Confirming or declining a request still waits, because it marks "told" only when the email went.
 4. **Pending buttons:** `PendingButton` on Set up Direct Debit, Change card, Save a card, Cancel my membership, Sign out, Save details, reminders and calendar.

@@ -2,6 +2,17 @@
 
 Priority: P0 blocks launch · P1 before/at launch · P2 later.
 
+## Where we are (2026-11-03)
+Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct Debit, emails, member and coach portals. **Open now:**
+- **Membership portal and coach portal: make them easy on a phone for Alex and members** (owner's focus; phone audit below in "Portal audit")
+- Google Search Console and Google Business Profile (owner and Alex together)
+- Alex's bio, portrait, qualifications, testimonials (nothing shown until supplied)
+- Watch the first real Direct Debit collection clear; cancel or keep the two demo memberships before 24 November
+- Paused-membership restart policy; small group coaching details; what 1:1 coaching includes
+- Real-phone check of both portals; compare speed after the Dublin deploy
+- Older unticked lines below are historic; the ones above are what matters.
+
+
 ## Phase 1 — Public website
 
 ### Done (2026-10-15)
@@ -69,23 +80,23 @@ Priority: P0 blocks launch · P1 before/at launch · P2 later.
 - [x] Online coaching journey made consistent (2026-10-19): one "Enquire about online coaching" call to action everywhere, the page worded as an enquiry (not a sign-up), Instagram stated as the route when the form can't send
 - [ ] **P1** Online coaching details page (owner's plan: what a month includes, check-in rhythm) when Alex supplies the content
 - [x] `/book` live on production (2026-10-18): "Start your training" opens it; group classes pick real timetable dates; requests stored in Supabase and listed in `/coach`
-- [ ] **P0** Alex tries the booking prototype on a preview (`BOOKING_DEMO=true`) and confirms the flow
-- [ ] **P1** Choose how real availability will work (hosted provider vs custom) before live date-and-time booking — see ARCHITECTURE.md → Guided booking
+- [x] **P0** Alex tries the booking prototype on a preview (`BOOKING_DEMO=true`) and confirms the flow — done: live; superseded by the real flow
+- [x] **P1** Choose how real availability will work (hosted provider vs custom) before live date-and-time booking — see ARCHITECTURE.md → Guided booking — done: decided: custom booking, built and live
 - [x] Coach login set up (2026-10-18) with the developer's account; `COACH_EMAIL` set in Vercel
-- [ ] **P0** At handover: create Alex's Supabase login and change `COACH_EMAIL` to his email; turn off public sign-ups in Supabase. Optional: Resend settings so each request is also emailed
-- [ ] **P1** Remove `BOOKING_DEMO` from Vercel Preview so previews show the real flow (or keep it to demo)
-- [ ] **P1** Capacity per class and holiday weeks, so full/cancelled dates can be shown
-- [ ] **P0** Alex reviews `/privacy` and agrees to confirm requests by reply
+- [x] **P0** At handover: create Alex's Supabase login and change `COACH_EMAIL` to his email; turn off public sign-ups in Supabase. Optional: Resend settings so each request is also emailed — done: Alex has his own coach login, `COACH_EMAIL` is his, public sign-ups off
+- [x] **P1** Remove `BOOKING_DEMO` from Vercel Preview so previews show the real flow (or keep it to demo) — done: `BOOKING_DEMO` is set to false on Preview (2026-11-02)
+- [x] **P1** Capacity per class and holiday weeks, so full/cancelled dates can be shown — done: 15 places, per class if needed
+- [x] **P0** Alex reviews `/privacy` and agrees to confirm requests by reply — done: privacy wording signed off by Alex (owner, 2026-11-03)
 - [ ] **P0** Account ownership: Vercel (plan suitable for commercial use), GitHub repo, domain — DEPLOYMENT.md
-- [ ] **P0** Choose and register the domain
+- [x] **P0** Choose and register the domain — done: raengfitness.co.uk is live
 - [ ] **P0** Confirm or withhold timetable, duration, prices (CONTENT.md questions). Site launches safely either way
-- [ ] **P1** Confirm people shown in the hero video are happy to appear; confirm footage from other gyms is fine
-- [ ] **P1** Public email/phone if wanted (`site.contact`)
+- [x] **P1** Confirm people shown in the hero video are happy to appear; confirm footage from other gyms is fine — done: owner 2026-11-03: Alex keeps written consent from anyone shown; content going forward is mostly generic kettlebell and gym pictures
+- [x] **P1** Public email/phone if wanted (`site.contact`) — done: hello@raengfitness.co.uk and the phone number are on the site
 - [ ] **P1** Genuine photos, bio, qualifications → consider `/about`
 
 ### To launch — technical
-- [ ] **P0** Check the next Vercel preview serves the homepage (framework fix) — DEPLOYMENT.md "Get a preview URL"
-- [ ] **P0** In the owning project: production branch, `SITE_URL` (Production), `CONTENT_PREVIEW=true` (Preview only)
+- [x] **P0** Check the next Vercel preview serves the homepage (framework fix) — DEPLOYMENT.md "Get a preview URL" — done: the site serves from production
+- [x] **P0** In the owning project: production branch, `SITE_URL` (Production), `CONTENT_PREVIEW=true` (Preview only) — done: `SITE_URL` set on Production
 - [ ] **P1** Real-device pass: iOS Safari (MP4 playback), Android Chrome, VoiceOver/TalkBack, 200% zoom
 - [x] **P1** Privacy notice page (`/privacy`; needs Alex's review)
 - [ ] **P1** Test `https://ig.me/m/alex.kbells` on a phone; if it opens a DM reliably, use it as the primary contact button (not verifiable from the build environment)
@@ -101,13 +112,13 @@ Priority: P0 blocks launch · P1 before/at launch · P2 later.
 ## Phase 2 — Booking & payments (blocked)
 Blocked on (history): provider choice (Stripe chosen 2026-10-30, live 2026-11-02), class price/capacity/duration, cancellation & refund policy.
 - [x] Payment provider decided and live: Stripe (replaces Square, 2026-10-30; live 2026-11-02). Fees: Stripe's UK card rate (1.5% + 20p standard UK cards) and Bacs 1% (min 20p, max £4) per its pricing page; check the account's own rate in the Stripe Dashboard
-- [ ] Choose option A (hosted) or B (custom) — see ARCHITECTURE.md
+- [x] Choose option A (hosted) or B (custom) — see ARCHITECTURE.md — done: B (custom) chosen, built and live
 - [x] Supabase project `Alexkbells` connected (env config only; see ARCHITECTURE.md)
 - [x] Coach login (`/coach/login`) with Supabase Auth, limited to `COACH_EMAIL`
-- [ ] Create Alex's coach account in Supabase, turn off public sign-ups, set `COACH_EMAIL` in Vercel (DEPLOYMENT.md → Coach login)
+- [x] Create Alex's coach account in Supabase, turn off public sign-ups, set `COACH_EMAIL` in Vercel (DEPLOYMENT.md → Coach login) — done: Alex's login exists, sign-ups off, `COACH_EMAIL` is his
 - [x] The other app's data was removed from the Supabase project (2026-11-02, owner's instruction): 47 leftover tables and 26 types in `public`, the `lodge` and `fystay_preview` schemas and the `backup_snapshot_20261011` schema (about 900 rows, newest dated 11 October). The project now holds only RAENG's 37 `akb_*` tables. That data was not copied anywhere first.
-- [ ] If B: Supabase schema + RLS, idempotent booking endpoint, verified webhooks, emails
-- [ ] Tests: last-place race, duplicate requests, payment success/failure/pending, refunds, webhook retries, cross-user access
+- [x] If B: Supabase schema + RLS, idempotent booking endpoint, verified webhooks, emails — done: built (schema, RLS, idempotent booking, verified webhooks, emails)
+- [x] Tests: last-place race, duplicate requests, payment success/failure/pending, refunds, webhook retries, cross-user access — done: covered by the unit, SQL and e2e tests
 - [x] Booking request form with server validation, spam protection, privacy notice (general contact form still not built)
 
 ## Phase 3 — Membership & accounts (blocked on product definition)
@@ -127,10 +138,10 @@ See Coach portal below.
 - [x] Migration applied to Supabase 2026-10-18 (all but three functions; DEPLOYMENT.md → Coach portal)
 - [x] Applied `20261020000000_akb_payment_functions.sql` (2026-10-28) (DEPLOYMENT.md → Coach portal)
 - [x] Public sign-ups off in Supabase (verified 2026-10-20)
-- [ ] P3 Leaked-password protection is a paid-plan Supabase feature (the security scan flags it as off on the Free plan); the coach logs in with a long, unique password instead; change the temporary coach password; set `COACH_EMAIL` to Alex's at handover
+- [x] P3 Leaked-password protection is a paid-plan Supabase feature (the security scan flags it as off on the Free plan); the coach logs in with a long, unique password instead; change the temporary coach password; set `COACH_EMAIL` to Alex's at handover — done: owner 2026-11-03: only Alex knows his password, nothing to change
 - [x] Email alerts to Alex: outcome recorded per request, one immediate retry, daily cron retry inside the provider's idempotency window, shown in the portal (2026-10-20, code only)
 - [x] `20261020000100_akb_request_alerts.sql` applied to the live database (2026-10-23)
-- [ ] **P0** Turn alerts on: Resend account + verified domain, Vercel env (`RESEND_API_KEY`, `BOOKING_NOTIFY_EMAIL`, `BOOKING_FROM_EMAIL`, `CRON_SECRET`) (DEPLOYMENT.md → Email alerts)
+- [x] **P0** Turn alerts on: Resend account + verified domain, Vercel env (`RESEND_API_KEY`, `BOOKING_NOTIFY_EMAIL`, `BOOKING_FROM_EMAIL`, `CRON_SECRET`) (DEPLOYMENT.md → Email alerts) — done: Resend live with the verified domain (2026-11-02)
 - [x] Alex adds retention periods for client and financial records to `/privacy`
 - [ ] **P1** Real-device pass of the portal on Alex's phone
 - [x] Public calendar hides full dates and the server refuses them, from capacities set per date (2026-10-23)
@@ -140,7 +151,7 @@ See Coach portal below.
 - [x] Test-environment options and costs checked; database + app safeguards against Sandbox records in the live database (2026-10-21)
 - [x] Test environment decided (2026-10-21), kept for Stripe: tests run against a Stripe stand-in and the real migrations; the database guard stops test records reaching the live ledger (DEPLOYMENT.md → Stripe payments)
 - [x] Stripe live (2026-11-02): live key and webhook set on Vercel Production; a real £1 payment and its refund each recorded once; test clients archived
-- [ ] **P1** Owner (in the Stripe app): request Bacs Direct Debit (Alex's identity check), set the support email to hello@raengfitness.co.uk, turn on customer receipt emails, add hello@ as a team member, optionally roll the webhook secret. Then set `DIRECT_DEBIT_ENABLED=true` on Production
+- [x] **P1** Owner (in the Stripe app): request Bacs Direct Debit (Alex's identity check), set the support email to hello@raengfitness.co.uk, turn on customer receipt emails, add hello@ as a team member, optionally roll the webhook secret. Then set `DIRECT_DEBIT_ENABLED=true` on Production — done: Stripe settings done and Bacs Direct Debit approved and switched on (`DIRECT_DEBIT_ENABLED=true`, 2026-11-03)
 - [ ] **P2** Expire a cancelled charge's Stripe checkout link automatically (today it just becomes credit if paid)
 - [x] Flaky e2e "the coach signs in, stays signed in after the access token expires" (2026-11-02): not reproduced in 205 repeats (180 under load); hardened the likely cause: requests arriving together with the same refresh token now share one refresh (`refreshSessionShared`), so a refused second use can't delete the cookie the first renewed. Watch for a recurrence
 - [x] Emails to clients from the site (Resend, verified domain raengfitness.co.uk, 2026-11-02): confirmations, cancellations, receipts, reminders, and the coach's pause/cancel/payment notices (ARCHITECTURE.md → Confirmation pages and emails)
@@ -164,10 +175,10 @@ See Coach portal below.
 - [x] Home cards overhauled (option 1, 2026-10-26): Coached by line, classes as three steps with Book now, More ways as rows, Why kettlebells as a plain grid; same information, about 1,000 px less on phones
 - [x] Join and pay online with no confirmation by Alex (2026-10-26): Stripe checkout, membership starts on the verified payment, first class booked then, renewal pay links, credits wait for payment; tested (SQL, unit, e2e with a Square stand-in)
 - [x] Book and pay for a group class online (2026-10-27): 15-minute hold, confirmed on Stripe's verified payment, private link to cancel, 24 h → class credit for 4 weeks; 1:1 stays a request; tested (SQL, unit, e2e with the Square stand-in)
-- [ ] Alex to confirm the class credit wording ("Cancel 24 hours or more before and you get a credit for another class within 4 weeks…")
+- [x] Alex to confirm the class credit wording ("Cancel 24 hours or more before and you get a credit for another class within 4 weeks…") — done: wording signed off by Alex (owner, 2026-11-03)
 - [x] Migrations 20261020 → 20261030 applied to the live database (2026-10-28)
 - [x] Online joining and class booking live (2026-11-02): Stripe live, Resend, `SITE_URL` set
-- [ ] Alex to confirm: wording of the renewal email ("To stop your membership, reply to this email") and whether unpaid renewals should pause a membership automatically
+- [x] Alex to confirm: wording of the renewal email ("To stop your membership, reply to this email") and whether unpaid renewals should pause a membership automatically — done: wording signed off by Alex (owner, 2026-11-03)
 - [x] Restyle /classes, /memberships, /coaching, /online-coaching, /about and /contact to the home system: no cards, nothing repeated, shorter (2026-10-26); hero wording A "Get stronger. / Kettlebell classes in Cumbernauld"
 - [ ] P2 Hero film: muted colour grade (recommended 2026-10-24, not yet done)
 
@@ -181,14 +192,14 @@ See Coach portal below.
 - [x] Member requests confirmed on a credit: the confirm form ticks "Pay with their membership credit" when their period covers the class (no £12 charge) (2026-10-24)
 - [x] Client record: Membership tab (plan, credits left, renewal) (2026-10-24)
 - [x] Dashboard: "No credits left" for members who have used every credit this period; renewals caught up on every visit to the dashboard or Memberships, so they still happen without `CRON_SECRET` (2026-10-24)
-- [ ] P0 Confirm class capacity (set per class in the coach portal; blank means not full)
+- [x] P0 Confirm class capacity (set per class in the coach portal; blank means not full) — done: 15, confirmed
 - [x] End-to-end payment test done live with a real £1 payment and refund (2026-11-02); further flows are covered by mocked tests
 - [ ] P1 Confirm brand name on the site (RAENG Kettlebell Club vs Alex K Bells)
 
 ## Kettlebell Club redesign (2026-10-21, later)
 - [x] New logo (black/cream), cream-led palette, hero video support, /memberships (cards, terms, cancellation policy), coach + before/after on home, minimal imagery, £12 class price, tests
 - [x] Hero film cut from supplied footage (2026-10-21)
-- [ ] P0 Confirm everyone in the hero film, hero still and before/after photos agrees to appear; a higher-resolution clip would look sharper on large screens
+- [x] P0 Confirm everyone in the hero film, hero still and before/after photos agrees to appear; a higher-resolution clip would look sharper on large screens — done: owner 2026-11-03: Alex keeps written consent; nothing stored on the site
 - [x] Credits/renewals built (see Master redesign). The auto-renew and "credit returned" wording now matches the portal: renewal creates the period, credits and charge; an in-time cancellation returns the credit
 - [ ] P1 Check the £12 price in the coach portal's stored data (`akb_` tables keep their own per-class price if one was saved)
 
@@ -200,7 +211,7 @@ See Coach portal below.
 
 ### Open (needs the owner)
 - [ ] P0 Confirm the venue, timetable, prices and coach details are unchanged under RAENG; confirm everyone in the supplied photos agrees to appear (and replace any frame that isn't OK)
-- [ ] P1 RAENG Instagram/Facebook handles, email, phone, domain (`SITE_URL`), a verified Resend sending domain named RAENG
+- [x] P1 RAENG Instagram/Facebook handles, email, phone, domain (`SITE_URL`), a verified Resend sending domain named RAENG — done: hello@, phone, domain and the verified Resend domain are set
 - [ ] P1 Alex's own words: background, qualifications, philosophy, motivation, brand story; a current portrait
 - [x] Online booking and payment decision: card payments live on Stripe (2026-11-02); 1:1 and online coaching stay requests Alex confirms
 - [ ] P2 Real RAENG logo artwork if one exists; Online coaching feature list, capacity/cancellation policy, testimonials
@@ -227,7 +238,7 @@ See Coach portal below.
 - [x] ~~/classes interactive steps (owner pick B, 2026-10-29)~~ removed again at the owner's request (2026-10-29): see DESIGN.md. Was: tap-to-open rail, membership calculator in step 2, bank transfer/cash removed from step 2, memberships section on the page. Not pushed live yet; bank transfer/cash still on the booking page and FAQ (ask owner)
 - [x] Alex's feedback, 2026-10-29 (home, memberships, nav layout, online coaching off, small group coaching named): see DESIGN.md. Not yet live until merged
 - [ ] **Needs Alex** Small group coaching: price, group size, times and how to book (today it only links to FAQs & Contact)
-- [ ] **Needs Alex** Membership cancellation: how to cancel a membership and when it takes effect (his mockup had a placeholder; nothing is invented)
+- [x] **Needs Alex** Membership cancellation: how to cancel a membership and when it takes effect (his mockup had a placeholder; nothing is invented) — done: members cancel from the Plan page; stops the next period, credits stay until the period ends
 - [ ] **Needs Alex** Whether the closing "Ready to start? Book now" band stays (he says there are too many Book now buttons)
 - [ ] P2 When online coaching returns: set `onlineCoachingOffered` true, remove the two redirects in next.config.ts, restore the routes in lib/routes.ts, the nav link, the home row and the tests (git history)
 - [x] Class size (owner, 2026-10-29): 12 places per class, Alex changes it in Classes → Class size (a date can have its own), "Fully booked" on home tiles and /classes with the next class offered. Migration `20261102000000_akb_default_class_capacity.sql` **not yet applied**
@@ -238,22 +249,22 @@ See Coach portal below.
 - [ ] P2 Payment history and receipts in the account; edit name, phone and email
 - [ ] **Needs Alex's rules first** Pause or cancel a membership from the account (notice, pause limits, refunds); waitlist for full classes (needs class capacities)
 - [x] Applied `20261024000000_akb_cancel_class.sql` and `20261027000000_akb_member_accounts.sql` to the live database (2026-10-28) (DEPLOYMENT.md → Member accounts)
-- [ ] **P0, needs Alex** Resend in production (also turns on booking alerts); without it members can't get sign-in links
-- [ ] **P1, needs Alex** Confirm the privacy wording; a retention period and a contact email if he wants one listed
+- [x] **P0, needs Alex** Resend in production (also turns on booking alerts); without it members can't get sign-in links — done: Resend is live
+- [x] **P1, needs Alex** Confirm the privacy wording; a retention period and a contact email if he wants one listed — done: privacy wording signed off; retention set (6 years / 2 years / 12 months)
 - [ ] **P2** A "Sign out everywhere" button for a member in the coach area (today: `select akb_member_end_sessions('<client id>')`)
 - [x] Payments moved from Square to Stripe (2026-10-30, owner): Checkout, signed webhook, refunds, reconcile; Direct Debit memberships (card first, then Bacs Direct Debit every 4 weeks, early collection, retries then pause, member cancel any time). Built against a Stripe stand-in.
-- [x] Renewals by saved card (2026-11-02, owner): first payment keeps the card with an agreement on Stripe's page, charged on the day each period starts, reminder 5 days before, receipt after, retries day 3 and 7 then pause, change card from the plan page, cancel any time. Direct Debit hidden until `DIRECT_DEBIT_ENABLED=true`.
-- [ ] P1 Owner: confirm the renewal wording on Stripe's page and in the emails; whether a member who pays their way out of a paused membership should restart automatically (today Alex restarts it)
-- [x] Stripe account created, live key and webhook set, `20261104000000_akb_stripe.sql` and `20261105000000_akb_direct_debit.sql` applied (2026-11-02). Apply `20261106000000_akb_card_renewals.sql` when the saved-card renewals go live. Bacs Direct Debit still awaits Stripe's approval (see the P1 item above)
-- [ ] **P1** Owner/Alex: confirm the membership cancellation wording (content/policy.ts `membershipCancellation`): collections are submitted ~6 days before each period, so cancelling later than that still takes the next payment
+- [x] Renewals by saved card (2026-11-02, owner): first payment keeps the card with an agreement on Stripe's page, charged on the day each period starts, reminder 5 days before, receipt after, retries day 3 and 7 then pause, change card from the plan page, cancel any time. Direct Debit is on (`DIRECT_DEBIT_ENABLED=true`, 2026-11-03).
+- [ ] P1 Owner: confirm the renewal wording on Stripe's page and in the emails; (wording signed off 2026-11-03). Still open: whether a member who pays their way out of a paused membership should restart automatically (today Alex restarts it)
+- [x] Stripe account created, live key and webhook set, `20261104000000_akb_stripe.sql` and `20261105000000_akb_direct_debit.sql` applied (2026-11-02). `20261106000000_akb_card_renewals.sql` applied. Bacs Direct Debit approved and on
+- [x] **P1** Owner/Alex: confirm the membership cancellation wording (content/policy.ts `membershipCancellation`): collections are submitted ~6 days before each period, so cancelling later than that still takes the next payment — done: wording signed off by Alex (owner, 2026-11-03)
 - [x] Participation and risk disclaimer ticked before every booking (2026-10-31, owner): wording in `content/policy.ts` (`classWaiver`), required on the server, version and time stored with the booking
-- [ ] **P0** Owner: have a solicitor read the disclaimer wording, and check RAENG's public liability insurance covers classes (UK law doesn't let a business exclude liability for death or injury caused by its own negligence, so the wording doesn't try to)
+- [x] **P0** Owner: have a solicitor read the disclaimer wording, and check RAENG's public liability insurance covers classes (UK law doesn't let a business exclude liability for death or injury caused by its own negligence, so the wording doesn't try to) — done: owner 2026-11-03: done (disclaimer and insurance)
 
 ## Alex's decisions (2026-11-02, via the owner)
 - [x] Refund policy: **option B**. No cash refunds for late cancellations, missed classes or a started membership period. If Alex cancels a class someone paid for and they can't make another date, it is refunded to their card; a payment taken in error is always refunded. On the site: `content/policy.ts` (`refunds`, `coachCancellations`), the FAQ "Can I get a refund?" and the cancelled-class email.
 - [x] Records kept (owner's pick, 2026-11-02): payment and booking records 6 years; name, email, phone and notes deleted or anonymised 2 years after the last booking, payment or message; enquiries that never became a booking 12 months. On `/privacy`. **Deletion is manual for now**: review once a year (clients with no activity for 2 years, enquiries older than 12 months); a coach-portal list to help is a possible follow-up.
 - [x] Class size: 15 places (already set; the coach portal can change a single class). On the FAQ "How many people are in a class?".
-- [ ] **P1** Photo consent, option A: each person visible in the hero video and photos sends a short written OK (a text or WhatsApp screenshot, kept by Alex). Anyone who hasn't agreed is blurred or replaced before launch.
+- [x] **P1** Photo consent, option A: each person visible in the hero video and photos sends a short written OK (a text or WhatsApp screenshot, kept by Alex). Anyone who hasn't agreed is blurred or replaced before launch. — done: owner 2026-11-03: Alex keeps the written consent
 - [ ] **P1** Alex's bio, portrait, qualifications with certificates, and 3 to 5 testimonials with written permission (nothing added until supplied).
 
 ## Speed (owner, 2026-11-02: buttons and taps feel slow in the coach and members dashboards)
