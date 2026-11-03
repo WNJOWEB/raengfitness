@@ -9,10 +9,11 @@ import { periodProgress } from "@/lib/member-view";
 import { AccountUnavailable, ClassCredits, PayAsYouGo, PaymentDue } from "@/components/members/Cards";
 import { PlanCoaching } from "@/components/members/CoachingCards";
 import { MembersShell } from "@/components/members/MembersShell";
-import { BILLING_WEEKS } from "@/content/memberships";
-import { cancelMembership, setUpDirectDebit, updateRenewalCard } from "../actions";
+import { cancelMembership } from "../actions";
 import { loadMembers } from "../data";
 import { PendingButton } from "@/components/ui/PendingButton";
+import { RevealPhone } from "@/components/ui/RevealPhone";
+import { scramblePhone } from "@/lib/phone";
 
 export const metadata: Metadata = pageMetadata({
   title: "Your plan",
@@ -20,8 +21,6 @@ export const metadata: Metadata = pageMetadata({
   path: "/account/plan",
   noindex: true,
 });
-
-const external = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 /**
  * Members Plan (owner's members design, 2026-10-28): the plan card with how
@@ -104,93 +103,17 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
           </dl>
 
           {m.status !== "cancelled" ? (
-            <section aria-labelledby="payments-heading" className="flex flex-col gap-3">
-              <h2 id="payments-heading" className="members-eyebrow">
-                Payments
-              </h2>
-              <div className="flex flex-col gap-2 rounded-3xl bg-white p-5">
-                {d.dd.status === "active" && d.dd.method === "bacs" ? (
-                  <>
-                    <p className="font-semibold">Direct Debit is set up.</p>
-                    <p className="text-ink">
-                      {formatPenceShort(m.price_pence)} is collected by Direct Debit every {BILLING_WEEKS} weeks, a few days before each new period starts.
-                    </p>
-                  </>
-                ) : d.ddAvailable ? (
-                  <>
-                    <p className="font-semibold">Pay by Direct Debit.</p>
-                    <p className="text-ink">
-                      Set up a Direct Debit and your membership continues every {BILLING_WEEKS} weeks without you doing anything: {formatPenceShort(m.price_pence)} is collected a few days before each new period starts. Your bank details go straight to Stripe, not to us. You can cancel at any time.
-                    </p>
-                    <form action={setUpDirectDebit}>
-                      <PendingButton pendingLabel="Opening Stripe…" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
-                        Set up Direct Debit
-                      </PendingButton>
-                    </form>
-                    <div className="mt-3 border-t border-line pt-3">
-                      {d.dd.status === "active" && d.dd.method === "card" ? (
-                        <>
-                          <p className="text-ink">
-                            Until then, your {d.dd.label || "card"} is charged every {BILLING_WEEKS} weeks, on the day each new period starts. We email you 5 days before each payment.
-                          </p>
-                          <form action={updateRenewalCard}>
-                            <PendingButton pendingLabel="Opening Stripe…" className="members-btn mt-2 w-full sm:w-auto">
-                              Change card
-                            </PendingButton>
-                          </form>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-ink">Or pay by card: save a card and {formatPenceShort(m.price_pence)} is charged to it every {BILLING_WEEKS} weeks.</p>
-                          <form action={updateRenewalCard}>
-                            <PendingButton pendingLabel="Opening Stripe…" className="members-btn mt-2 w-full sm:w-auto">
-                              Save a card
-                            </PendingButton>
-                          </form>
-                        </>
-                      )}
-                    </div>
-                  </>
-                ) : d.dd.status === "active" && d.dd.method === "card" ? (
-                  <>
-                    <p className="font-semibold">Your membership renews automatically.</p>
-                    <p className="text-ink">
-                      {formatPenceShort(m.price_pence)} is charged to your {d.dd.label || "card"} every {BILLING_WEEKS} weeks, on the day each new period starts. We email you 5 days before each payment.
-                    </p>
-                    <form action={updateRenewalCard}>
-                      <PendingButton pendingLabel="Opening Stripe…" className="members-btn mt-2 w-full sm:w-auto">
-                        Change card
-                      </PendingButton>
-                    </form>
-                  </>
-                ) : !d.cardAvailable ? (
-                  <p className="text-ink">We&apos;ll email you a payment link when your membership renews. Payments are made on Stripe&apos;s secure page.</p>
-                ) : (
-                  <>
-                    <p className="font-semibold">Turn on automatic renewals.</p>
-                    <p className="text-ink">
-                      Save a card and your membership renews every {BILLING_WEEKS} weeks without you doing anything: {formatPenceShort(m.price_pence)} is charged to it each time, and we email you 5 days before. You can cancel at any time. Your card details go straight to Stripe, not to us.
-                    </p>
-                    <form action={updateRenewalCard}>
-                      <PendingButton pendingLabel="Opening Stripe…" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
-                        Save a card
-                      </PendingButton>
-                    </form>
-                  </>
-                )}
-              </div>
-              <details className="rounded-3xl bg-white p-5">
-                <summary className="cursor-pointer font-semibold">Cancel my membership</summary>
-                <p className="mt-3 text-ink">
-                  You can cancel at any time. Nothing more will be taken. You keep the credits you&apos;ve already paid for until the end of this period, and they aren&apos;t refunded.
-                </p>
-                <form action={cancelMembership}>
-                  <PendingButton pendingLabel="Cancelling…" className="members-btn mt-4 w-full sm:w-auto">
-                    Yes, cancel my membership
-                  </PendingButton>
-                </form>
-              </details>
-            </section>
+            <details className="rounded-3xl bg-white p-5">
+              <summary className="cursor-pointer font-semibold">Cancel my membership</summary>
+              <p className="mt-3 text-ink">
+                You can cancel at any time. Nothing more will be taken. You keep the credits you&apos;ve already paid for until the end of this period, and they aren&apos;t refunded.
+              </p>
+              <form action={cancelMembership}>
+                <PendingButton pendingLabel="Cancelling…" className="members-btn mt-4 w-full sm:w-auto">
+                  Yes, cancel my membership
+                </PendingButton>
+              </form>
+            </details>
           ) : null}
         </>
       ) : (
@@ -216,14 +139,17 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
               View<span className="sr-only"> memberships</span>
             </Link>
           </li>
-          <li className="flex items-center justify-between gap-3 border-b border-line py-3">
-            <div className="flex min-w-0 flex-col">
-              <span className="font-semibold">{m ? "Pause or questions" : "Change your details or questions"}</span>
-              <span className="text-sm text-ink">Message Alex</span>
+          <li className="flex flex-col gap-1 border-b border-line py-3">
+            <span className="font-semibold">{m ? "Pause or questions" : "Change your details or questions"}</span>
+            <span className="text-sm text-ink">Email or call Alex</span>
+            <div className="flex flex-wrap items-center gap-x-5">
+              {site.contact.email ? (
+                <a href={`mailto:${site.contact.email}`} className="members-link inline-flex min-h-11 items-center [overflow-wrap:anywhere]">
+                  {site.contact.email}
+                </a>
+              ) : null}
+              {site.contact.phone ? <RevealPhone scrambled={scramblePhone(site.contact.phone)} mode="footer" /> : null}
             </div>
-            <a href={site.social.instagram.url} {...external} className="members-link">
-              Instagram<span className="sr-only"> (opens in a new tab)</span>
-            </a>
           </li>
           <li className="flex items-center justify-between gap-3 border-b border-line py-3">
             <div className="flex min-w-0 flex-col">

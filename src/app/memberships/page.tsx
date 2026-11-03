@@ -4,7 +4,6 @@ import { getService } from "@/content/services";
 import { formatPenceShort, maxSavingPence } from "@/lib/membership";
 import { pageMetadata } from "@/lib/metadata";
 import { Section, SectionHeading } from "@/components/ui/Section";
-import { CtaBand } from "@/components/sections/CtaBand";
 import { PageHeader } from "@/components/sections/PageHeader";
 import { CancellationPolicy } from "@/components/memberships/CancellationPolicy";
 import { PaygExtra, PlanList } from "@/components/memberships/PlanList";
@@ -19,15 +18,17 @@ export const metadata: Metadata = pageMetadata({
 
 const payg = getService("group-classes").prices[0];
 
-// Reads in the order a visitor decides (owner, 2026-10-27): how memberships work,
-// the prices side by side, then the call to action. The cancellation policy is
-// reference, so it sits last (other pages link to #cancellation). What pay as
-// you go costs on top is one plain link under the plans, closed until asked for.
+// Reads in the order a visitor decides (Alex, via the owner, 2026-11-03): the
+// plans first (people who tap "Change plan" or "Memberships" expect to see the
+// options at once), then how memberships work and the membership terms, then
+// the cancellation policy (other pages link to #cancellation). There is no
+// closing "Ready to start" band: someone already a member doesn't need
+// reminding to book, and the plan list has its own button. What pay as you go
+// costs on top is one plain link under the plans, closed until asked for.
 export default function MembershipsPage() {
   return (
     <div className="section-rules">
-      <PageHeader eyebrow="Kettlebell memberships" title="How memberships work." intro={`Class credits, renewed every ${BILLING_WEEKS} weeks.`} />
-      <MembershipTerms />
+      <PageHeader eyebrow="Kettlebell memberships" title="Choose your membership." intro={`Class credits, renewed every ${BILLING_WEEKS} weeks.`} />
       <Section id="memberships" labelledBy="plans-heading" className="pt-0 sm:pt-0 lg:pt-0">
         <SectionHeading
           id="plans-heading"
@@ -37,7 +38,7 @@ export default function MembershipsPage() {
         <PlanList className="mt-8" />
         <PaygExtra className="mt-6" />
       </Section>
-      <CtaBand body={null} tone="plain" />
+      <MembershipTerms />
       <CancellationPolicy />
     </div>
   );

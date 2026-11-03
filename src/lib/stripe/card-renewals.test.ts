@@ -296,8 +296,9 @@ describe("a charge that fails", () => {
     await notifyDirectDebitFailures(db, env, s.fetchImpl);
     const mail = s.emails.find((e) => e.to[0] === m.email && e.subject === "Your RAENG membership payment didn't go through");
     expect(mail?.text).toContain("We'll try again in 3 days");
-    expect(mail?.text).toContain("update your card");
-    expect(mail?.text).toContain("https://raeng.example/account/plan");
+    expect(mail?.text).toContain("pay the amount from your account");
+    expect(mail?.text).toContain("also saves the new card");
+    expect(mail?.text).toContain("https://raeng.example/account");
     const before = s.emails.length;
     await notifyDirectDebitFailures(db, env, s.fetchImpl);
     expect(s.emails.length).toBe(before);

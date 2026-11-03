@@ -175,7 +175,7 @@ export async function notifyDirectDebitFailures(db: Db, env: Env = process.env, 
     if (!person || !p) continue;
     const balance = await select<{ outstanding_pence: number }>(db, "akb_charge_balances", [["select", "outstanding_pence"], ["id", `eq.${p.charge_id}`]]);
     const owed = balance.ok && balance.data[0] ? formatPenceShort(balance.data[0].outstanding_pence) : "your membership payment";
-    const account = `${memberLinkOrigin(env)}${ACCOUNT_PATH}/plan`;
+    const account = `${memberLinkOrigin(env)}${ACCOUNT_PATH}`;
     const how = await rpc<{ method: string; label: string }>(db, "akb_payment_method_info", { p_client: r.client_id });
     const card = how.ok && how.data.method === "card";
     const mailed = await sendEmail(
@@ -191,7 +191,7 @@ export async function notifyDirectDebitFailures(db: Db, env: Env = process.env, 
           r.paused
             ? "We've tried three times, so your membership is paused and no more payments will be taken. Reply to this email and we'll sort it out together."
             : card
-              ? `We'll try again ${nextTry(r.attempts)}. To fix it now, update your card (or pay the amount) from your account. Your bank may also need you to confirm the payment there.`
+              ? `We'll try again ${nextTry(r.attempts)}. To fix it now, pay the amount from your account: paying there also saves the new card for your next renewals. Your bank may also need you to confirm the payment.`
               : "We'll try again in a few days. Please make sure the money is in your account. If it keeps failing, your membership will be paused.",
           "",
           `Your account: ${account}`,
