@@ -110,6 +110,10 @@ export function HeroVideo({ sources: landscapeSources, poster: landscapePoster, 
 
   return (
     <div className={className}>
+      {/* The posters are the first big picture on screen (Lighthouse, 2026-11-03: found late as CSS backgrounds).
+          Fetched first, each only at the width that shows it; React puts these links in the page head. */}
+      {portrait ? <link rel="preload" as="image" href={portrait.poster} media="(max-width: 639px)" fetchPriority="high" /> : null}
+      <link rel="preload" as="image" href={landscapePoster} media={portrait ? "(min-width: 640px)" : undefined} fetchPriority="high" />
       <div className={`absolute inset-0 overflow-hidden bg-white${square ? "" : " sm:rounded-lg"}`}>
         {portrait ? (
           <div
