@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Synthesised sound design for the RAENG Fitness 15s advert (numpy only, no samples).
+"""Synthesised soundtrack for the RAENG Fitness 15 s advert (numpy only, no samples).
 
-Timeline (matches render.py):
-  0-3s   sub-bass atmosphere, kettlebell handle clink + chalk grip (~1.3s)
-  3-6s   slow-motion swing: whooshes, deep percussion, controlled breathing
-  6-10s  cuts on the 90 bpm grid: percussion drives every cut, breathing quickens
-  10-13s riser through the final shot and the black, 13.0s restrained impact
-  13-15s sub + metallic ring-out with reverb tail
+An upbeat 128 bpm "kettlebell studio" track: four-on-the-floor kick, offbeat bass,
+claps and hats, a plucked arpeggio and a simple hook over Am - F - C - G.  8 bars =
+exactly 15.000 s, and every picture cut in render.py lands on this grid.
+
+  beats 0-6    intro: muffled kick, soft pad, hats           (STRENGTH IS BUILT.)
+  beats 6-12   groove arrives: bass, claps, plucks            (ONE REP AT A TIME.)
+  beats 12-20  full energy, hook plays, a cut on every beat   (MORE THAN A WORKOUT.)
+  beats 20-26  half-time breakdown over the final shot        (BE PART OF SOMETHING STRONGER.)
+  beats 26-28  riser + snare roll, a beat of near-silence
+  beat 28      drop: kick, sub, crash, C major stab as the logo locks; rings out to 15 s
 """
 import argparse
 import wave
@@ -17,22 +21,16 @@ SR = 48000
 T = 15.0
 N = int(SR * T)
 t = np.arange(N) / SR
-rng = np.random.default_rng(42)
-BEAT = 60 / 90
+rng = np.random.default_rng(7)
+B = 60.0 / 128.0  # one beat
 
 
-def stereo(x, pan=0.0):
-    l = np.sqrt(0.5 * (1 - pan))
-    r = np.sqrt(0.5 * (1 + pan))
-    return np.stack([x * l, x * r], 1)
+def bt(k):
+    return k * B
 
 
-def place(buf, sig, t0, pan=0.0, gain=1.0):
-    i = int(t0 * SR)
-    n = min(len(sig), N - i)
-    if n <= 0:
-        return
-    buf[i:i + n] += stereo(sig[:n] * gain, pan)
+def mtof(m):
+    return 440.0 * 2 ** ((m - 69) / 12.0)
 
 
 def fft_filter(x, lo=None, hi=None, order=4):
@@ -50,68 +48,132 @@ def noise(n, lo=None, hi=None):
     return fft_filter(rng.standard_normal(n), lo, hi)
 
 
-def env_ad(n, a, d):
-    tt = np.arange(n) / SR
-    return np.minimum(tt / max(a, 1e-4), 1) * np.exp(-tt / d)
+HP_NOISE = fft_filter(rng.standard_normal(SR * 4), 6500, None)
+BP_NOISE = fft_filter(rng.standard_normal(SR * 4), 1200, 7500)
 
 
-def kick(f0=120, f1=42, dur=1.0, pdec=0.07, adec=0.30, click=0.25):
-    n = int(SR * dur)
+def slice_noise(src, n):
+    i = int(rng.integers(0, len(src) - n))
+    return src[i:i + n]
+
+
+def adsr(n, a, d, s, r):
     tt = np.arange(n) / SR
-    ph = 2 * np.pi * (f1 * tt + (f0 - f1) * pdec * (1 - np.exp(-tt / pdec)))
-    s = np.sin(ph) * np.exp(-tt / adec)
-    s += click * noise(n, 1500, 6000) * np.exp(-tt / 0.008)
+    dur = n / SR
+    e = np.minimum(tt / max(a, 1e-4), 1.0)
+    e = e * (s + (1 - s) * np.exp(-np.maximum(tt - a, 0) / max(d, 1e-4)))
+    rel = np.clip((dur - tt) / max(r, 1e-4), 0, 1)
+    return e * rel
+
+
+def stereo(x, pan=0.0):
+    return np.stack([x * np.sqrt(0.5 * (1 - pan)), x * np.sqrt(0.5 * (1 + pan))], 1)
+
+
+def place(buf, sig, t0, pan=0.0, gain=1.0):
+    i = int(round(t0 * SR))
+    if i >= N:
+        return
+    n = min(len(sig), N - i)
+    buf[i:i + n] += stereo(sig[:n] * gain, pan)
+
+
+# ---------------------------------------------------------------- instruments
+def kick(soft=False):
+    n = int(SR * 0.5)
+    tt = np.arange(n) / SR
+    f = 46 + 110 * np.exp(-tt / 0.028)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    s = np.sin(ph) * np.exp(-tt / 0.17)
+    if not soft:
+        s += 0.35 * noise(n, 1800, 7000) * np.exp(-tt / 0.006)
+    else:
+        s = fft_filter(s, None, 220)
     return s
 
 
-def taiko(dur=1.6, f=64):
-    n = int(SR * dur)
+def clap():
+    n = int(SR * 0.28)
     tt = np.arange(n) / SR
-    s = np.sin(2 * np.pi * (f + 40 * np.exp(-tt / 0.05)) * tt) * np.exp(-tt / 0.55)
-    s += 0.35 * np.sin(2 * np.pi * f * 2.3 * tt) * np.exp(-tt / 0.18)
-    s += 0.4 * noise(n, 300, 2500) * np.exp(-tt / 0.05)
-    return s
+    x = slice_noise(BP_NOISE, n)
+    e = np.zeros(n)
+    for o in (0.0, 0.011, 0.022):
+        e += np.exp(-np.maximum(tt - o, 0) / 0.006) * (tt >= o)
+    e = e * 0.6 + np.exp(-tt / 0.07) * 0.8
+    return x * e * 0.9
 
 
-def metal(f=620, dur=2.0, amp=1.0, decay=0.6):
+def hat(open_=False, vel=1.0):
+    n = int(SR * (0.22 if open_ else 0.05))
+    tt = np.arange(n) / SR
+    return slice_noise(HP_NOISE, n) * np.exp(-tt / (0.07 if open_ else 0.012)) * vel
+
+
+def pluck(f, dur=0.5):
     n = int(SR * dur)
     tt = np.arange(n) / SR
     s = np.zeros(n)
-    for ratio, a, d in ((1.0, 1.0, 1.0), (2.76, 0.6, 0.62), (5.40, 0.4, 0.38), (8.93, 0.25, 0.22), (13.3, 0.12, 0.12)):
+    for k in range(1, 9):
+        if f * k > 9000:
+            break
+        s += np.sin(2 * np.pi * f * k * tt) / k ** 0.8 * np.exp(-tt / (0.20 / k ** 0.45))
+    return s * np.minimum(tt / 0.002, 1)
+
+
+def saw(f, n, K, det=0.0):
+    tt = np.arange(n) / SR
+    ff = f * 2 ** (det / 1200.0)
+    K = max(1, min(K, int(9000 / ff)))
+    ks = np.arange(1, K + 1)[:, None]
+    return (np.sin(2 * np.pi * ff * ks * tt[None, :]) / ks).sum(0)
+
+
+def pad_note(f, dur, K=12):
+    n = int(SR * (dur + 0.25))
+    s = (saw(f, n, K, -9) + saw(f, n, K, 0) + saw(f, n, K, 9)) / 3
+    return s * adsr(n, 0.05, 1.0, 0.9, 0.25)
+
+
+def bass_note(f, dur):
+    n = int(SR * dur)
+    tt = np.arange(n) / SR
+    s = saw(f, n, 9) * 0.6 + np.sin(2 * np.pi * f * tt) * 0.9
+    s = fft_filter(s, None, 900, 2)
+    return s * adsr(n, 0.004, 0.18, 0.65, 0.03)
+
+
+def lead_note(f, dur):
+    n = int(SR * dur)
+    tt = np.arange(n) / SR
+    vib = 1 + 0.004 * np.sin(2 * np.pi * 5.5 * tt) * np.minimum(tt / 0.25, 1)
+    ph = 2 * np.pi * np.cumsum(f * vib) / SR
+    s = np.zeros(n)
+    for k in range(1, 10):
+        if f * k > 7500:
+            break
+        s += np.sin(k * ph) / k
+        s += np.sin(k * ph * 1.004) / k
+    return s * 0.5 * adsr(n, 0.008, 0.25, 0.7, 0.07)
+
+
+def metal(f=640, dur=1.4, decay=0.5):
+    n = int(SR * dur)
+    tt = np.arange(n) / SR
+    s = np.zeros(n)
+    for ratio, a, d in ((1.0, 1.0, 1.0), (2.76, 0.6, 0.6), (5.4, 0.35, 0.35), (8.93, 0.2, 0.2)):
         s += a * np.sin(2 * np.pi * f * ratio * tt + rng.random() * 6.28) * np.exp(-tt / (decay * d))
-    s += 0.8 * noise(n, 2500, 9000) * np.exp(-tt / 0.006)
-    return s * amp
+    s += 0.7 * noise(n, 2500, 9000) * np.exp(-tt / 0.006)
+    return s
 
 
-def whoosh(dur=0.9, lo=300, hi=2200, peak=0.45):
-    n = int(SR * dur)
-    tt = np.arange(n) / SR
-    x = noise(n, lo, hi)
-    e = np.sin(np.pi * np.clip(tt / dur, 0, 1)) ** 2
-    e = np.where(tt / dur < peak, (tt / (dur * peak)) ** 2, np.cos((tt / dur - peak) / (1 - peak) * np.pi / 2) ** 2)
-    return x * e
-
-
-def breath(dur, kind):
-    n = int(SR * dur)
-    tt = np.arange(n) / SR
-    x = noise(n, 500, 2400) + 0.5 * noise(n, 1800, 4500)
-    u = tt / dur
-    if kind == "in":
-        e = np.sin(np.pi * u ** 0.8) ** 2
-    else:
-        e = np.where(u < 0.2, (u / 0.2) ** 1.5, np.exp(-(u - 0.2) * 3.2))
-    return x * e
-
-
-def reverb_ir(dur=2.2, seed=0):
+def reverb_ir(dur=1.8, seed=0):
     r = np.random.default_rng(seed)
     n = int(SR * dur)
     tt = np.arange(n) / SR
-    ir = r.standard_normal(n) * np.exp(-tt / (dur / 5.5))
-    ir = fft_filter(ir, 120, 5500)
-    ir[: int(0.012 * SR)] *= np.linspace(0, 1, int(0.012 * SR))
-    return ir / np.sqrt((ir ** 2).sum())   # unit energy so the wet level is predictable
+    ir = r.standard_normal(n) * np.exp(-tt / (dur / 5.0))
+    ir = fft_filter(ir, 150, 6500)
+    ir[: int(0.01 * SR)] *= np.linspace(0, 1, int(0.01 * SR))
+    return ir / np.sqrt((ir ** 2).sum())
 
 
 def conv(x, ir):
@@ -120,96 +182,169 @@ def conv(x, ir):
     return np.fft.irfft(np.fft.rfft(x, nf) * np.fft.rfft(ir, nf), nf)[: len(x)]
 
 
+# ---------------------------------------------------------------- arrangement
+CHORDS = [  # (name, bass midi, pad tones, arp tones)
+    ("Am", 33, [57, 60, 64], [69, 72, 76, 81]),
+    ("F", 29, [53, 57, 60], [65, 69, 72, 77]),
+    ("C", 36, [55, 60, 64], [72, 76, 79, 84]),
+    ("G", 31, [50, 55, 59], [67, 71, 74, 79]),
+]
+UNITS = [0, 0, 1, 1, 2, 2, 3, 3, 0, 0, 1, 1, 3, 3, 2, 2]  # 16 units x 2 beats
+
+HOOK = [  # (beat, midi, length in beats) over G, Am
+    (12.0, 74, 0.75), (12.75, 71, 0.25), (13.0, 74, 1.0), (14.0, 76, 0.75), (14.75, 72, 0.25), (15.0, 76, 1.0),
+    (16.0, 81, 0.75), (16.75, 79, 0.25), (17.0, 76, 1.0), (18.0, 72, 0.75), (18.75, 76, 0.25), (19.0, 79, 1.0),
+]
+
+
 def build():
-    dry = np.zeros((N, 2))   # kept dry
-    wet = np.zeros((N, 2))   # sent to reverb
+    dry = np.zeros((N, 2))
+    wet = np.zeros((N, 2))
+    sc = np.zeros((N, 2))  # sidechained bed: pad, bass, arp, hook
+    kicks = []
 
-    # --- 1. atmospheric bass: always present, builds to the end card --------
-    lvl = np.interp(t, [0, 1.5, 6, 10, 12.3, 13.0, 15], [0.10, 0.22, 0.34, 0.50, 0.62, 0.45, 0.22])
-    drone = (np.sin(2 * np.pi * 43.65 * t) + 0.7 * np.sin(2 * np.pi * 43.65 * 1.004 * t)
-             + 0.45 * np.sin(2 * np.pi * 65.41 * t + 0.6 * np.sin(2 * np.pi * 0.11 * t))
-             + 0.18 * np.sin(2 * np.pi * 87.3 * t))
-    drone *= (0.8 + 0.2 * np.sin(2 * np.pi * 0.17 * t)) * lvl * 0.42
-    air = fft_filter(rng.standard_normal(N), 60, 340) * np.interp(t, [0, 3, 10, 12.5, 15], [0.02, 0.05, 0.12, 0.16, 0.06]) * 3.0
-    pad_l = air
-    pad_r = fft_filter(rng.standard_normal(N), 60, 340) * np.interp(t, [0, 3, 10, 12.5, 15], [0.02, 0.05, 0.12, 0.16, 0.06]) * 3.0
-    dry[:, 0] += drone + pad_l
-    dry[:, 1] += drone + pad_r
+    def K(beat, soft=False, g=1.0):
+        kicks.append(bt(beat))
+        place(dry, kick(soft), bt(beat), 0, 0.95 * g)
 
-    # --- 2. kettlebell metal + chalk / grip detail (0-3s) -------------------
-    place(wet, metal(640, 2.2, 0.50, 0.9), 1.28, -0.1)          # handle touched
-    place(wet, metal(980, 1.2, 0.16, 0.35), 1.50, 0.15)         # rattle
-    place(wet, metal(410, 1.8, 0.14, 0.7), 2.10, -0.2)          # bell shifts
-    chalk = noise(int(1.1 * SR), 3500, 11000)
-    am = 0.5 + 0.5 * np.sin(2 * np.pi * 37 * np.arange(len(chalk)) / SR + 3 * np.sin(2 * np.pi * 5 * np.arange(len(chalk)) / SR))
-    ce = np.sin(np.pi * np.linspace(0, 1, len(chalk))) ** 1.5
-    place(dry, chalk * am * ce, 1.15, 0.0, 0.16)
-    place(dry, noise(int(0.5 * SR), 2500, 9000) * np.sin(np.pi * np.linspace(0, 1, int(0.5 * SR))) ** 2, 2.05, 0.2, 0.07)
-    # first grip thump
-    place(dry, kick(90, 38, 1.2, 0.09, 0.4, 0.1), 1.30, 0, 0.55)
+    # ---- kick -------------------------------------------------------------
+    for k in range(0, 6):
+        K(k, soft=True, g=0.55 + 0.05 * k)            # intro: muffled, building
+    for k in range(6, 20):
+        K(k)                                           # four on the floor
+    for k in (20, 22, 24):
+        K(k, g=0.9)                                    # half-time over the final shot
 
-    # --- 3. slow-motion swing 3-6s ------------------------------------------
-    sw = [3.15, 4.40, 5.65]
-    for k, s in enumerate(sw):
-        place(dry, whoosh(1.0, 250, 1800), s - 0.1, -0.3 + 0.3 * k, 0.30)
-        place(dry, taiko(1.8, 58 + 2 * k), s + 0.55 if k else 3.0, 0, 0.85 if k else 0.8)
-        place(wet, taiko(1.8, 58), s + 0.55 if k else 3.0, 0, 0.35)
-    place(wet, metal(330, 2.0, 0.10, 0.5), 3.65, 0.3)
-    place(wet, metal(330, 2.0, 0.10, 0.5), 4.90, -0.3)
+    # ---- clap, hats ----------------------------------------------------------
+    for k in range(7, 20, 2):
+        place(dry, clap(), bt(k), 0.05, 0.42)          # 2 and 4 of each bar
+    for k in (22, 26):
+        place(dry, clap(), bt(k), 0.05, 0.36)
+    for k in range(0, 26):
+        v = 0.35 if k < 6 else 0.55
+        place(dry, hat(True, v), bt(k + 0.5), 0.15, 0.30)       # offbeat open hat
+        if 6 <= k < 20:
+            for q in (0.25, 0.75):
+                place(dry, hat(False, 0.5), bt(k + q), -0.15, 0.17)
+        elif k < 6:
+            place(dry, hat(False, 0.5), bt(k), -0.1, 0.12)
 
-    # --- 4. controlled breathing --------------------------------------------
-    bt = 3.35
-    while bt < 10.0:
-        cyc = 2.1 if bt < 6.0 else 1.34
-        amp = np.interp(bt, [3.3, 6.0, 10.0], [0.040, 0.070, 0.105])
-        place(dry, breath(cyc * 0.42, "in"), bt, -0.12, amp)
-        place(dry, breath(cyc * 0.5, "out"), bt + cyc * 0.45, 0.12, amp * 1.25)
-        bt += cyc
+    # ---- brand sound: a kettlebell clink on the very first beat ----------------
+    place(wet, metal(700, 1.2, 0.45), 0.0, -0.1, 0.30)
 
-    # --- 5. percussion on the 90bpm grid, locked to the picture cuts --------
-    for k in range(6):
-        tt0 = 6.0 + k * BEAT
-        g = 0.55 + 0.07 * k
-        place(dry, kick(130, 44, 0.9, 0.06, 0.26, 0.22), tt0, 0, g)
-        place(wet, taiko(1.2, 66), tt0, 0, 0.22)
-        place(dry, whoosh(0.34, 800, 6000, 0.7), tt0 - 0.30, 0.0, 0.16)  # swish into each cut
-        h = tt0 + BEAT / 2
-        place(dry, noise(int(0.09 * SR), 5000, 12000) * env_ad(int(0.09 * SR), 0.001, 0.02), h, 0.2, 0.10 + 0.01 * k)
-    place(dry, taiko(2.4, 52), 10.0, 0, 1.05)                          # arrival of the final shot
-    place(wet, taiko(2.4, 52), 10.0, 0, 0.6)
+    # ---- bass ---------------------------------------------------------------------
+    for u, ci in enumerate(UNITS):
+        root = CHORDS[ci][1]
+        b0 = u * 2.0
+        if b0 < 4:
+            continue
+        if b0 < 20:
+            for k in (b0, b0 + 1):
+                alt = (int(k) % 4 == 3)
+                place(sc, bass_note(mtof(root + (12 if alt else 0)), bt(0.42)), bt(k + 0.5), 0, 0.55 if b0 >= 6 else 0.35)
+        elif b0 < 28:
+            place(sc, bass_note(mtof(root), bt(1.95)), bt(b0), 0, 0.5)
+    place(sc, bass_note(mtof(36), bt(3.8)), bt(28), 0, 0.6)
 
-    # --- 6. riser across the final shot + black, then the hit at 13.0 -------
-    r0, r1 = 10.3, 12.96
+    # ---- pad ---------------------------------------------------------------------------
+    pad = np.zeros((N, 2))
+    for u, ci in enumerate(UNITS):
+        for j, m in enumerate(CHORDS[ci][2]):
+            place(pad, pad_note(mtof(m), bt(2.0)), bt(u * 2.0), (-0.3, 0.0, 0.3)[j], 0.16)
+    gain = np.interp(t, [bt(0), bt(4), bt(6), bt(12), bt(20), bt(26), bt(28), bt(32)],
+                     [0.35, 0.6, 0.8, 0.85, 1.0, 1.0, 1.0, 0.6])
+    sc += pad * gain[:, None]
+
+    # ---- arpeggio (pluck) -----------------------------------------------------------------
+    arp = np.zeros((N, 2))
+    pat = [0, 1, 2, 3, 2, 1, 2, 3]
+    for u, ci in enumerate(UNITS):
+        b0 = u * 2.0
+        tones = CHORDS[ci][3]
+        for s16 in range(8):
+            beat = b0 + s16 * 0.25
+            if beat < 4 or (20 <= beat < 26 and s16 % 2) or 26 <= beat < 28:
+                continue
+            g = 0.26 if beat < 6 else (0.40 if beat < 20 else (0.30 if beat < 26 else 0.26))
+            place(arp, pluck(mtof(tones[pat[s16]])), bt(beat), -0.35 if s16 % 2 else 0.35, g)
+    sc += arp * 0.9
+    d = int(0.75 * B * SR)  # dotted-eighth echo
+    echo = np.zeros_like(arp)
+    echo[d:] = arp[:-d][:, ::-1] * 0.30
+    echo[2 * d:] += arp[:-2 * d] * 0.12
+    wet += echo * 0.5
+    dry += echo * 0.5
+
+    # ---- hook (lead) ------------------------------------------------------------------------
+    for beat, m, ln in HOOK:
+        nt = lead_note(mtof(m), bt(ln) * 0.95)
+        place(sc, nt, bt(beat), 0.0, 0.30)
+        place(wet, nt, bt(beat), 0.0, 0.12)
+
+    # ---- sidechain: the bed pumps from the kick -----------------------------------------------
+    kt = np.array(sorted(kicks + [bt(28.0)]))
+    idx = np.searchsorted(kt, t, side="right") - 1
+    since = np.where(idx >= 0, t - kt[np.maximum(idx, 0)], 9.0)
+    depth = np.interp(t, [bt(0), bt(6), bt(20), bt(28)], [0.45, 0.7, 0.55, 0.3])
+    bed = sc * (1 - depth * np.exp(-since / 0.16))[:, None]
+
+    # ---- a beat of near-silence before the drop (27.5 - 28) --------------------------------------
+    gate = np.ones(N)
+    g0, g1 = bt(27.5), bt(28.0)
+    gate[(t >= g0) & (t < g1)] = 0.10
+    ramp = (t >= g0 - 0.02) & (t < g0)
+    gate[ramp] = np.linspace(1, 0.10, ramp.sum())
+    bed *= gate[:, None]
+    dry *= gate[:, None]
+    wet *= gate[:, None]
+
+    # ---- riser + snare roll (26 - 28) ---------------------------------------------------------------
+    r0, r1 = bt(26.0), bt(28.0) - 0.02
     n = int((r1 - r0) * SR)
-    tt = np.linspace(0, 1, n)
-    rs = noise(n, 350, 6500) + 0.8 * noise(n, 1200, 9000)
-    rs *= tt ** 2.6 * 0.42 * (1 - np.clip((tt - 0.985) / 0.015, 0, 1))
-    sweep = np.sin(2 * np.pi * np.cumsum(110 * 2 ** (tt * 3.0)) / SR) * tt ** 3 * 0.05
-    place(dry, rs, r0, 0.0)
-    place(wet, rs * 0.4, r0, 0.0)
-    place(dry, sweep, r0, 0.0)
+    u = np.linspace(0, 1, n)
+    lo = noise(n, 200, 1500) * np.clip(1 - u * 1.6, 0, 1)
+    hi = noise(n, 2500, 11000) * np.clip(u * 1.4 - 0.2, 0, 1)
+    riser = (lo * 0.8 + hi * 1.1) * (u ** 2.0) * 0.9
+    sweep = np.sin(2 * np.pi * np.cumsum(200 * 2 ** (u * 3.2)) / SR) * u ** 3 * 0.10
+    place(dry, riser + sweep, r0, 0.0, 0.55)
+    place(wet, riser * 0.4, r0, 0.0, 0.5)
+    k = 26.0
+    while k < 27.97:
+        v = 0.25 + 0.75 * (k - 26.0) / 2.0
+        nn = int(SR * 0.09)
+        tt = np.arange(nn) / SR
+        sn = (slice_noise(BP_NOISE, nn) * 0.8 + np.sin(2 * np.pi * 190 * tt) * 0.5) * np.exp(-tt / 0.04)
+        place(dry, sn, bt(k), 0.0, 0.40 * v)
+        k += 0.25 if k < 27.0 else 0.125
 
-    hit = 13.0
-    n = int(3.2 * SR)
+    # ---- the drop at beat 28: logo locks -----------------------------------------------------------------
+    h = bt(28.0)
+    place(dry, kick(), h, 0, 1.15)
+    n = int(SR * 2.4)
     th = np.arange(n) / SR
-    sub = np.sin(2 * np.pi * (40 + 70 * np.exp(-th / 0.07)) * th) * np.exp(-th / 1.25)
-    body = noise(n, 70, 1800) * np.exp(-th / 0.22) * 0.55
-    ring = metal(310, 3.2, 0.14, 1.4)[:n] + 0.5 * metal(466, 3.2, 0.08, 1.1)[:n]
-    place(dry, sub * 0.95 + body, hit, 0, 1.0)
-    place(wet, body * 0.8 + ring, hit, 0, 1.0)
-    place(dry, taiko(2.4, 46), hit, 0, 0.55)
+    sub = np.sin(2 * np.pi * np.cumsum(42 + 95 * np.exp(-th / 0.06)) / SR) * np.exp(-th / 0.9)
+    place(dry, sub, h, 0, 0.85)
+    crash = noise(n, 4500, None) * np.exp(-th / 0.8)
+    place(dry, crash, h, 0.1, 0.35)
+    place(wet, crash, h, 0.0, 0.30)
+    place(wet, metal(520, 2.0, 0.9), h, 0.0, 0.22)           # one clean kettlebell ring on the logo
+    for m in (60, 64, 67, 72, 76):                           # C major stab
+        stab = lead_note(mtof(m), 0.55)
+        place(dry, stab, h, (m - 66) / 40.0, 0.16)
+        place(wet, stab, h, 0.0, 0.16)
+    place(dry, kick(), bt(30.0), 0, 0.55)
+    place(dry, clap(), bt(30.0), 0.0, 0.25)
 
-    # --- reverb send ---------------------------------------------------------
+    # ---- reverb + master ------------------------------------------------------------------------------------
     for ch, seed in ((0, 1), (1, 2)):
-        dry[:, ch] += conv(wet[:, ch], reverb_ir(2.4, seed)) * 1.6 + wet[:, ch] * 0.5
-
-    # --- master ---------------------------------------------------------------
+        wet[:, ch] = conv(wet[:, ch], reverb_ir(1.9, seed)) * 1.1 + wet[:, ch] * 0.15
+    m = dry + bed + wet
     for ch in (0, 1):
-        dry[:, ch] = fft_filter(dry[:, ch], 28, 17500, order=3)
-    m = dry
-    m *= np.minimum(t / 0.04, 1)[:, None] * np.clip((T - t) / 0.6, 0, 1)[:, None] ** 1.5
-    m = m * 0.62                      # gain staging
-    m = np.tanh(m * 1.2) / 1.2        # gentle soft limiter
+        m[:, ch] = fft_filter(m[:, ch], 30, 17000, order=3)
+    m *= np.minimum(t / 0.01, 1)[:, None] * np.clip((T - t) / 0.7, 0, 1)[:, None] ** 1.4
+    rms = np.sqrt((m ** 2).mean())
+    m *= 10 ** (-15.0 / 20) / rms                      # target RMS ~ -15 dBFS, then glue
+    m = np.tanh(m * 1.25) / 1.25
     m *= min(1.0, 0.89 / np.abs(m).max())
     return m
 
@@ -225,7 +360,7 @@ def main():
         w.setsampwidth(2)
         w.setframerate(SR)
         w.writeframes(pcm.tobytes())
-    print("wrote", a.out, f"{len(m) / SR:.3f}s")
+    print("wrote", a.out, f"{len(m) / SR:.3f}s", "peak", round(float(np.abs(m).max()), 3))
 
 
 if __name__ == "__main__":

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""RAENG Fitness — 15 second brand advert renderer.
+"""RAENG Fitness — 15 second brand advert (v2: light, minimal, beat-locked).
 
-Deterministic, code-driven edit: every frame is composed with numpy/Pillow and
-piped to ffmpeg.  Real class footage comes from raengfitness.co.uk
-(assets/hero-portrait.mp4); the macro kettlebell surface and chalk particles
-are original procedural visuals.  The genuine logo lockup is used for the end
-card.  See README.md for the shot list and how to adapt to 16:9.
+Every frame is composed with numpy/Pillow and piped to ffmpeg.  Footage is the
+genuine class video from raengfitness.co.uk (assets/hero-portrait.mp4); the
+genuine black logo lockup closes the film.  The picture is cut to the same
+128 bpm grid as audio.py (8 bars = exactly 15.000 s).
 
     python3 render.py --aspect 9x16 --out out/raeng-advert-9x16-silent.mp4
-    python3 render.py --still 30,90,200,330        # PNG stills for review
+    python3 render.py --still 30,90,200      # PNG stills for review
 """
 import argparse
 import os
@@ -16,35 +15,43 @@ import subprocess
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 FPS = 24
 DUR = 15
 NF = FPS * DUR
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "assets")
-SRC = os.path.join(ASSETS, "hero-portrait.mp4")  # 540x960, 30fps, 17.7s
+SRC = os.path.join(ASSETS, "hero-portrait.mp4")  # 540x960, 30 fps, 17.7 s
 SRC_W, SRC_H = 540, 960
 LOGO = os.path.join(ASSETS, "raeng-lockup-black.png")
 FONT = os.path.join(ASSETS, "Archivo.ttf")
-WHITE = (250, 250, 248)
 
-BEAT = 60.0 / 90.0  # 90 bpm; all cuts in the EXPERIENCE section land on the beat
+PAPER = np.array([245, 242, 235], np.float32) / 255.0  # raengfitness.co.uk background
+INK = (11, 11, 11)  # DESIGN.md `ink`
+MUTED = (87, 84, 78)  # DESIGN.md `muted`
+
+BPM = 128
+BEAT = 60.0 / BPM  # 0.46875 s; 32 beats = 15.000 s
 
 
-def smooth(x):
-    x = np.clip(x, 0.0, 1.0)
-    return x * x * (3 - 2 * x)
-
-
-def ease_out(x):
-    x = np.clip(x, 0.0, 1.0)
-    return 1 - (1 - x) ** 3
+def b(k):
+    """beat number -> seconds"""
+    return k * BEAT
 
 
 def f2(t):
-    """seconds -> frame index"""
     return int(round(t * FPS))
+
+
+def expo_out(x):
+    x = float(np.clip(x, 0.0, 1.0))
+    return 1.0 if x >= 1 else 1 - 2 ** (-10 * x)
+
+
+def io(x):
+    x = float(np.clip(x, 0.0, 1.0))
+    return x * x * x * (x * (6 * x - 15) + 10)  # smootherstep
 
 
 class Cfg:
@@ -52,153 +59,61 @@ class Cfg:
         self.aspect = aspect
         if aspect == "9x16":
             self.W, self.H = 1080, 1920
+            self.win = (60, 150, 960, 1320)  # x, y, w, h
+            self.radius = 44
+            self.text_cx, self.text_cy, self.text_w = 540, 1688, 900
+            self.fs = 108
+            self.head_xy = (540, 84)
+            self.logo_h, self.logo_cy = 500, 760
+            self.slogan_cy, self.url_cy = 1205, 1395
         else:
             self.W, self.H = 1920, 1080
+            self.win = (80, 80, 880, 920)
+            self.radius = 40
+            self.text_cx, self.text_cy, self.text_w = 1400, 540, 800
+            self.fs = 112
+            self.head_xy = (1400, 120)
+            self.logo_h, self.logo_cy = 470, 400
+            self.slogan_cy, self.url_cy = 790, 905
         self.portrait = self.H > self.W
-        # base display size for headline statements
-        self.fs = int(0.105 * self.W) if self.portrait else int(0.098 * self.H)
-        self.maxw = 0.86 * self.W if self.portrait else 0.62 * self.W
-        self.ty = 0.70 if self.portrait else 0.74  # headline block centre (fraction of H)
+        self.logo_cx = self.W // 2
 
 
 # --------------------------------------------------------------------------
-# Light: a narrow diagonal studio beam
+# Footage
 # --------------------------------------------------------------------------
-class Beam:
-    def __init__(self, cfg, sigma_frac, x_top=0.80, x_bot=0.26):
-        W, H = cfg.W, cfg.H
-        self.cfg = cfg
-        self.sigma = sigma_frac * W
-        self.x_top, self.x_bot = x_top, x_bot
-        Y, X = np.mgrid[0:H, 0:W].astype(np.float32)
-        self.X, self.Y = X, Y
-
-    def _n(self):
-        W, H = self.cfg.W, self.cfg.H
-        vx, vy = (self.x_bot - self.x_top) * W, H
-        nrm = (vx * vx + vy * vy) ** 0.5
-        return vy / nrm, -vx / nrm  # unit normal
-
-    def mask(self, shift=0.0, sigma_mult=1.0):
-        W = self.cfg.W
-        nx, ny = self._n()
-        d = (self.X - (self.x_top + shift) * W) * nx + self.Y * ny
-        s = self.sigma * sigma_mult
-        return np.exp(-0.5 * (d / s) ** 2).astype(np.float32)
-
-    def at(self, x, y, shift=0.0, sigma_mult=1.0):
-        W = self.cfg.W
-        nx, ny = self._n()
-        d = (x - (self.x_top + shift) * W) * nx + y * ny
-        return np.exp(-0.5 * (d / (self.sigma * sigma_mult)) ** 2)
+def grade(img):
+    """Bright, natural, a touch warm.  Opens up the dark gym; tames loud shirts."""
+    y = np.clip(img, 0, 1) ** 0.63 * 1.12
+    y = np.clip(y, 0, 1)
+    s = y * y * (3 - 2 * y)
+    y = y * 0.7 + s * 0.3
+    g = (y @ np.array([0.2126, 0.7152, 0.0722], np.float32))[..., None]
+    chroma = (y.max(-1) - y.min(-1))[..., None]
+    k = 0.90 / (1 + 1.1 * chroma)
+    y = g + (y - g) * k
+    y = y * np.array([1.02, 1.0, 0.975], np.float32)
+    return np.clip(y, 0, 1)
 
 
-# --------------------------------------------------------------------------
-# Chalk dust drifting through the beam
-# --------------------------------------------------------------------------
-class Dust:
-    def __init__(self, cfg, beam, n=320, seed=7, gain=1.0):
-        self.cfg, self.beam, self.gain = cfg, beam, gain
-        r = np.random.default_rng(seed)
-        self.n = n
-        self.p = r.random((n, 2)).astype(np.float64)  # normalised position
-        self.z = r.random(n)  # depth 0 near .. 1 far
-        self.v = np.stack([r.normal(0.004, 0.006, n), r.normal(-0.018, 0.008, n)], 1)
-        self.ph = r.random(n) * 6.28
-        self.sz = 0.8 + (1 - self.z) ** 1.6 * 5.5
-        self.br = 0.35 + 0.65 * r.random(n)
-
-    def render(self, t, shift=0.0, sigma_mult=1.6):
-        W, H = self.cfg.W, self.cfg.H
-        w, h = W // 2, H // 2
-        pos = (self.p + self.v * t * 4.0) % 1.0
-        pos[:, 0] += 0.012 * np.sin(t * 0.9 + self.ph)
-        pos[:, 1] += 0.008 * np.cos(t * 0.7 + self.ph * 1.3)
-        x, y = pos[:, 0] * W, pos[:, 1] * H
-        lit = self.beam.at(x, y, shift, sigma_mult)
-        tw = 0.65 + 0.35 * np.sin(t * 3.1 + self.ph * 2)
-        val = np.clip(lit * self.br * tw * self.gain, 0, 1)
-        out = np.zeros((h, w), np.float32)
-        for lo, hi, blur in ((0.0, 0.34, 3.2), (0.34, 0.68, 1.5), (0.68, 1.01, 0.6)):
-            sel = (self.z >= lo) & (self.z < hi) & (val > 0.02)
-            if not sel.any():
-                continue
-            im = Image.new("L", (w, h), 0)
-            d = ImageDraw.Draw(im)
-            for xi, yi, vi, si in zip(x[sel] / 2, y[sel] / 2, val[sel], self.sz[sel] / 2):
-                rr = max(0.6, si)
-                d.ellipse((xi - rr, yi - rr, xi + rr, yi + rr), fill=int(255 * vi))
-            im = im.filter(ImageFilter.GaussianBlur(blur))
-            out += np.asarray(im, np.float32) / 255.0 * (1.0 + 0.9 * blur / 3.2)
-        big = Image.fromarray(np.clip(out * 255, 0, 255).astype(np.uint8)).resize((W, H), Image.BILINEAR)
-        return np.asarray(big, np.float32) / 255.0
-
-
-# --------------------------------------------------------------------------
-# Grade: monochrome-leaning, deep blacks, natural skin, no loud colours
-# --------------------------------------------------------------------------
-class Grade:
-    def __init__(self, cfg):
-        W, H = cfg.W, cfg.H
-        Y, X = np.mgrid[0:H, 0:W].astype(np.float32)
-        r = np.sqrt(((X / W - 0.5) * 2) ** 2 * 0.9 + ((Y / H - 0.5) * 2) ** 2 * 0.9)
-        self.vig = (1 - 0.62 * np.clip(r, 0, 1.3) ** 2.2).astype(np.float32)[..., None]
-        v = np.clip((Y / H - 0.45) / 0.55, 0, 1)
-        self.bottom = (1 - 0.82 * v * v * (3 - 2 * v)).astype(np.float32)[..., None] if cfg.portrait else None
-
-    def __call__(self, img, bottom=True, lift=1.0, sat=0.72):
-        g = img @ np.array([0.2126, 0.7152, 0.0722], np.float32)
-        g = g[..., None]
-        chroma = (img.max(-1) - img.min(-1))[..., None]
-        k = sat / (1 + 2.6 * chroma)
-        img = g + (img - g) * k
-        img = np.clip((img - 0.035) / 0.93, 0, 1) ** 1.22 * lift
-        s = img * img * (3 - 2 * img)
-        img = img * 0.45 + s * 0.55
-        img = img * np.array([1.025, 1.0, 0.965], np.float32)  # faint warmth, skin stays natural
-        img = img * self.vig
-        if bottom and self.bottom is not None:
-            img = img * self.bottom
-        return np.clip(img, 0, 1)
-
-
-def blur_f(img, radius):
-    u8 = Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8))
-    return np.asarray(u8.filter(ImageFilter.GaussianBlur(radius)), np.float32) / 255.0
-
-
-class DoF:
-    """Shallow depth of field: sharp focal ellipse, blurred falloff."""
-
-    def __init__(self, cfg, fx=0.5, fy=0.5, rx=0.32, ry=0.26, radius=9):
-        W, H = cfg.W, cfg.H
-        Y, X = np.mgrid[0:H, 0:W].astype(np.float32)
-        d = np.sqrt(((X / W - fx) / rx) ** 2 + ((Y / H - fy) / ry) ** 2)
-        self.m = smooth((d - 0.55) / 1.1).astype(np.float32)[..., None]
-        self.radius = radius
-
-    def __call__(self, img):
-        return img * (1 - self.m) + blur_f(img, self.radius) * self.m
-
-
-# --------------------------------------------------------------------------
-# Real footage clip, graded
-# --------------------------------------------------------------------------
 class Clip:
-    def __init__(self, cfg, ss, speed, cx, cy, ch, z0=1.0, z1=1.12, pan0=(0, 0), pan1=(0, 0)):
+    """A crop of the source, push-in and a percussive punch on the cut."""
+
+    def __init__(self, cfg, ss, speed, cx, cy, ch, z0=1.0, z1=1.10, punch=0.0, pan=(0, 0)):
         self.cfg, self.ss, self.speed = cfg, ss, speed
-        self.z0, self.z1, self.pan0, self.pan1 = z0, z1, pan0, pan1
-        W, H = cfg.W, cfg.H
-        if cfg.portrait:
-            cw, chh = ch * W / H, ch
-        else:
-            cw = min(SRC_W, ch * 9 / 16 * 1.7)
-            chh = cw * H / W
-        cw, chh = min(cw, SRC_W), min(chh, SRC_H)
+        self.z0, self.z1, self.punch, self.pan = z0, z1, punch, pan
+        _, _, ww, wh = cfg.win
+        ratio = ww / wh
+        cw, chh = ch * ratio, ch
+        if cw > SRC_W:
+            cw, chh = SRC_W, SRC_W / ratio
+        if chh > SRC_H:
+            chh, cw = SRC_H, SRC_H * ratio
         x0 = int(np.clip(cx - cw / 2, 0, SRC_W - cw))
         y0 = int(np.clip(cy - chh / 2, 0, SRC_H - chh))
         self.crop = (int(cw) // 2 * 2, int(chh) // 2 * 2, x0, y0)
-        self.SW, self.SH = int(W * 1.25) // 2 * 2, int(H * 1.25) // 2 * 2
+        self.SW, self.SH = int(ww * 1.25) // 2 * 2, int(wh * 1.25) // 2 * 2
+        self.ww, self.wh = ww, wh
 
     def raw(self, n):
         cw, ch, x0, y0 = self.crop
@@ -224,332 +139,190 @@ class Clip:
         p.wait()
 
     def frames(self, n):
-        W, H = self.cfg.W, self.cfg.H
         for i, a in enumerate(self.raw(n)):
             u = i / max(1, n - 1)
-            e = smooth(u) * 0.35 + u * 0.65
-            z = self.z0 + (self.z1 - self.z0) * e
-            px = self.pan0[0] + (self.pan1[0] - self.pan0[0]) * e
-            py = self.pan0[1] + (self.pan1[1] - self.pan0[1]) * e
+            z = self.z0 + (self.z1 - self.z0) * u
+            z += self.punch * np.exp(-(i / FPS) / 0.10)  # settles in like a hit
             w, h = self.SW / z, self.SH / z
+            px = self.pan[0] * (u - 0.5)
             x = (self.SW - w) / 2 * (1 + px)
-            y = (self.SH - h) / 2 * (1 + py)
-            im = Image.fromarray(a).resize((W, H), Image.BICUBIC, box=(x, y, x + w, y + h))
-            yield np.asarray(im, np.float32) / 255.0
+            y = (self.SH - h) / 2
+            im = Image.fromarray(a).resize((self.ww, self.wh), Image.BICUBIC, box=(x, y, x + w, y + h))
+            yield grade(np.asarray(im, np.float32) / 255.0)
+
+
+def rounded_mask(w, h, r):
+    ss = 3
+    im = Image.new("L", (w * ss, h * ss), 0)
+    ImageDraw.Draw(im).rounded_rectangle((0, 0, w * ss - 1, h * ss - 1), radius=r * ss, fill=255)
+    return np.asarray(im.resize((w, h), Image.LANCZOS), np.float32)[..., None] / 255.0
 
 
 # --------------------------------------------------------------------------
-# Procedural macro kettlebell surface
+# Type: lines rise out of an invisible slot (masked reveal), on the beat
 # --------------------------------------------------------------------------
-def fnoise(rng, h, w, beta):
-    f = np.fft.fftfreq(h)[:, None] ** 2 + np.fft.rfftfreq(w)[None, :] ** 2
-    f[0, 0] = 1
-    spec = np.fft.rfft2(rng.standard_normal((h, w)).astype(np.float32)) * (f ** (-beta / 4)).astype(np.float32)
-    spec[0, 0] = 0
-    a = np.fft.irfft2(spec, s=(h, w)).astype(np.float32)
-    return a / a.std()
-
-
-class Macro:
-    """Cast-iron kettlebell surface under a narrow beam, slow push-in."""
-
-    def __init__(self, cfg, beam):
-        self.cfg, self.beam = cfg, beam
-        W, H = cfg.W, cfg.H
-        self.TW, self.TH = int(W * 1.45) // 2 * 2, int(H * 1.45) // 2 * 2
-        rng = np.random.default_rng(11)
-        h = 1.0 * fnoise(rng, self.TH, self.TW, 2.4) + 0.55 * fnoise(rng, self.TH, self.TW, 1.5) \
-            + 0.40 * fnoise(rng, self.TH, self.TW, 0.7)
-        gy, gx = np.gradient(h)
-        k = 0.85 / gx.std()
-        nx, ny = -gx * k, -gy * k
-        nz = np.ones_like(nx)
-        nl = np.sqrt(nx * nx + ny * ny + nz * nz)
-        nx, ny, nz = nx / nl, ny / nl, nz / nl
-        L = np.array([0.58, -0.38, 0.45]); L /= np.linalg.norm(L)
-        Hv = L + np.array([0, 0, 1.0]); Hv /= np.linalg.norm(Hv)
-        diff = np.clip(nx * L[0] + ny * L[1] + nz * L[2], 0, 1)
-        spec = np.clip(nx * Hv[0] + ny * Hv[1] + nz * Hv[2], 0, 1) ** 70
-        chalk = smooth(fnoise(rng, self.TH, self.TW, 1.7) * 0.7 - 0.55) * (0.5 + 0.5 * smooth(fnoise(rng, self.TH, self.TW, 0.4) * 0.8))
-        lit = 0.42 * diff ** 1.6 + 1.5 * spec * (1 - 0.7 * chalk) + 0.55 * chalk * (0.35 + diff)
-        lit = np.clip(lit / np.percentile(lit, 99.6), 0, 1)
-        self.lit = Image.fromarray((lit * 255).astype(np.uint8))
-
-    def frame(self, i, n):
-        W, H = self.cfg.W, self.cfg.H
-        u = i / max(1, n - 1)
-        z = 1.0 + 0.42 * (smooth(u) * 0.4 + u * 0.6)
-        w, h = self.TW / z, self.TH / z
-        x = (self.TW - w) * (0.55 - 0.1 * u)
-        y = (self.TH - h) * 0.5
-        tex = np.asarray(self.lit.resize((W, H), Image.BICUBIC, box=(x, y, x + w, y + h)), np.float32) / 255.0
-        return tex[..., None]
-
-
-# --------------------------------------------------------------------------
-# Typography
-# --------------------------------------------------------------------------
-class Type:
-    def __init__(self, cfg, lines, t_in, t_out, ycen, size=None, wght=800, wdth=112, track=-0.02,
-                 stagger=0.13, color=WHITE, align="center", fade_out=0.35, xcen=None):
-        self.cfg, self.t_in, self.t_out, self.stagger, self.color = cfg, t_in, t_out, stagger, color
-        self.fade_out = fade_out
+class Lines:
+    def __init__(self, cfg, lines, t_ins, t_out, cy=None, cx=None, size=None, wght=800, wdth=112,
+                 track=-0.02, color=INK, maxw=None, dur=0.42):
+        self.cfg, self.t_ins, self.t_out, self.color, self.dur = cfg, t_ins, t_out, color, dur
         size = size or cfg.fs
-        # fit to width
+        maxw = maxw or cfg.text_w
         while True:
             font = ImageFont.truetype(FONT, size)
             font.set_variation_by_axes([wght, wdth])
-            widths = [self._w(font, ln, track, size) for ln in lines]
-            if max(widths) <= cfg.maxw or size < 20:
+            widths = [sum(font.getlength(c) + track * size for c in ln) - track * size for ln in lines]
+            if max(widths) <= maxw or size < 16:
                 break
-            size = int(size * 0.96)
+            size = int(size * 0.97)
         self.size = size
-        lh = int(size * 1.12)
-        self.lh = lh
-        W, H = cfg.W, cfg.H
-        pad = int(size * 0.5)
-        self.layers = []
-        total = lh * len(lines)
-        ytop = int(ycen * H - total / 2)
-        xc = int((xcen if xcen is not None else 0.5) * W)
+        self.lh = int(size * 1.16)
+        cx = cx if cx is not None else cfg.text_cx
+        cy = cy if cy is not None else cfg.text_cy
+        top = int(cy - self.lh * len(lines) / 2)
+        self.slots = []
         for k, ln in enumerate(lines):
-            lw = widths[k]
-            im = Image.new("L", (int(lw) + pad * 2, lh + pad * 2), 0)
+            w = int(widths[k]) + 8
+            im = Image.new("L", (w, self.lh), 0)
             d = ImageDraw.Draw(im)
-            x = pad
-            asc = int(size * 0.12)
+            x = 4
             for ch in ln:
-                d.text((x, pad + asc), ch, font=font, fill=255)
+                d.text((x, int(size * 0.10)), ch, font=font, fill=255)
                 x += font.getlength(ch) + track * size
-            m = np.asarray(im, np.float32) / 255.0
-            sh = np.asarray(im.filter(ImageFilter.GaussianBlur(size * 0.22)), np.float32) / 255.0
-            self.layers.append((m, sh, xc - im.width // 2, ytop + k * lh - pad))
-
-    @staticmethod
-    def _w(font, ln, track, size):
-        return sum(font.getlength(c) + track * size for c in ln) - track * size
+            self.slots.append((np.asarray(im, np.float32) / 255.0, cx - w // 2, top + k * self.lh))
 
     def draw(self, out, t):
-        if t < self.t_in or t > self.t_out:
-            return
-        W, H = self.cfg.W, self.cfg.H
-        fo = 1 - smooth((t - (self.t_out - self.fade_out)) / self.fade_out)
-        for k, (m, sh, x0, y0) in enumerate(self.layers):
-            p = float(ease_out((t - self.t_in - k * self.stagger) / 0.95))
-            if p <= 0:
+        for k, (m, x0, y0) in enumerate(self.slots):
+            tin = self.t_ins[k]
+            if t < tin or t >= self.t_out:
                 continue
-            a = p * fo
-            yy = y0 + int((1 - p) * self.lh * 0.5)
-            mm, ss = m, sh
-            if p < 0.98:
-                r = (1 - p) * self.size * 0.12
-                mm = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)), np.float32) / 255.0
-            h, w = mm.shape
-            ya, yb = max(0, yy), min(H, yy + h)
-            xa, xb = max(0, x0), min(W, x0 + w)
-            if ya >= yb or xa >= xb:
-                continue
-            sl = (slice(ya - yy, yb - yy), slice(xa - x0, xb - x0))
-            reg = out[ya:yb, xa:xb]
-            reg *= (1 - 0.72 * a * np.clip(ss[sl] * 1.3, 0, 1))[..., None]
-            al = (a * mm[sl])[..., None]
+            lh = m.shape[0]
+            p = expo_out((t - tin) / self.dur)
+            xd = self.dur * 0.8
+            q = expo_out((t - self.t_out + xd) / xd) if t > self.t_out - xd else 0.0
+            dy = -int(q * lh * 1.05) if q > 0 else int((1 - p) * lh * 1.05)
+            sh = np.zeros_like(m)
+            if dy >= 0:
+                if dy < lh:
+                    sh[dy:] = m[: lh - dy]
+            elif -dy < lh:
+                sh[: lh + dy] = m[-dy:]
+            reg = out[y0:y0 + lh, x0:x0 + m.shape[1]]
+            al = sh[..., None]
             reg *= (1 - al)
             reg += al * (np.array(self.color, np.float32) / 255.0)
 
 
 # --------------------------------------------------------------------------
-# Logo end card
+# End card: the genuine black lockup on paper
 # --------------------------------------------------------------------------
-class LogoCard:
+class Logo:
     def __init__(self, cfg, t0, t_hit):
         self.cfg, self.t0, self.t_hit = cfg, t0, t_hit
-        W, H = cfg.W, cfg.H
         im = Image.open(LOGO).convert("RGBA")
         im = im.crop(im.getbbox())
-        a = im.split()[3]
-        white = Image.new("RGBA", im.size, WHITE + (255,))
-        white.putalpha(a)  # genuine artwork, recoloured white for the black end card
-        lh = int(0.232 * H) if cfg.portrait else int(0.40 * H)
-        lw = int(im.width * lh / im.height)
-        self.base = white.resize((lw, lh), Image.LANCZOS)
-        self.cx = W // 2
-        self.cy = int(0.385 * H) if cfg.portrait else int(0.40 * H)
+        lh = cfg.logo_h
+        self.base = im.resize((int(im.width * lh / im.height), lh), Image.LANCZOS)
 
     def draw(self, out, t):
         if t < self.t0:
             return
-        W, H = self.cfg.W, self.cfg.H
-        p = float(ease_out((t - self.t0) / 1.1))
-        wipe = float(smooth((t - self.t0) / 0.75))
+        p = expo_out((t - self.t0) / 0.5)
         dt = t - self.t_hit
-        pulse = 1 + (0.014 * np.exp(-dt / 0.16) if dt > 0 else 0)
-        s = (1.06 - 0.06 * p) * pulse
-        lw, lh = self.base.size
-        im = self.base.resize((int(lw * s), int(lh * s)), Image.LANCZOS)
-        a = np.asarray(im.split()[3], np.float32) / 255.0
-        hh, ww = a.shape
-        xs = (np.arange(ww, dtype=np.float32)[None, :] / ww + np.arange(hh, dtype=np.float32)[:, None] / hh * 0.35) / 1.35
-        a *= smooth((wipe * 1.5 - xs) / 0.5).astype(np.float32) * p
-        blur = (1 - p) * 14
-        if blur > 0.3:
-            a = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(blur)), np.float32) / 255.0
-        x0, y0 = self.cx - ww // 2, self.cy - hh // 2
+        s = (0.93 + 0.07 * p) * (1 + (0.012 * np.exp(-dt / 0.14) if dt > 0 else 0))
+        w, h = self.base.size
+        im = self.base.resize((int(w * s), int(h * s)), Image.LANCZOS)
+        a = np.asarray(im.split()[3], np.float32)[..., None] / 255.0 * min(1.0, p * 1.6)
+        hh, ww = a.shape[:2]
+        x0, y0 = self.cfg.logo_cx - ww // 2, self.cfg.logo_cy - hh // 2
         reg = out[y0:y0 + hh, x0:x0 + ww]
-        # bloom on the impact
-        if dt > 0:
-            bl = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(26)), np.float32) / 255.0
-            reg += (0.30 * np.exp(-dt / 0.28) * bl)[..., None]
-        reg *= (1 - a[..., None])
-        reg += a[..., None] * (np.array(WHITE, np.float32) / 255.0)
+        rgb = np.asarray(im.convert("RGB"), np.float32) / 255.0
+        reg *= (1 - a)
+        reg += a * rgb
 
 
 # --------------------------------------------------------------------------
-# Timeline
+# Timeline (beats @128 bpm)
 # --------------------------------------------------------------------------
+T_CLOSE = b(26.0)       # window collapses
+T_CLOSE_END = b(27.0)
+T_LOGO = b(27.0)
+T_HIT = b(28.0)         # impact + chord, logo locks
+
+
 def build(cfg):
-    beam_tight = Beam(cfg, 0.075)
-    beam_soft = Beam(cfg, 0.20, 0.82, 0.30)
-    grade = Grade(cfg)
-    macro = Macro(cfg, beam_tight)
-    dust_macro = Dust(cfg, beam_tight, n=420, seed=3, gain=1.25)
-    dust_wide = Dust(cfg, beam_soft, n=260, seed=5, gain=0.85)
-    dof_a = DoF(cfg, 0.5, 0.5, 0.30, 0.22, 10)
-    dof_b = DoF(cfg, 0.5, 0.42, 0.40, 0.32, 7)
-    black = np.zeros((cfg.H, cfg.W, 3), np.float32)
-
-    # ---- THE DETAIL 0-3s : darkness, macro iron, hand enters the beam -------
-    n1 = f2(3.0) + 6
-    hand = Clip(cfg, 6.15, 0.40, 300, 560, 520, 1.0, 1.10, pan0=(0.6, 0.0), pan1=(0.0, 0.0))
-
-    def s1():
-        hg = hand.frames(n1 - f2(1.0))
-        for i in range(n1):
-            t = i / FPS
-            shift = -0.05 * t / 3.0
-            m = beam_tight.mask(shift)
-            inten = float(smooth((t - 0.30) / 1.5))
-            surf = np.clip(macro.frame(i, n1) * 2.5, 0, 1) ** 1.15 * m[..., None] * inten   # macro iron, lit hard
-            surf = surf * np.array([0.93, 0.95, 0.98], np.float32) + 0.006
-            if i >= f2(1.0):
-                hf = grade(next(hg), bottom=False, lift=1.0, sat=0.6)
-                wide = np.clip(beam_tight.mask(shift, 2.4) * 1.35, 0, 1)[..., None]
-                a = float(smooth((t - 1.0) / 0.9)) * wide ** 0.9
-                surf = surf * (1 - a) + hf * wide * a * (0.55 + 0.45 * inten)
-            yield dof_a(surf) if i % 1 == 0 else surf
-
-    # ---- THE MOVEMENT 3-6s : slow-motion swing ------------------------------
-    n2 = f2(3.0) + 4
-    swing = Clip(cfg, 0.95, 0.5, 150, 590, 520, 1.0, 1.16, pan0=(-0.3, 0.1), pan1=(0.2, 0.0))
-
-    def s2():
-        for i, f in enumerate(swing.frames(n2)):
-            yield dof_b(grade(f, lift=1.3))
-
-    # ---- THE EXPERIENCE 6-10s : cuts on the beat -----------------------------
-    cuts = [
-        # ss, speed, cx, cy, ch, z0, z1
-        (6.10, 1.0, 270, 500, 800, 1.00, 1.14),   # coach, bell to chest
-        (7.85, 1.0, 270, 560, 800, 1.00, 1.12),   # hinge
-        (8.80, 0.6, 270, 440, 640, 1.00, 1.10),   # bell swings through
-        (9.95, 0.6, 270, 400, 560, 1.00, 1.14),   # sweat, effort
-        (12.45, 0.8, 270, 540, 760, 1.00, 1.12),  # hinge, wide
-        (13.55, 0.8, 270, 480, 700, 1.00, 1.12),  # goblet hold
+    # (start beat, Clip(ss, speed, cx, cy, crop height, z0, z1, punch))
+    shots = [
+        (0.0, Clip(cfg, 6.10, 0.40, 300, 560, 520, 1.00, 1.14, 0.0)),            # hands on the handle
+        (6.0, Clip(cfg, 0.95, 0.50, 250, 560, 700, 1.00, 1.18, 0.06, (0.5, 0))),  # slow-motion swing
+        (12.0, Clip(cfg, 6.85, 1.0, 270, 520, 700, 1.00, 1.10, 0.07)),            # coach, bell down
+        (13.0, Clip(cfg, 7.80, 1.0, 290, 560, 800, 1.00, 1.08, 0.07)),            # hinge
+        (14.0, Clip(cfg, 8.45, 1.0, 330, 500, 640, 1.00, 1.10, 0.07)),            # bell through the frame
+        (15.0, Clip(cfg, 10.0, 1.0, 270, 470, 600, 1.00, 1.10, 0.07)),            # effort
+        (16.0, Clip(cfg, 11.45, 1.0, 270, 440, 760, 1.00, 1.08, 0.07)),           # bell overhead
+        (17.0, Clip(cfg, 12.40, 1.0, 270, 560, 760, 1.00, 1.08, 0.07)),           # hinge, wide
+        (18.0, Clip(cfg, 13.80, 1.0, 300, 560, 700, 1.00, 1.08, 0.07)),           # goblet squat
+        (19.0, Clip(cfg, 15.10, 1.0, 270, 560, 740, 1.00, 1.08, 0.07)),           # goblet, class behind
+        (20.0, Clip(cfg, 16.70, 0.40, 280, 580, 760, 1.00, 1.16, 0.0)),           # final shot, slow
     ]
-    exp_clips = [Clip(cfg, *c[:2], c[2], c[3], c[4], c[5], c[6]) for c in cuts]
-    exp_starts = [round((6.0 + k * BEAT) * FPS) for k in range(6)] + [f2(10.0)]
+    starts = [f2(b(s[0])) for s in shots]
+    ends = starts[1:] + [f2(T_CLOSE_END) + 1]
+    gens = [(st, en, s[1]) for st, en, s in zip(starts, ends, shots)]
 
-    # ---- THE BRAND 10-13s : final shot, slow, to black ----------------------
-    n4 = f2(1.9) + 2
-    fin = Clip(cfg, 16.95, 0.4, 270, 560, 700, 1.0, 1.18, pan0=(0, 0.1), pan1=(0, 0))
-
-    def s4():
-        for i, f in enumerate(fin.frames(n4)):
-            t = i / FPS
-            g = dof_b(grade(f, lift=1.55))
-            yield g * (1 - float(smooth((t - 1.2) / 0.55)))
-
-    def exp_gen(k):
-        c = exp_clips[k]
-        n = exp_starts[k + 1] - exp_starts[k] + 4
-
-        def gen():
-            for f in c.frames(n):
-                yield dof_b(grade(f, lift=1.22))
-        return gen()
-
-    def blackgen(n):
-        def g():
-            for _ in range(n):
-                yield black
-        return g()
-
-    shots = [(0, n1, s1(), 0, "macro"), (f2(3.0), n2, s2(), 6, "swing")]
-    for k in range(6):
-        shots.append((exp_starts[k], exp_starts[k + 1] - exp_starts[k] + 4, exp_gen(k), 3, "exp"))
-    shots.append((f2(10.0), n4, s4(), 3, "fin"))
-
-    # overlays
-    ty = cfg.ty
-    texts = [
-        Type(cfg, ["STRENGTH", "IS BUILT."], 0.95, 2.95, ty),
-        Type(cfg, ["ONE REP", "AT A TIME."], 3.30, 5.95, ty),
-        Type(cfg, ["MORE THAN", "A WORKOUT."], 6.10, 9.90, ty),
-        Type(cfg, ["BE PART OF", "SOMETHING", "STRONGER."], 10.10, 11.55, ty - 0.02, fade_out=0.3),
+    L = [
+        Lines(cfg, ["STRENGTH", "IS BUILT."], [b(1.0), b(2.0)], b(6.0)),
+        Lines(cfg, ["ONE REP", "AT A TIME."], [b(7.0), b(8.0)], b(12.0)),
+        Lines(cfg, ["MORE THAN", "A WORKOUT."], [b(12.5), b(14.0)], b(20.0)),
+        Lines(cfg, ["BE PART OF", "SOMETHING", "STRONGER."], [b(21.0), b(22.0), b(23.0)], b(26.0),
+              size=int(cfg.fs * 0.94)),
     ]
-    sub_size = int(cfg.fs * 0.50)
-    brand_y = 0.645 if cfg.portrait else 0.735
-    brand_lines = ["BE PART OF SOMETHING STRONGER."] if not cfg.portrait else ["BE PART OF", "SOMETHING STRONGER."]
-    texts.append(Type(cfg, brand_lines, 13.15, 99, brand_y, size=sub_size, wght=700, wdth=108, track=0.02, stagger=0.15, fade_out=0.01))
-    url_size = int(cfg.fs * 0.33)
-    texts.append(Type(cfg, ["Visit raengfitness.co.uk"], 13.65, 99, 0.80 if cfg.portrait else 0.88,
-                      size=url_size, wght=500, wdth=100, track=0.07, color=(200, 200, 196), fade_out=0.01))
-    logo = LogoCard(cfg, 12.33, 13.0)
-
-    return dict(shots=shots, texts=texts, logo=logo, dust_macro=dust_macro, dust_wide=dust_wide,
-                beam_soft=beam_soft, black=black)
+    sub = int(cfg.fs * 0.50)
+    slogan = ["BE PART OF", "SOMETHING STRONGER."] if cfg.portrait else ["BE PART OF SOMETHING STRONGER."]
+    L.append(Lines(cfg, slogan, [b(29.0), b(29.5)][: len(slogan)], 99, cy=cfg.slogan_cy, cx=cfg.W // 2,
+                   size=sub, wght=800, wdth=108, track=0.0, maxw=cfg.W * 0.9))
+    L.append(Lines(cfg, ["Visit raengfitness.co.uk"], [b(30.5)], 99, cy=cfg.url_cy, cx=cfg.W // 2,
+                   size=int(cfg.fs * 0.34), wght=500, wdth=100, track=0.05, color=MUTED, maxw=cfg.W * 0.9))
+    head = Lines(cfg, ["RAENG FITNESS"], [0.05], T_CLOSE + 0.25, cy=cfg.head_xy[1], cx=cfg.head_xy[0],
+                 size=int(cfg.fs * 0.27), wght=700, wdth=100, track=0.30, color=MUTED, maxw=cfg.W * 0.8, dur=0.5)
+    return gens, L, head, Logo(cfg, T_LOGO, T_HIT)
 
 
-def compose(cfg, only=None):
-    B = build(cfg)
-    shots, texts, logo = B["shots"], B["texts"], B["logo"]
-    rng = np.random.default_rng(1234)
+def compose(cfg):
+    gens, texts, head, logo = build(cfg)
     H, W = cfg.H, cfg.W
-    live = []  # (start, end, gen, fade)
-    pending = list(shots)
+    wx, wy, ww, wh = cfg.win
+    full_mask = rounded_mask(ww, wh, cfg.radius)
+    live = {}
     for i in range(NF):
-        while pending and pending[0][0] <= i:
-            st, ln, gen, fade, _ = pending.pop(0)
-            live.append((st, st + ln, gen, fade))
-        out = np.zeros((H, W, 3), np.float32)
-        for st, en, gen, fade in list(live):
-            if i >= en:
-                live.remove((st, en, gen, fade))
-                continue
-            if only is not None and i not in only and i + 1 not in only and False:
-                pass
-            f = next(gen, None)
-            if f is None:
-                live.remove((st, en, gen, fade))
-                continue
-            a = 1.0 if fade == 0 else float(smooth((i - st + 0.5) / fade))
-            out = out * (1 - a) + f * a
         t = i / FPS
-        # chalk dust + faint light shaft (beam) on all footage
-        if t < 3.0:
-            out += B["dust_macro"].render(t, -0.05 * t / 3.0, 1.0)[..., None] * 0.95
-        elif t < 11.6:
-            sh = 0.02 * np.sin(t * 0.4)
-            amt = 0.55 if t < 6.0 else 0.35
-            out += B["dust_wide"].render(t, sh)[..., None] * amt
-            if t >= 3.0:
-                out += (B["beam_soft"].mask(sh)[..., None] * 0.035)
+        out = np.empty((H, W, 3), np.float32)
+        out[:] = PAPER
+        frame = None
+        for gi, (st, en, clip) in enumerate(gens):
+            if st <= i < en:
+                if gi not in live:
+                    live[gi] = clip.frames(en - st)
+                frame = next(live[gi], None)
+            elif i >= en:
+                live.pop(gi, None)
+        # open on beat 0; collapse into the logo on beats 26-27
+        po = expo_out(t / 0.45)
+        pc = io((t - T_CLOSE) / (T_CLOSE_END - T_CLOSE))
+        g = po * (1 - pc)
+        if frame is not None and g > 0.004:
+            wc = max(2, int(ww * (0.32 + 0.68 * g)))
+            hc = max(2, int(wh * g))
+            xa, ya = (ww - wc) // 2, (wh - hc) // 2
+            sub = frame[ya:ya + hc, xa:xa + wc]
+            if g >= 0.999:
+                m = full_mask[ya:ya + hc, xa:xa + wc]
+            else:
+                m = rounded_mask(wc, hc, min(cfg.radius, hc // 2, wc // 2))
+            reg = out[wy + ya:wy + ya + hc, wx + xa:wx + xa + wc]
+            reg[:] = reg * (1 - m) + sub * m
+        head.draw(out, t)
         for tx in texts:
             tx.draw(out, t)
         logo.draw(out, t)
-        # film grain, near-nothing on pure black
-        lum = out.mean(-1, keepdims=True)
-        gr = rng.standard_normal((H, W, 1)).astype(np.float32)
-        out = out + gr * 0.04 * np.sqrt(np.clip(lum, 0, 1) + 0.001) * (0.8 + 0.4 * (1 - np.clip(lum * 2, 0, 1)))
         yield i, (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
@@ -558,30 +331,29 @@ def main():
     ap.add_argument("--aspect", default="9x16", choices=["9x16", "16x9"])
     ap.add_argument("--out", default=None)
     ap.add_argument("--still", default=None, help="comma list of frame numbers -> PNGs next to --out")
-    ap.add_argument("--crf", type=int, default=15)
     ap.add_argument("--keep", default=None, help="full render, but also save these frames as PNG")
+    ap.add_argument("--crf", type=int, default=16)
     a = ap.parse_args()
     cfg = Cfg(a.aspect)
     out = a.out or os.path.join(HERE, "out", f"raeng-advert-{a.aspect}-silent.mp4")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    stills = {int(x) for x in a.still.split(",")} if a.still else None
-    if stills:
-        last = max(stills)
+    if a.still:
+        stills = {int(x) for x in a.still.split(",")}
         for i, fr in compose(cfg):
             if i in stills:
                 Image.fromarray(fr).save(out.replace(".mp4", f"_f{i:03d}.png"))
-            if i >= last:
+            if i >= max(stills):
                 break
         return
+    keep = {int(x) for x in a.keep.split(",")} if a.keep else set()
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{cfg.W}x{cfg.H}",
            "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", str(a.crf),
            "-pix_fmt", "yuv420p", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709",
            "-color_trc", "bt709", "-movflags", "+faststart", out]
-    keep = {int(x) for x in a.keep.split(',')} if a.keep else set()
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     for i, fr in compose(cfg):
         if i in keep:
-            Image.fromarray(fr).save(out.replace('.mp4', f'_f{i:03d}.png'))
+            Image.fromarray(fr).save(out.replace(".mp4", f"_f{i:03d}.png"))
         p.stdin.write(fr.tobytes())
         if i % 24 == 0:
             print(f"frame {i}/{NF}", file=sys.stderr, flush=True)
