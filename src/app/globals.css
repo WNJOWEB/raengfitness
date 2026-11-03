@@ -1065,6 +1065,11 @@
   background: var(--color-ink);
   color: var(--color-paper);
 }
+.cf-badge-stop {
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-white);
+  color: var(--color-ink);
+}
 .cf-ring {
   width: 3.5rem;
   height: 3.5rem;

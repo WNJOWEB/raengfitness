@@ -308,9 +308,12 @@ test.describe("production configuration", () => {
     await expect(status).toContainText("Request sent");
     await expect(status).toContainText("prod@example.com");
     await expect(status).toContainText("booked once he confirms");
+    // It carries a reference, and the same reference is in the email they get.
+    const reference = (await status.innerText()).match(/RAENG-[0-9A-F]{8}/)?.[0];
+    expect(reference).toBeDefined();
     // The person is told it was received (and that it isn't confirmed yet), as well as Alex.
     await expect
-      .poll(async () => (await emails(request)).some((e) => e.payload.to.includes("prod@example.com") && e.payload.subject.startsWith("We've received your request") && e.payload.text.includes("not a confirmed booking")))
+      .poll(async () => (await emails(request)).some((e) => e.payload.to.includes("prod@example.com") && e.payload.subject.startsWith("We've received your request") && e.payload.text.includes("not a confirmed booking") && e.payload.text.includes(`Your reference: ${reference}`)))
       .toBe(true);
 
     const year = new Date(`${day.date}T12:00:00`).getFullYear();
@@ -441,6 +444,7 @@ test.describe("production configuration", () => {
 
     const status = page.getByRole("status");
     await expect(status).toContainText("Thanks. Alex will reply to confirm.");
+    await expect(status).toContainText(/RAENG-[0-9A-F]{8}/);
     await expect(status).toContainText("join@example.com");
     await expect(status).toContainText("Regular membership");
 

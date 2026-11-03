@@ -10,6 +10,7 @@ import { isToken, memberLinkOrigin, randomToken, sha256Hex, SIGN_IN_PATH } from 
 import { publishable } from "./publish";
 import { formatTime } from "./schedule";
 import { sendNotice } from "./notices";
+import { referenceFor } from "./reference";
 import { sendEmail } from "./send-email";
 import type { StripeConfig } from "./stripe/config";
 import { createChargeLink } from "./stripe/sync";
@@ -74,7 +75,7 @@ export async function startClassCheckout(
   if (created.data.status === "confirmed" || !created.data.charge_id) {
     return { ok: true, url: done, bookingId: created.data.booking_id, confirmed: true };
   }
-  const link = await createChargeLink(db, stripe, created.data.charge_id, options.fetchImpl, { buyerEmail: booker.email, redirectUrl: done });
+  const link = await createChargeLink(db, stripe, created.data.charge_id, options.fetchImpl, { buyerEmail: booker.email, redirectUrl: done, expiresInMinutes: 30 });
   if (!link.ok) return { ok: false, reason: "unavailable" };
   return { ok: true, url: link.url, bookingId: created.data.booking_id, confirmed: false };
 }
@@ -110,6 +111,10 @@ export interface ClassBookingStatus {
   when: string | null;
   /** The open Stripe link, while it still waits for payment. */
   payUrl: string | null;
+  /** What the class costs (0 when it was booked with a class credit). */
+  pricePence: number;
+  /** The short reference shown to the customer (from the booking's id). */
+  reference: string;
 }
 
 /** What the "after paying" page shows: the class and the state, no personal details. */
@@ -119,11 +124,16 @@ export async function classBookingStatus(db: Db, bookingId: string, classes: Pub
   if (!row) return null;
   const when = await placeWhen(db, row.attendance_id, classes);
   let payUrl: string | null = null;
+  let pricePence = 0;
+  if (row.charge_id) {
+    const charge = await select<{ amount_pence: number }>(db, "akb_charges", [["select", "amount_pence"], ["id", `eq.${row.charge_id}`]]);
+    pricePence = charge.ok ? (charge.data[0]?.amount_pence ?? 0) : 0;
+  }
   if (row.status === "awaiting_payment" && row.charge_id) {
     const links = await select<{ url: string }>(db, "akb_square_payment_links", [["select", "url"], ["charge_id", `eq.${row.charge_id}`], ["status", "eq.open"]]);
     payUrl = links.ok ? (links.data[0]?.url ?? null) : null;
   }
-  return { status: row.status, when, payUrl };
+  return { status: row.status, when, payUrl, pricePence, reference: referenceFor(row.id) };
 }
 
 export async function placeWhen(db: Db, attendanceId: string, classes: PublishedClass[]): Promise<string | null> {
@@ -174,7 +184,7 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
         subject: row.status === "confirmed" ? `Class booked: ${person.full_name}, ${when}` : `Paid, needs you: ${person.full_name}, ${when}`,
         text: [
           row.status === "confirmed"
-            ? `${person.full_name} booked the group class on ${when} (${paid}). Their place is confirmed; nothing to confirm.`
+            ? `${person.full_name} booked the group class on ${when} (${paid}). Their place is confirmed; nothing to confirm. Reference: ${referenceFor(row.id)}.`
             : `${person.full_name} paid for the group class on ${when}, but the place couldn't be confirmed automatically (the class may be full or cancelled). The payment is recorded; please sort out their place in the coach area.`,
           "",
           `Email: ${person.email}`,
@@ -199,6 +209,7 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
           subject: `You're booked: ${when}`,
           text: [
             `Your place on the group class on ${when} is confirmed (${paid}).`,
+            `Reference: ${referenceFor(row.id)}`,
             `${site.location.street}, ${site.location.town}, ${site.location.postcode}.`,
             "",
             "Need to cancel? Use this private link:",

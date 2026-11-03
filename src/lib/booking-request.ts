@@ -254,6 +254,8 @@ export interface FormState<F extends string = string> {
   status: "idle" | "error" | "success";
   message: string;
   errors: FieldErrors<F>;
+  /** On success of a request: the short reference to show the sender (and repeat in the email Alex and they get). */
+  reference?: string;
 }
 
 export const initialFormState: FormState = { status: "idle", message: "", errors: {} };

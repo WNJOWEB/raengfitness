@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * The confirmation screen after a card payment or a Direct Debit set-up
- * (owner, 2026-11-02). Two states: "waiting" (a turning ring, the steps, "this
+ * (owner, 2026-11-02). A third state, "stopped", is for a payment that was cancelled or ran out. Two states: "waiting" (a turning ring, the steps, "this
  * page updates by itself") and "done" (an ink disc with a drawn tick, a short
  * list of what was set up). It only shows what the caller tells it, so the
  * caller decides when something is confirmed: never from the browser arriving,
@@ -16,7 +16,7 @@ export interface ConfirmationStep {
 }
 
 interface ConfirmationProps {
-  state: "waiting" | "done";
+  state: "waiting" | "done" | "stopped";
   headingId: string;
   eyebrow: string;
   title: string;
@@ -37,6 +37,15 @@ function Ring() {
   );
 }
 
+/** A payment that didn't go through (cancelled, expired or closed): not a tick, not a spinner. */
+function Cross() {
+  return (
+    <svg className="cf-tick" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path d="M15 15 33 33M33 15 15 33" />
+    </svg>
+  );
+}
+
 function Tick({ small = false }: { small?: boolean }) {
   return (
     <svg className={small ? "cf-tick cf-tick-sm" : "cf-tick"} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
@@ -51,7 +60,7 @@ export function Confirmation({ state, headingId, eyebrow, title, lede, steps, de
   const members = variant === "members";
   return (
     <div className="flex flex-col gap-5" role="status" aria-live="polite">
-      <div className={cn("cf-badge", state === "done" ? "cf-badge-done" : "cf-badge-wait")}>{state === "done" ? <Tick /> : <Ring />}</div>
+      <div className={cn("cf-badge", state === "done" ? "cf-badge-done" : state === "stopped" ? "cf-badge-stop" : "cf-badge-wait")}>{state === "done" ? <Tick /> : state === "stopped" ? <Cross /> : <Ring />}</div>
       <div className="flex flex-col gap-2">
         <p className={members ? "members-eyebrow" : "eyebrow"}>{eyebrow}</p>
         <h1 id={headingId} className={members ? "text-[clamp(1.875rem,8.4vw,2.625rem)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance" : "font-display text-h1 text-balance"}>

@@ -8,6 +8,7 @@ import { publishedClasses } from "@/lib/class-sessions";
 import { fullClasses, fullKey } from "@/lib/class-capacity";
 import { londonToday } from "@/lib/coach/time";
 import { deliverRequest } from "@/lib/deliver-request";
+import { referenceFor } from "@/lib/reference";
 import { MEMBERSHIP_SERVICE, membershipEmail, membershipSummary, parseMembershipRequest, type MembershipField } from "@/lib/membership-request";
 import { idempotencyKey } from "@/lib/send-email";
 import { coachDb } from "@/lib/coach/db";
@@ -104,5 +105,5 @@ export async function submitMembershipRequest(
   if (!delivered) {
     return { status: "error", message: "Sorry, your request couldn't be sent. Please try again, or message Alex on Instagram.", errors: {} };
   }
-  return { status: "success", message: data.email, errors: {} };
+  return { status: "success", message: data.email, errors: {}, reference: referenceFor(key) };
 }

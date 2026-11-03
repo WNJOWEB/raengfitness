@@ -8,6 +8,7 @@ import { SIGN_IN_PATH } from "@/lib/member-auth";
 import { startSignupDirectDebit } from "../direct-debit-actions";
 import { JOIN_DONE_PATH, SIGNUP_DD_PATH, signupStatus, type SignupStatus } from "@/lib/membership-checkout";
 import { formatPenceShort } from "@/lib/membership";
+import { referenceFor } from "@/lib/reference";
 import { directDebitEnabled } from "@/lib/stripe/config";
 import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
@@ -43,9 +44,11 @@ export default async function JoinDonePage({ searchParams }: { searchParams: Pro
   const signup = id && db ? await signupStatus(db, id) : null;
   const ddOn = directDebitEnabled();
   const returned = params.dd === "returned";
+  const cancelled = params.cancelled === "1";
   const tries = Math.min(Math.max(Number(typeof params.n === "string" ? params.n : 0) || 0, 0), MAX_TRIES);
   // Waiting on Stripe: for the payment, or for the Direct Debit the member has just authorised.
-  const waitingForPayment = signup?.status === "awaiting_payment";
+  const waitingForPayment = signup?.status === "awaiting_payment" && !cancelled && tries < MAX_TRIES;
+  const payGaveUp = signup?.status === "awaiting_payment" && !cancelled && tries >= MAX_TRIES;
   const waitingForDirectDebit = Boolean(returned && signup?.status === "active" && signup.dd !== "active" && tries < MAX_TRIES);
   // A paid sign-up with Direct Debit on is forwarded to Stripe's bank page after a few seconds (a button does it at once).
   // Coming back from that page ("returned", "skipped", "unavailable", "done") is never forwarded again.
@@ -53,11 +56,11 @@ export default async function JoinDonePage({ searchParams }: { searchParams: Pro
   const ddMessage = params.dd === "unavailable" ? "Sorry, the Direct Debit page couldn't be opened just now. Please try again in a minute." : null;
   return (
     <Section labelledBy="done-heading">
-      {waitingForPayment ? <meta httpEquiv="refresh" content="3" /> : null}
+      {waitingForPayment ? <meta httpEquiv="refresh" content={`3;url=${JOIN_DONE_PATH}?signup=${id}&n=${tries + 1}`} /> : null}
       {waitingForDirectDebit ? <meta httpEquiv="refresh" content={`3;url=${JOIN_DONE_PATH}?signup=${id}&dd=returned&n=${tries + 1}`} /> : null}
       {forward ? <meta httpEquiv="refresh" content={`5;url=${SIGNUP_DD_PATH}?signup=${id}`} /> : null}
       <div className="max-w-xl">
-        <Body signup={signup} signupId={id} ddMessage={ddMessage} ddOn={ddOn} forwarding={forward} returned={returned} gaveUp={returned && tries >= MAX_TRIES} />
+        <Body signup={signup} signupId={id} ddMessage={ddMessage} ddOn={ddOn} forwarding={forward} returned={returned} gaveUp={returned && tries >= MAX_TRIES} cancelled={cancelled} payGaveUp={payGaveUp} />
       </div>
     </Section>
   );
@@ -73,6 +76,8 @@ function Body({
   forwarding,
   returned,
   gaveUp,
+  cancelled,
+  payGaveUp,
 }: {
   signup: SignupStatus | null;
   signupId: string | null;
@@ -81,6 +86,8 @@ function Body({
   forwarding: boolean;
   returned: boolean;
   gaveUp: boolean;
+  cancelled: boolean;
+  payGaveUp: boolean;
 }) {
   const heading = "mt-3 font-display text-h1 text-balance";
   if (!signup || signup.status === "replaced") {
@@ -95,6 +102,44 @@ function Body({
           See memberships
         </Link>
       </div>
+    );
+  }
+  const reference = signupId ? referenceFor(signupId) : null;
+  if (signup.status === "awaiting_payment" && cancelled) {
+    return (
+      <Confirmation
+        state="stopped"
+        headingId="done-heading"
+        eyebrow={`${signup.plan_name} membership`}
+        title="Payment cancelled."
+        lede="You haven't been charged and your membership hasn't started. You can go back and pay whenever you're ready."
+        details={reference ? [["Reference", reference]] : undefined}
+      >
+        {signup.payUrl ? (
+          <a href={signup.payUrl} className={buttonClasses("action", "w-full px-6 sm:w-auto")}>
+            Go back and pay
+          </a>
+        ) : null}
+        <Link href="/memberships" className={buttonClasses("secondary", "w-full px-6 sm:w-auto")}>
+          See memberships
+        </Link>
+      </Confirmation>
+    );
+  }
+  if (signup.status === "awaiting_payment" && payGaveUp) {
+    return (
+      <Confirmation
+        state="waiting"
+        headingId="done-heading"
+        eyebrow={`${signup.plan_name} membership`}
+        title="Still confirming your payment."
+        lede="Stripe's confirmation is taking longer than usual. You don't need to wait here: if your payment went through, we'll email you as soon as your membership has started."
+        details={reference ? [["Reference", reference]] : undefined}
+      >
+        <Link href={SIGN_IN_PATH} className={buttonClasses("action", "w-full px-6 sm:w-auto")}>
+          Sign in to your account
+        </Link>
+      </Confirmation>
     );
   }
   if (signup.status === "awaiting_payment") {
@@ -144,6 +189,7 @@ function Body({
           ["Plan", signup.plan_name],
           ["Payment", `${price} every ${BILLING_WEEKS} weeks`],
           ["How", "Direct Debit"],
+          ...(reference ? ([["Reference", reference]] as [string, string][]) : []),
           ...(next ? ([["Next payment", `Collected a few days before ${next}`]] as [string, string][]) : []),
         ]}
       >
@@ -206,6 +252,7 @@ function Body({
         ["Paid today", `${price}${signup.card ? ` by ${signup.card}` : " by card"}`],
         ["Class credits", `${signup.credits} every ${BILLING_WEEKS} weeks`],
         ...(next ? ([["Next payment", next]] as [string, string][]) : []),
+        ...(reference ? ([["Reference", reference]] as [string, string][]) : []),
       ]}
     >
       {signup.dd === "active" ? (

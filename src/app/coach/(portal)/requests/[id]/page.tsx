@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { referenceFor } from "@/lib/reference";
 import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -75,6 +76,7 @@ async function RequestView({ params, searchParams }: { params: PageProps<"/coach
           <Badge tone={request.status === "new" ? "strong" : "plain"}>{REQUEST_STATUS[request.status] ?? request.status}</Badge>
           <span className="text-sm text-muted">
             Received <time dateTime={request.created_at}>{formatStamp(request.created_at)}</time>
+            {request.idempotency_key ? ` · Reference ${referenceFor(request.idempotency_key)}` : ""}
           </span>
         </p>
         <p className="text-sm text-muted">A request is not a booking until you confirm it here.</p>

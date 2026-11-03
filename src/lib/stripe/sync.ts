@@ -1,7 +1,8 @@
 import { insert, rpc, select, update, type Db, type DbError } from "../coach/db";
 import { memberLinkOrigin } from "../member-auth";
+import { referenceFor } from "../reference";
 import { toLondon } from "../coach/time";
-import { createPaymentSession, getCheckoutSession, getPaymentIntent, getPaymentMethod, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
+import { createPaymentSession, expireCheckoutSession, getCheckoutSession, getPaymentIntent, getPaymentMethod, getRefund, getSetupIntent, listRefundsForPaymentIntent, listSessionsForPaymentIntent, type CheckoutSession, type StripeRefund, type StripeResult } from "./api";
 import type { StripeConfig, StripeWebhookConfig } from "./config";
 import { directDebitEnabled } from "./config";
 import { notifyDirectDebitSetUp } from "./dd-notice";
@@ -301,7 +302,15 @@ export async function createChargeLink(
    * Online sign-ups and class bookings: the buyer's email for Stripe's form, and the page to return to.
    * `renewal`: a membership payment, which also keeps the card for the renewals (the consent line is on Stripe's page).
    */
-  options: { buyerEmail?: string; redirectUrl?: string; renewal?: { clientId: string; email: string; name: string } } = {},
+  options: {
+    buyerEmail?: string;
+    redirectUrl?: string;
+    /** Where Stripe's "back" arrow goes. Default: the return page with `cancelled=1`, so it can say "payment cancelled" instead of "waiting". */
+    cancelUrl?: string;
+    /** Stripe's page stops taking payment after this long (class places are held 15 minutes, so 30 is the shortest Stripe allows). */
+    expiresInMinutes?: number;
+    renewal?: { clientId: string; email: string; name: string };
+  } = {},
 ): Promise<LinkResult> {
   const live = await select<LinkRow>(db, "akb_square_payment_links", [["charge_id", `eq.${chargeId}`], ["status", "in.(creating,open)"]]);
   if (!live.ok) return { ok: false, reason: "db" };
@@ -311,8 +320,10 @@ export async function createChargeLink(
   if (link?.status === "open") {
     const age = link.created_at ? Date.now() - Date.parse(link.created_at) : 0;
     if (age < LINK_LIFETIME_MS) return { ok: true, url: link.url, amountPence: link.amount_pence };
-    // Too old to trust: close it (a payment that still arrives is recorded by its session id) and make a fresh one.
+    // Too old to trust: close it and make a fresh one. Its Stripe page is closed too, so a tab left open can't take a second payment
+    // (a payment that still arrives before that is recorded by its session id).
     await update(db, "akb_square_payment_links", [["id", `eq.${link.id}`], ["status", "eq.open"]], { status: "cancelled" });
+    if (link.square_link_id) await expireCheckoutSession(stripe, link.square_link_id, fetchImpl).catch(() => undefined);
     link = undefined;
   }
 
@@ -338,6 +349,7 @@ export async function createChargeLink(
   // names none, so the buyer lands on a confirmation page that reads this link's state from the
   // database (which only the verified webhook changes): it never claims "paid" on its own.
   const back = options.redirectUrl || `${memberLinkOrigin()}${PAY_DONE_PATH}?link=${link.id}`;
+  const cancelBack = options.cancelUrl ?? `${back}${back.includes("?") ? "&" : "?"}cancelled=1`;
   // A membership payment keeps the card for the renewals; if the customer can't be made, it is still just a payment.
   const renewal = options.renewal?.email ? options.renewal : null;
   const customer = renewal ? await ensureStripeCustomer(db, stripe, renewal, fetchImpl) : null;
@@ -353,7 +365,8 @@ export async function createChargeLink(
       customerId: keepCard?.customerId,
       saveCard: keepCard ? { clientReference: keepCard.clientReference, consent: keepCard.consent } : undefined,
       successUrl: back,
-      cancelUrl: back,
+      cancelUrl: cancelBack,
+      expiresInMinutes: options.expiresInMinutes,
     },
     fetchImpl,
   );
@@ -430,6 +443,10 @@ export interface ChargeLinkStatus {
   description: string;
   /** The Stripe page to go back to, while the link is still open. */
   payUrl: string | null;
+  /** The short reference shown to the customer (from the link's id). */
+  reference: string;
+  /** The day the payment was recorded, once it is. */
+  paidOn: string | null;
 }
 
 /**
@@ -439,8 +456,8 @@ export interface ChargeLinkStatus {
  * reconcile job), never from the buyer arriving at the page.
  */
 export async function chargeLinkStatus(db: Db, linkId: string): Promise<ChargeLinkStatus | null> {
-  const links = await select<{ status: LinkRow["status"]; amount_pence: number; charge_id: string; url: string }>(db, "akb_square_payment_links", [
-    ["select", "status,amount_pence,charge_id,url"],
+  const links = await select<{ status: LinkRow["status"]; amount_pence: number; charge_id: string; url: string; paid_payment_id: string | null }>(db, "akb_square_payment_links", [
+    ["select", "status,amount_pence,charge_id,url,paid_payment_id"],
     ["id", `eq.${linkId}`],
   ]);
   const link = links.ok ? links.data[0] : undefined;
@@ -448,5 +465,10 @@ export async function chargeLinkStatus(db: Db, linkId: string): Promise<ChargeLi
   const charges = await select<{ description: string }>(db, "akb_charges", [["select", "description"], ["id", `eq.${link.charge_id}`]]);
   const description = charges.ok ? (charges.data[0]?.description ?? "") : "";
   const status = link.status === "paid" ? "paid" : link.status === "cancelled" ? "closed" : "awaiting";
-  return { status, amountPence: link.amount_pence, description, payUrl: status === "awaiting" && link.url.startsWith("https://") ? link.url : null };
+  let paidOn: string | null = null;
+  if (status === "paid" && link.paid_payment_id) {
+    const paid = await select<{ paid_on: string }>(db, "akb_payments", [["select", "paid_on"], ["id", `eq.${link.paid_payment_id}`]]);
+    paidOn = paid.ok ? (paid.data[0]?.paid_on ?? null) : null;
+  }
+  return { status, amountPence: link.amount_pence, description, payUrl: status === "awaiting" && link.url.startsWith("http") ? link.url : null, reference: referenceFor(linkId), paidOn };
 }

@@ -295,7 +295,7 @@ export async function sendRenewalLinks(db: Db, stripe: StripeConfig, today: Date
   for (const p of due.data) {
     const link = await createChargeLink(db, stripe, p.charge_id, fetchImpl, {
       buyerEmail: p.email,
-      redirectUrl: `${memberLinkOrigin(env)}${ACCOUNT_PATH}`,
+      // No return address of our own: Stripe sends them to the payment confirmation page (/pay/done), which shows what was paid.
       renewal: { clientId: p.client_id, email: p.email, name: p.full_name },
     });
     if (!link.ok) {
@@ -332,7 +332,7 @@ export async function sendRenewalLinks(db: Db, stripe: StripeConfig, today: Date
 }
 
 /** A member's current period still to pay (pay-online members only), with a link to pay it. */
-export async function paymentDue(db: Db, stripe: StripeConfig | null, clientId: string, env: Env = process.env): Promise<{ amountPence: number; url: string | null; periodEnd: string; direct: boolean } | null> {
+export async function paymentDue(db: Db, stripe: StripeConfig | null, clientId: string): Promise<{ amountPence: number; url: string | null; periodEnd: string; direct: boolean } | null> {
   const due = await rpc<{ charge_id: string; outstanding_pence: number; period_end: string } | null>(db, "akb_member_payment_due", { p_client: clientId });
   if (!due.ok || !due.data) return null;
   let url: string | null = null;
@@ -341,7 +341,7 @@ export async function paymentDue(db: Db, stripe: StripeConfig | null, clientId: 
     const people = await select<{ email: string; full_name: string }>(db, "akb_clients", [["select", "email,full_name"], ["id", `eq.${clientId}`]]);
     const person = people.ok ? people.data[0] : undefined;
     const link = await createChargeLink(db, stripe, due.data.charge_id, fetch, {
-      redirectUrl: `${memberLinkOrigin(env)}${ACCOUNT_PATH}`,
+      // The default return page (/pay/done) confirms the payment from the database.
       renewal: person ? { clientId, email: person.email, name: person.full_name } : undefined,
     });
     url = link.ok ? link.url : null;

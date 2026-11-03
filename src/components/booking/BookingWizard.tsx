@@ -365,6 +365,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
         longWhen={calendar && date && chosenSlot ? `${formatLongDate(date)} at ${formatTime(chosenSlot.time)}` : whenText}
         email={demo ? details.email.trim() : serverState.message}
         plan={service === "group-class" && chosenPlan ? `${chosenPlan.name} membership` : ""}
+        reference={demo ? "" : (serverState.reference ?? "")}
         onRestart={reset}
       />
     );
@@ -876,9 +877,12 @@ function Outcome({
   longWhen,
   email,
   plan,
+  reference,
   onRestart,
 }: {
   demo: boolean;
+  /** The request's reference, once it has been sent. */
+  reference: string;
   /** e.g. "Regular membership", when one was chosen on the plan list. */
   plan: string;
   headingRef: React.Ref<HTMLHeadingElement>;
@@ -920,7 +924,14 @@ function Outcome({
               <dd className="mt-1 font-semibold">{plan}</dd>
             </div>
           ) : null}
+          {reference ? (
+            <div className="sm:col-span-2">
+              <dt className="eyebrow text-white">Reference</dt>
+              <dd className="mt-1 font-semibold">{reference}</dd>
+            </div>
+          ) : null}
         </dl>
+        {demo ? null : <p className="mt-6 max-w-xl text-white">We&apos;ve emailed you a copy with this reference. Quote it if you message Alex about this request.</p>}
       </div>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
         {demo ? (

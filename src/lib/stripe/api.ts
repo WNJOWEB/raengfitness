@@ -92,6 +92,8 @@ export function createPaymentSession(
     metadata?: Record<string, string>;
     /** A membership payment: keeps the card for the renewals (needs customerId), with this consent line shown beside the pay button. */
     saveCard?: { clientReference: string; consent: string };
+    /** Stripe's page stops accepting payment after this many minutes (30 to 1,440; Stripe's own default is 24 hours). */
+    expiresInMinutes?: number;
   },
   fetchImpl: typeof fetch = fetch,
 ): Promise<StripeResult<CheckoutSessionLink>> {
@@ -105,6 +107,7 @@ export function createPaymentSession(
       line_items: { 0: { quantity: 1, price_data: { currency: "gbp", unit_amount: args.amountPence, product_data: { name: args.name.slice(0, 250) } } } },
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,
+      ...(args.expiresInMinutes ? { expires_at: Math.floor(Date.now() / 1000) + Math.min(Math.max(Math.round(args.expiresInMinutes), 30), 1440) * 60 } : {}),
       ...(args.customerId ? { customer: args.customerId } : args.buyerEmail ? { customer_email: args.buyerEmail } : {}),
       payment_intent_data: { description: args.note.slice(0, 500), ...(args.saveCard && args.customerId ? { setup_future_usage: "off_session" } : {}) },
       ...(args.saveCard && args.customerId ? { client_reference_id: args.saveCard.clientReference, custom_text: { submit: { message: args.saveCard.consent.slice(0, 1000) } } } : {}),
@@ -121,6 +124,18 @@ export function createPaymentSession(
     fetchImpl,
     args.idempotencyKey,
   );
+}
+
+/**
+ * Closes a payment page nobody should pay any more (it was replaced by a newer
+ * one), so a stale tab can't take a second payment. Best effort: a page that
+ * is already paid or expired just answers with an error, which is fine.
+ */
+export function expireCheckoutSession(config: StripeConfig, sessionId: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<{ id: string }>> {
+  return call(config, "POST", `/v1/checkout/sessions/${encodeURIComponent(sessionId)}/expire`, {}, (json) => {
+    const id = str(obj(json)?.id);
+    return id ? { id } : null;
+  }, fetchImpl);
 }
 
 export interface CheckoutSession {

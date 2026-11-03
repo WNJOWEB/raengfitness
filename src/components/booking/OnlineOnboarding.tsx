@@ -141,6 +141,11 @@ export function OnlineOnboarding({ mode }: { mode: "send" | "demo" }) {
                   a.contactMethod === "phone" ? " by phone" : a.contactMethod === "instagram" ? " on Instagram" : ""
                 }${a.contactMethod === "email" ? ` at ${serverState.message}` : ""} to talk through your training.`}
           </p>
+          {!demo && serverState.reference ? (
+            <p className="mt-5 max-w-xl text-white">
+              Your reference: <span className="font-semibold">{serverState.reference}</span>. We&apos;ve emailed you a copy.
+            </p>
+          ) : null}
         </div>
         <Link
           href="/"

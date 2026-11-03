@@ -80,6 +80,7 @@ test.describe("joining and paying online", () => {
     await expect(page.getByText("Paid today")).toBeVisible();
     await expect(page.getByText("£65 by Visa ending 4242")).toBeVisible();
     await expect(page.getByText("8 every 4 weeks")).toBeVisible();
+    await expect(page.locator("dl")).toContainText(/RAENG-[0-9A-F]{8}/);
 
     // Direct Debit is the first option: the page says so, forwards to Stripe's bank page after a few seconds on its own, and the saved card is the fallback.
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
@@ -235,6 +236,35 @@ test.describe("joining and paying online", () => {
     await expect(page.getByRole("link", { name: "Go back to Stripe to pay" })).toHaveAttribute("href", new RegExp(`^${STRIPE}/checkout/`));
     expect(await sql(request, "select count(*)::int as n from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email])).toEqual([{ n: 0 }]);
     expect(await emailsTo(request, email)).toEqual([]);
+  });
+
+  test("Stripe's back arrow says the payment was cancelled, starts nothing, and paying afterwards starts it once", async ({ page, request }) => {
+    const email = `backer-${Date.now()}@example.com`;
+    await toCheckStep(page, "starter", "Back Arrow", email);
+    await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    await page.getByRole("link", { name: "Back" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/memberships/join/done\\?signup=.*cancelled=1`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment cancelled.");
+    await expect(page.getByText("You haven't been charged and your membership hasn't started.")).toBeVisible();
+    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    await expect(page.getByText("You're in.")).toHaveCount(0);
+    expect(await sql(request, "select count(*)::int as n from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email])).toEqual([{ n: 0 }]);
+    expect(await emailsTo(request, email)).toEqual([]);
+    // Waiting that goes on too long stops asking and says it will email.
+    const [signup] = await sql(request, "select s.id from akb_membership_signups s join akb_clients c on c.id = s.client_id where c.email = $1", [email]);
+    await page.goto(`${PAY}/memberships/join/done?signup=${signup.id}&n=15`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Still confirming your payment.");
+    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // The same Stripe page is offered again: pay it and the membership starts, once.
+    await page.goto(`${PAY}/memberships/join/done?signup=${signup.id}&cancelled=1`);
+    await page.getByRole("link", { name: "Go back and pay" }).click();
+    await page.getByRole("button", { name: "Pay £40.00" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're in.", { timeout: 15_000 });
+    expect(await sql(request, "select count(*)::int as n from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email])).toEqual([{ n: 1 }]);
+    await page.reload();
+    expect(await sql(request, "select count(*)::int as n from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email])).toEqual([{ n: 1 }]);
   });
 
   test("an unknown sign-up says so", async ({ page }) => {

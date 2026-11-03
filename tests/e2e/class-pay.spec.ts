@@ -93,11 +93,30 @@ test.describe("booking a group class and paying online", () => {
 
     await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.", { timeout: 15_000 });
+    // The confirmation says what was booked and paid, with a reference, and what to do next: not just "thanks".
+    const facts = page.getByRole("definition");
+    await expect(page.getByText("Group class", { exact: true }).first()).toBeVisible();
+    await expect(page.locator("dl")).toContainText("£12.00 paid by card");
+    await expect(page.locator("dl")).toContainText(/RAENG-[0-9A-F]{8}/);
+    await expect(page.locator("dl")).toContainText("Cumbernauld");
+    await expect(page.getByRole("link", { name: "View my bookings" })).toHaveAttribute("href", "/account/sign-in");
+    await expect(page.getByRole("link", { name: "Book a class" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to the homepage" })).toHaveCount(0);
+    void facts;
+    const reference = (await page.locator("dl").innerText()).match(/RAENG-[0-9A-F]{8}/)![0];
+    // Refreshing the confirmation changes nothing: still one booking and one payment.
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
+    await page.reload();
+    expect(await sql(request, "select count(*)::int as n from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email])).toEqual([{ n: 1 }]);
+    expect(await sql(request, "select count(*)::int as n from akb_payments p join akb_clients c on c.id = p.client_id where c.email = $1", [email])).toEqual([{ n: 1 }]);
 
     // Alex is told (nothing to confirm); the booker gets the private link.
     await expect.poll(async () => (await emailsTo(request, email)).length).toBe(1);
     const [booked] = await emailsTo(request, email);
     expect(booked.payload.subject).toMatch(/^You're booked: /);
+    // The same reference is in the email as on the page.
+    expect(booked.payload.text).toContain(`Reference: ${reference}`);
     const alex = (await emailsTo(request, "alex-e2e@example.com")).find((e) => e.payload.subject.startsWith("Class booked: Class Payer"));
     expect(alex?.payload.text).toContain("nothing to confirm");
     const manage = /\/book\/manage\?token=[A-Za-z0-9_-]{43}/.exec(booked.payload.text)?.[0];
@@ -124,6 +143,7 @@ test.describe("booking a group class and paying online", () => {
     await page.getByRole("button", { name: "Book with your credit" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
+    await expect(page.locator("dl")).toContainText("Paid with a class credit");
     // Booked for the credit's owner, whatever email was typed.
     const rows = await sql(request, "select b.status, b.charge_id from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1 order by b.created_at", [email]);
     expect(rows).toEqual([
@@ -146,9 +166,100 @@ test.describe("booking a group class and paying online", () => {
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const [booking] = await sql(request, "select b.id from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email]);
     await page.goto(`${PAY}/book/done?booking=${booking.id}`);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Waiting for Stripe to confirm.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Confirming your payment.");
     await expect(page.getByRole("link", { name: "Go back to Stripe to pay" })).toHaveAttribute("href", new RegExp(`^${STRIPE}/checkout/`));
     expect(await emailsTo(request, email)).toEqual([]);
+  });
+
+  test("Stripe's back arrow says the payment was cancelled (not 'waiting'), books nothing, and paying afterwards still works once", async ({ page, request }) => {
+    const email = `class-backer-${Date.now()}@example.com`;
+    await toDetails(page, `${PAY}/book/group-class`, 4, "Back Arrow", email);
+    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    await page.getByRole("link", { name: "Back" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=.*cancelled=1`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment cancelled.");
+    await expect(page.getByText("You haven't been charged.")).toBeVisible();
+    // Never "booked" and never refreshing by itself while cancelled.
+    await expect(page.getByText("You're booked.")).toHaveCount(0);
+    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    expect(await sql(request, "select b.status from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email])).toEqual([{ status: "awaiting_payment" }]);
+    expect(await sql(request, "select count(*)::int as n from akb_payments p join akb_clients c on c.id = p.client_id where c.email = $1", [email])).toEqual([{ n: 0 }]);
+    expect(await emailsTo(request, email)).toEqual([]);
+    // The same Stripe page is offered again (no second page is made, so no second payment is possible).
+    const again = page.getByRole("link", { name: "Go back and pay" });
+    await expect(again).toHaveAttribute("href", new RegExp(`^${STRIPE}/checkout/`));
+    await again.click();
+    await page.getByRole("button", { name: "Pay £12.00" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.", { timeout: 15_000 });
+    expect(await sql(request, "select count(*)::int as n from akb_square_payment_links l join akb_clients c on c.id = l.client_id where c.email = $1", [email])).toEqual([{ n: 1 }]);
+    expect(await sql(request, "select count(*)::int as n from akb_payments p join akb_clients c on c.id = p.client_id where c.email = $1", [email])).toEqual([{ n: 1 }]);
+  });
+
+  test("a payment page that has been closed can't be paid, and a refresh of the result changes nothing", async ({ page, request }) => {
+    const email = `class-closer-${Date.now()}@example.com`;
+    await toDetails(page, `${PAY}/book/group-class`, 5, "Closed Page", email);
+    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+    const session = page.url().split("/checkout/")[1];
+    // Stripe closes it (as it does when the 30 minutes are up, or when the site replaces it).
+    const expired = await request.post(`${STRIPE}/v1/checkout/sessions/${session}/expire`);
+    expect(expired.ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("This page has expired");
+    await expect(page.getByRole("button", { name: /^Pay/ })).toHaveCount(0);
+    expect(await sql(request, "select count(*)::int as n from akb_payments p join akb_clients c on c.id = p.client_id where c.email = $1", [email])).toEqual([{ n: 0 }]);
+  });
+
+  test("the page for a payment link shows the right state from the database: waiting, cancelled, paid and closed", async ({ page, request }) => {
+    const [client] = await sql(request, "insert into akb_clients (full_name, email, status) values ('Link Payer', $1, 'active') returning id", [`link-${Date.now()}@example.com`]);
+    const link = async (status: string, paid = false) => {
+      const [charge] = await sql(request, "insert into akb_charges (client_id, service, description, amount_pence, due_on) values ($1, 'other', 'Regular membership, 3 Nov to 30 Nov 2026', 6500, current_date) returning id", [client.id]);
+      let paymentId: string | null = null;
+      if (paid) {
+        const [p] = await sql(request, "insert into akb_payments (client_id, service, amount_pence, paid_on, method, idempotency_key, provider, provider_payment_id) values ($1, 'other', 6500, current_date, 'card', $2, 'stripe_test', $3) returning id", [client.id, `k-${Math.random()}`, `pi_${Math.random()}`]);
+        paymentId = p.id;
+      }
+      const [row] = await sql(request, "insert into akb_square_payment_links (environment, charge_id, client_id, amount_pence, status, square_link_id, square_order_id, url, paid_payment_id) values ('sandbox', $1, $2, 6500, $3, $4, $4, $5, $6) returning id", [charge.id, client.id, status, `cs_seed_${Math.random()}`, `${STRIPE}/checkout/cs_seed`, paymentId]);
+      return row.id as string;
+    };
+    // Waiting: nothing says paid; it asks again by itself, and offers the Stripe page.
+    const open = await link("open");
+    await page.goto(`${PAY}/pay/done?link=${open}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Confirming your payment.");
+    await expect(page.locator("dl")).toContainText("£65.00");
+    await expect(page.locator("dl")).toContainText("Regular membership");
+    await expect(page.locator("dl")).toContainText(`RAENG-${open.slice(0, 8).toUpperCase()}`);
+    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(1);
+    // Back arrow: cancelled, not waiting, and no refresh.
+    await page.goto(`${PAY}/pay/done?link=${open}&cancelled=1`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment cancelled.");
+    await expect(page.getByRole("link", { name: "Go back and pay" })).toBeVisible();
+    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // Waiting for too long: stops asking, says it will show on the account.
+    await page.goto(`${PAY}/pay/done?link=${open}&n=15`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Still confirming your payment.");
+    expect(await page.locator('meta[http-equiv="refresh"]').count()).toBe(0);
+    // A "paid" claim in the address changes nothing: only the database's paid state shows success.
+    await page.goto(`${PAY}/pay/done?link=${open}&paid=1&success=1`);
+    await expect(page.getByText("Payment received.")).toHaveCount(0);
+    // Paid: the amount, what for, the date and the reference, with a next step.
+    const paid = await link("paid", true);
+    await page.goto(`${PAY}/pay/done?link=${paid}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment received.");
+    await expect(page.locator("dl")).toContainText("£65.00");
+    await expect(page.locator("dl")).toContainText("Date");
+    await expect(page.getByRole("link", { name: "Sign in to your account" })).toHaveAttribute("href", "/account/sign-in");
+    await expect(page.getByRole("link", { name: "Back to the homepage" })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Payment received.");
+    expect(await sql(request, "select count(*)::int as n from akb_payments where client_id = $1", [client.id])).toEqual([{ n: 1 }]);
+    // Closed: replaced or expired.
+    const closed = await link("cancelled");
+    await page.goto(`${PAY}/pay/done?link=${closed}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("This payment link is closed.");
+    await page.waitForTimeout(1300);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 
   test("the page after paying a link Alex sent: unknown links say so, and it has no accessibility problems", async ({ page }) => {

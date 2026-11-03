@@ -55,7 +55,7 @@ createServer(async (req, res) => {
       sessions.set(id, {
         id, object: "checkout.session", mode: "setup", status: "open", payment_status: "no_payment_required", setup_intent: setup,
         customer: form.get("customer"), client_reference_id: form.get("client_reference_id"), amount_total: null, currency: null,
-        created: Math.floor(Date.now() / 1000), url: `http://localhost:${port}/checkout/${id}`, success_url: form.get("success_url") ?? "",
+        created: Math.floor(Date.now() / 1000), url: `http://localhost:${port}/checkout/${id}`, success_url: form.get("success_url") ?? "", cancel_url: form.get("cancel_url") ?? "",
         method_type: form.get("payment_method_types[0]"), consent: form.get("custom_text[submit][message]") ?? "",
         name: form.get("payment_method_types[0]") === "card" ? "Save your card" : "Set up Direct Debit",
       });
@@ -77,6 +77,8 @@ createServer(async (req, res) => {
         url: `http://localhost:${port}/checkout/${id}`,
         name: form.get("line_items[0][price_data][product_data][name]") ?? "Payment",
         success_url: form.get("success_url") ?? "",
+        cancel_url: form.get("cancel_url") ?? "",
+        expires_at: form.get("expires_at") ? Number(form.get("expires_at")) : null,
         customer: form.get("customer"),
         client_reference_id: form.get("client_reference_id"),
         keeps_card: form.get("payment_intent_data[setup_future_usage]") === "off_session",
@@ -87,10 +89,26 @@ createServer(async (req, res) => {
     return json(res, 200, sessions.get(key ? byKey.get(key) : `cs_test_e2e_${n}`));
   }
 
+  // Closing a payment page nobody should pay any more (the site replaced it).
+  const expire = url.pathname.match(/^\/v1\/checkout\/sessions\/([\w-]+)\/expire$/);
+  if (req.method === "POST" && expire) {
+    const s = sessions.get(expire[1]);
+    if (!s || s.status !== "open") return json(res, 400, { error: { type: "invalid_request_error" } });
+    s.status = "expired";
+    return json(res, 200, s);
+  }
+
   const one = url.pathname.match(/^\/v1\/checkout\/sessions\/([\w-]+)$/);
   if (req.method === "GET" && one) return sessions.has(one[1]) ? json(res, 200, sessions.get(one[1])) : json(res, 404, { error: {} });
   if (req.method === "GET" && url.pathname === "/v1/checkout/sessions") return json(res, 200, { data: [...sessions.values()].filter((s) => s.payment_intent === url.searchParams.get("payment_intent")) });
   if (req.method === "GET" && url.pathname === "/v1/refunds") return json(res, 200, { data: [] });
+
+  // Stripe's back arrow: the buyer goes to the session's cancel_url without paying.
+  const back = url.pathname.match(/^\/checkout\/([\w-]+)\/cancel$/);
+  if (back && sessions.has(back[1])) {
+    res.writeHead(303, { Location: sessions.get(back[1]).cancel_url || "/" });
+    return res.end();
+  }
 
   const checkout = url.pathname.match(/^\/checkout\/([\w-]+)$/);
   if (checkout && sessions.has(checkout[1])) {
@@ -98,8 +116,9 @@ createServer(async (req, res) => {
     if (req.method === "GET") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       const consent = session.consent ? `<p class="consent">${session.consent}</p>` : "";
+      if (session.status === "expired") return res.end(`<!doctype html><title>Stripe test checkout</title><h1>This page has expired</h1>`);
       if (session.mode === "setup") return res.end(`<!doctype html><title>Stripe test set-up</title><h1>${session.name}</h1>${consent}<form method="post"><button>${session.method_type === "card" ? "Save card" : "Authorise Direct Debit"}</button></form>`);
-      return res.end(`<!doctype html><title>Stripe test checkout</title><h1>${session.name}</h1><p>£${(session.amount_total / 100).toFixed(2)}</p>${consent}<form method="post"><button>Pay £${(session.amount_total / 100).toFixed(2)}</button></form>`);
+      return res.end(`<!doctype html><title>Stripe test checkout</title><h1>${session.name}</h1><p>£${(session.amount_total / 100).toFixed(2)}</p>${consent}<form method="post"><button>Pay £${(session.amount_total / 100).toFixed(2)}</button></form><p><a href="/checkout/${session.id}/cancel">Back</a></p>`);
     }
     if (session.mode === "setup") {
       // Authorise: the bank details and mandate are on file; tell the site (signed), send the member back.

@@ -17,6 +17,7 @@ import { publishedClasses } from "@/lib/class-sessions";
 import { fullClasses, fullKey } from "@/lib/class-capacity";
 import { londonToday } from "@/lib/coach/time";
 import { deliverRequest } from "@/lib/deliver-request";
+import { referenceFor } from "@/lib/reference";
 import { idempotencyKey } from "@/lib/send-email";
 import { recordWaiver, startClassCheckout } from "@/lib/class-checkout";
 import { coachDb } from "@/lib/coach/db";
@@ -131,7 +132,7 @@ export async function submitBookingRequest(
     };
   }
 
-  return { status: "success", message: data.email, errors: {} };
+  return { status: "success", message: data.email, errors: {}, reference: referenceFor(key) };
 }
 
 /**

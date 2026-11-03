@@ -1,5 +1,6 @@
 import { bookingDeliveryConfig } from "./booking-request";
 import { sendNotice } from "./notices";
+import { referenceFor } from "./reference";
 import { alertError, recordAlert } from "./request-alerts";
 import { requestStoreConfig, saveRequest, type StoredRequest } from "./request-store";
 import { sendEmailWithRetry, type OutgoingEmail } from "./send-email";
@@ -40,6 +41,8 @@ export async function deliverRequest(stored: StoredRequest, email: Omit<Outgoing
           `Thanks, ${stored.name}. We've received your ${stored.service.toLowerCase()} request${stored.summary ? ` (${stored.summary})` : ""}.`,
           "",
           "This is a request, not a confirmed booking. Alex will reply to confirm.",
+          "",
+          `Your reference: ${referenceFor(stored.idempotencyKey)}`,
         ].join("\n"),
       },
     });

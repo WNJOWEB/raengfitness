@@ -4,6 +4,7 @@ import { onlineEnquiryMode } from "@/lib/booking";
 import { CONTACT_METHODS, ONLINE_EXPERIENCE, ONLINE_GOALS, TRAINING_PLACES, labelFor } from "@/lib/booking-options";
 import { isBookingFormEnabled, type FormState } from "@/lib/booking-request";
 import { deliverRequest } from "@/lib/deliver-request";
+import { referenceFor } from "@/lib/reference";
 import { onlineEnquiryEmail, parseOnlineEnquiry, type OnlineField } from "@/lib/online-enquiry";
 import { idempotencyKey } from "@/lib/send-email";
 
@@ -30,9 +31,10 @@ export async function submitOnlineEnquiry(
 
   const { data } = parsed;
   const goal = data.goal === "other" && data.goalOther ? data.goalOther : labelFor(ONLINE_GOALS, data.goal);
+  const key = await idempotencyKey([data.submissionId, "online", data.email, data.name, data.goal, data.message]);
   const delivered = await deliverRequest(
     {
-      idempotencyKey: await idempotencyKey([data.submissionId, "online", data.email, data.name, data.goal, data.message]),
+      idempotencyKey: key,
       kind: "online",
       service: "Online coaching",
       summary: goal,
@@ -58,5 +60,5 @@ export async function submitOnlineEnquiry(
     };
   }
 
-  return { status: "success", message: data.email, errors: {} };
+  return { status: "success", message: data.email, errors: {}, reference: referenceFor(key) };
 }

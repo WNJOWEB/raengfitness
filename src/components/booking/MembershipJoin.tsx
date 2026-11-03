@@ -222,6 +222,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
         plan={`${plan.name} membership`}
         firstClass={chosenClass && date ? `${formatLongDate(date)} ${fromDateKey(date).getFullYear()}, ${formatTime(chosenClass.start)}` : "You'll book it later"}
         email={demo ? details.email.trim() : serverState.message}
+        reference={demo ? "" : (serverState.reference ?? "")}
       />
     );
   }
@@ -567,7 +568,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
   );
 }
 
-function Outcome({ demo, headingRef, plan, firstClass, email }: { demo: boolean; headingRef: React.Ref<HTMLHeadingElement>; plan: string; firstClass: string; email: string }) {
+function Outcome({ demo, headingRef, plan, firstClass, email, reference }: { demo: boolean; headingRef: React.Ref<HTMLHeadingElement>; plan: string; firstClass: string; email: string; reference: string }) {
   return (
     <div className="animate-step-in" role="status">
       <div className="rounded-3xl bg-ink p-8 text-paper sm:p-12">
@@ -589,7 +590,14 @@ function Outcome({ demo, headingRef, plan, firstClass, email }: { demo: boolean;
             <dt className="eyebrow text-white">First class</dt>
             <dd className="mt-1 font-semibold">{firstClass}</dd>
           </div>
+          {reference ? (
+            <div className="sm:col-span-2">
+              <dt className="eyebrow text-white">Reference</dt>
+              <dd className="mt-1 font-semibold">{reference}</dd>
+            </div>
+          ) : null}
         </dl>
+        {demo ? null : <p className="mt-6 max-w-xl text-white">We&apos;ve emailed you a copy with this reference.</p>}
       </div>
       <Link href="/" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold underline-offset-4 hover:underline">
         Back to the homepage

@@ -53,6 +53,8 @@ export interface FollowUp {
 export interface BookingRequest {
   id: string;
   created_at: string;
+  /** The sender's request key; the customer's reference ("RAENG-3F9A1C07") is made from it. */
+  idempotency_key?: string;
   kind: "booking" | "online";
   service: string;
   summary: string;

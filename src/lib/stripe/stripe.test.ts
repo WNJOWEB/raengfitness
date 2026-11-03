@@ -144,7 +144,34 @@ describe("checkout links", () => {
     const success = a.calls[0].form.get("success_url");
     expect(success).toMatch(/^https?:\/\/[^/]+\/pay\/done\?link=[0-9a-f-]{36}$/);
     expect(success).toContain(`link=${row.id}`);
-    expect(a.calls[0].form.get("cancel_url")).toBe(success);
+    // Stripe's back arrow lands on the same page with cancelled=1, so it can say "payment cancelled" rather than "waiting".
+    expect(a.calls[0].form.get("cancel_url")).toBe(`${success}&cancelled=1`);
+  });
+
+  it("an explicit cancel address is kept, and a class place's page is told to stop taking payment after 30 minutes", async () => {
+    const a = api();
+    const { charge } = await chargeFor(1200);
+    const before = Math.floor(Date.now() / 1000);
+    expect(await createChargeLink(db, stripe, charge, a.fetchImpl, { redirectUrl: "https://raeng.example/done?booking=1", cancelUrl: "https://raeng.example/other", expiresInMinutes: 30 })).toMatchObject({ ok: true });
+    const form = a.calls[0].form;
+    expect(form.get("cancel_url")).toBe("https://raeng.example/other");
+    const expires = Number(form.get("expires_at"));
+    expect(expires).toBeGreaterThanOrEqual(before + 30 * 60);
+    expect(expires).toBeLessThanOrEqual(before + 30 * 60 + 5);
+  });
+
+  it("Stripe never gets an expiry shorter than its 30-minute minimum, nor one past 24 hours; no expiry means Stripe's default", async () => {
+    const a = api();
+    const first = await chargeFor(1000);
+    await createChargeLink(db, stripe, first.charge, a.fetchImpl, { expiresInMinutes: 5 });
+    const second = await chargeFor(1000);
+    await createChargeLink(db, stripe, second.charge, a.fetchImpl, { expiresInMinutes: 99999 });
+    const third = await chargeFor(1000);
+    await createChargeLink(db, stripe, third.charge, a.fetchImpl);
+    const now = Math.floor(Date.now() / 1000);
+    expect(Number(a.calls[0].form.get("expires_at"))).toBeGreaterThanOrEqual(now + 30 * 60 - 5);
+    expect(Number(a.calls[1].form.get("expires_at"))).toBeLessThanOrEqual(now + 1440 * 60 + 5);
+    expect(a.calls[2].form.has("expires_at")).toBe(false);
   });
 
   it("the confirmation page's state: awaiting until the verified payment is recorded, then paid; closed when cancelled; unknown ids give nothing", async () => {
@@ -153,7 +180,14 @@ describe("checkout links", () => {
     await createChargeLink(db, stripe, charge, a.fetchImpl);
     const [row] = await sql("select id, url from akb_square_payment_links where charge_id = $1", [charge]);
     // Arriving from Stripe proves nothing: still awaiting, with the Stripe page to go back to.
-    expect(await chargeLinkStatus(db, String(row.id))).toEqual({ status: "awaiting", amountPence: 1000, description: "Group class, Sat 24 Oct", payUrl: row.url });
+    expect(await chargeLinkStatus(db, String(row.id))).toEqual({
+      status: "awaiting",
+      amountPence: 1000,
+      description: "Group class, Sat 24 Oct",
+      payUrl: row.url,
+      reference: `RAENG-${String(row.id).slice(0, 8).toUpperCase()}`,
+      paidOn: null,
+    });
     // Only the signed webhook's recorded payment flips it.
     await sql("update akb_square_payment_links set status = 'paid' where id = $1", [row.id]);
     expect(await chargeLinkStatus(db, String(row.id))).toMatchObject({ status: "paid", payUrl: null });
@@ -166,6 +200,19 @@ describe("checkout links", () => {
     expect(await chargeLinkStatus(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
     // Nothing about the person leaves the database.
     expect(JSON.stringify(await chargeLinkStatus(db, String(row.id)))).not.toContain(client);
+  });
+
+  it("a link too old to trust is replaced, and its Stripe page is closed so a tab left open can't take a second payment", async () => {
+    const a = api();
+    const { charge } = await chargeFor(1000);
+    await createChargeLink(db, stripe, charge, a.fetchImpl);
+    const [old] = await sql("select id, square_link_id from akb_square_payment_links where charge_id = $1", [charge]);
+    await sql("update akb_square_payment_links set created_at = now() - interval '21 hours' where id = $1", [old.id]);
+    const fresh = await createChargeLink(db, stripe, charge, a.fetchImpl);
+    expect(fresh.ok).toBe(true);
+    expect(a.calls.some((c) => c.method === "POST" && c.path === `/v1/checkout/sessions/${old.square_link_id}/expire`)).toBe(true);
+    const rows = await sql("select status from akb_square_payment_links where charge_id = $1 order by created_at", [charge]);
+    expect(rows).toEqual([{ status: "cancelled" }, { status: "open" }]);
   });
 
   it("one live link per charge; a retry after a failure reuses the same idempotency key", async () => {
