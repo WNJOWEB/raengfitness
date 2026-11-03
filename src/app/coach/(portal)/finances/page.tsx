@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { portalContext } from "@/lib/coach/context";
@@ -23,7 +24,7 @@ export default function FinancesPage({ searchParams }: PageProps<"/coach/finance
           Record a payment
         </ActionLink>
       </PageHeader>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the ledger…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Finances searchParams={searchParams} />
       </Suspense>
     </>

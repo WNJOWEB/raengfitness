@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -58,7 +59,7 @@ export default function ClientPage({ params, searchParams }: PageProps<"/coach/c
       <p className="text-sm">
         <TextLink href="/coach/clients">Clients</TextLink>
       </p>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the client…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <ClientView params={params} searchParams={searchParams} />
       </Suspense>
     </>

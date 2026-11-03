@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { defaultPrices } from "@/lib/coach/classes";
@@ -26,7 +27,7 @@ export default function SubscriptionPage({ params }: PageProps<"/coach/online/[i
       <p className="text-sm">
         <TextLink href="/coach/online">Online coaching</TextLink>
       </p>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the plan…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <SubscriptionView params={params} />
       </Suspense>
     </>

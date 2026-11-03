@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getDefaultCapacity, listClassSessions } from "@/lib/coach/bookings";
@@ -19,7 +20,7 @@ export default function ClassesPage({ searchParams }: PageProps<"/coach/classes"
   return (
     <>
       <PageHeader title="Classes" eyebrow={`${CLASS_NAME} · ${classSlots().map(slotLabel).join(", ")}`} />
-      <Suspense fallback={<p className="mt-8 text-muted">Loading classes…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Classes searchParams={searchParams} />
       </Suspense>
     </>

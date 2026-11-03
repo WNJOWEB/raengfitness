@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClassSession, getDefaultCapacity, listAttendance } from "@/lib/coach/bookings";
@@ -28,7 +29,7 @@ export default function ClassPage({ params }: PageProps<"/coach/classes/[date]/[
       <p className="text-sm">
         <TextLink href="/coach/classes">Classes</TextLink>
       </p>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the class…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <ClassView params={params} />
       </Suspense>
     </>

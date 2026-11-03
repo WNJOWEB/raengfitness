@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { membershipPlans } from "@/content/memberships";
 import { failure, success, type ActionState } from "@/lib/coach/action-state";
@@ -53,21 +54,25 @@ export async function membershipStatusAction(_prev: ActionState, formData: FormD
   if (!found.data) return failure("That membership no longer exists.");
   const result = await setMembershipStatus(ctx.db, id, status, on);
   if (!result.ok) return failure(dbMessage(result.error));
-  // The member is told what Alex did to their membership (best effort; the change itself has happened).
+  // The member is told what Alex did to their membership, after the reply (best effort; the change itself has happened).
   const person = await getClient(ctx.db, found.data.client_id);
   if (person.ok && person.data) {
     const plan = `${found.data.plan_name} membership`;
+    const nextOn = found.data.next_period_on;
     const words =
       status === "active"
-        ? { subject: "Your RAENG membership is back on", text: `Your ${plan} has been restarted. New periods and credits continue from the next renewal${found.data.next_period_on ? ` (${formatDate(found.data.next_period_on as Parameters<typeof formatDate>[0])})` : ""}.` }
+        ? { subject: "Your RAENG membership is back on", text: `Your ${plan} has been restarted. New periods and credits continue from the next renewal${nextOn ? ` (${formatDate(nextOn as Parameters<typeof formatDate>[0])})` : ""}.` }
         : status === "paused"
           ? { subject: "Your RAENG membership is paused", text: `Your ${plan} has been paused. No new periods or payments are taken until it's restarted. Credits you've already been given stay usable until the end of their period.` }
           : { subject: "Your RAENG membership is cancelled", text: `Your ${plan} has been cancelled and nothing more will be taken. Credits you've already been given stay usable until the end of their period.` };
-    await sendNotice({
-      label: `membership-${status}-by-coach`,
-      key: `membership-${status}-by-coach/${id}/${on}/${new Date().toISOString().slice(0, 16)}`,
-      customer: { email: person.data.email, ...words },
-    }).catch(() => null);
+    const email = person.data.email;
+    after(() =>
+      sendNotice({
+        label: `membership-${status}-by-coach`,
+        key: `membership-${status}-by-coach/${id}/${on}/${new Date().toISOString().slice(0, 16)}`,
+        customer: { email, ...words },
+      }).catch(() => null),
+    );
   }
   refresh();
   return success(status === "active" ? "Resumed." : status === "paused" ? "Paused: no new periods until you resume it." : "Cancelled: no new periods. Credits already given stay usable in their period.");

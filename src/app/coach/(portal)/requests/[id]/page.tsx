@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDefaultCapacity, listAttendance, listClassSessions, listPackages, listPtSessions, classSessionsByIds } from "@/lib/coach/bookings";
@@ -28,7 +29,7 @@ export default function RequestPage({ params, searchParams }: PageProps<"/coach/
       <p className="text-sm">
         <TextLink href="/coach/requests">All requests</TextLink>
       </p>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the request…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <RequestView params={params} searchParams={searchParams} />
       </Suspense>
     </>

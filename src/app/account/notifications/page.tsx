@@ -6,6 +6,7 @@ import { MembersShell } from "@/components/members/MembersShell";
 import { SettingsHeading } from "@/components/members/Settings";
 import { loadMembers } from "../data";
 import { saveReminders } from "../settings-actions";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
   title: "Notifications",
@@ -38,9 +39,9 @@ export default async function AccountNotificationsPage({ searchParams }: { searc
         {!emailReady ? <p className="font-semibold">Reminder emails aren&apos;t switched on for the site yet. You can choose now, and they&apos;ll start when they are.</p> : null}
         <form action={saveReminders} className="mt-1">
           <input type="hidden" name="reminders" value={on ? "off" : "on"} />
-          <button type="submit" className={`members-btn w-full sm:w-auto ${on ? "" : "members-btn-solid"}`}>
+          <PendingButton pendingLabel="Saving…" className={`members-btn w-full sm:w-auto ${on ? "" : "members-btn-solid"}`}>
             {on ? "Turn reminders off" : "Turn reminders on"}
-          </button>
+          </PendingButton>
         </form>
       </section>
       <p className="text-sm">Emails about a booking or payment you make, such as a confirmation, are always sent and aren&apos;t affected by this.</p>

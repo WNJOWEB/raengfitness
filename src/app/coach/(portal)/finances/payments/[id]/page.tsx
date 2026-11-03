@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
@@ -23,7 +24,7 @@ export default function PaymentPage({ params, searchParams }: PageProps<"/coach/
       <p className="text-sm">
         <TextLink href="/coach/finances">Finances</TextLink>
       </p>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the payment…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <PaymentView params={params} searchParams={searchParams} />
       </Suspense>
     </>

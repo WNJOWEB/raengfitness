@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { listPackages } from "@/lib/coach/bookings";
 import { defaultPrices } from "@/lib/coach/classes";
@@ -22,7 +23,7 @@ export default function NewSessionPage({ searchParams }: PageProps<"/coach/sessi
       <div className="mt-4">
         <PageHeader title="Book a one-to-one" />
       </div>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <NewSession searchParams={searchParams} />
       </Suspense>
     </>

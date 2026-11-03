@@ -6,6 +6,7 @@ import { MembersShell } from "@/components/members/MembersShell";
 import { SettingsHeading } from "@/components/members/Settings";
 import { loadMembers } from "../data";
 import { turnOffCalendarLink } from "../settings-actions";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
   title: "Calendar sync",
@@ -34,9 +35,9 @@ export default async function AccountCalendarSyncPage({ searchParams }: { search
       <CalendarLink connected={connected} />
       {connected ? (
         <form action={turnOffCalendarLink}>
-          <button type="submit" className="members-link">
+          <PendingButton pendingLabel="Turning off…" className="members-link">
             Turn off calendar sync
-          </button>
+          </PendingButton>
         </form>
       ) : null}
       <p className="text-sm">You can also add a single class from Home with Add to calendar.</p>

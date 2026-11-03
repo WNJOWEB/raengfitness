@@ -8,6 +8,7 @@ import { memberDevices } from "@/lib/member-settings";
 import { signOutMember } from "../actions";
 import { signOutDevice } from "../settings-actions";
 import { loadMembers } from "../data";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
   title: "Sign-in and security",
@@ -54,9 +55,9 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
                 {s.current ? null : (
                   <form action={signOutDevice}>
                     <input type="hidden" name="device" value={s.id} />
-                    <button type="submit" className="members-link">
+                    <PendingButton pendingLabel="Signing out…" className="members-link">
                       Sign out<span className="sr-only"> {s.device || "this device"}</span>
-                    </button>
+                    </PendingButton>
                   </form>
                 )}
               </li>
@@ -69,15 +70,15 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <form action={signOutMember}>
-          <button type="submit" className="members-btn w-full sm:w-auto">
+          <PendingButton pendingLabel="Signing out…" className="members-btn w-full sm:w-auto">
             Sign out of this device
-          </button>
+          </PendingButton>
         </form>
         <form action={signOutMember}>
           <input type="hidden" name="everywhere" value="yes" />
-          <button type="submit" className="members-btn w-full sm:w-auto">
+          <PendingButton pendingLabel="Signing out…" className="members-btn w-full sm:w-auto">
             Sign out of every device
-          </button>
+          </PendingButton>
         </form>
       </div>
       <p className="text-sm">If you see a device you don&apos;t recognise, sign out of every device, then sign in again with a new link.</p>

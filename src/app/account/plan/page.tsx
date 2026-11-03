@@ -12,6 +12,7 @@ import { MembersShell } from "@/components/members/MembersShell";
 import { BILLING_WEEKS } from "@/content/memberships";
 import { cancelMembership, setUpDirectDebit, updateRenewalCard } from "../actions";
 import { loadMembers } from "../data";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
   title: "Your plan",
@@ -122,9 +123,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                       Set up a Direct Debit and your membership continues every {BILLING_WEEKS} weeks without you doing anything: {formatPenceShort(m.price_pence)} is collected a few days before each new period starts. Your bank details go straight to Stripe, not to us. You can cancel at any time.
                     </p>
                     <form action={setUpDirectDebit}>
-                      <button type="submit" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
+                      <PendingButton pendingLabel="Opening Stripe…" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
                         Set up Direct Debit
-                      </button>
+                      </PendingButton>
                     </form>
                     <div className="mt-3 border-t border-line pt-3">
                       {d.dd.status === "active" && d.dd.method === "card" ? (
@@ -133,18 +134,18 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                             Until then, your {d.dd.label || "card"} is charged every {BILLING_WEEKS} weeks, on the day each new period starts. We email you 5 days before each payment.
                           </p>
                           <form action={updateRenewalCard}>
-                            <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                            <PendingButton pendingLabel="Opening Stripe…" className="members-btn mt-2 w-full sm:w-auto">
                               Change card
-                            </button>
+                            </PendingButton>
                           </form>
                         </>
                       ) : (
                         <>
                           <p className="text-ink">Or pay by card: save a card and {formatPenceShort(m.price_pence)} is charged to it every {BILLING_WEEKS} weeks.</p>
                           <form action={updateRenewalCard}>
-                            <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                            <PendingButton pendingLabel="Opening Stripe…" className="members-btn mt-2 w-full sm:w-auto">
                               Save a card
-                            </button>
+                            </PendingButton>
                           </form>
                         </>
                       )}
@@ -157,9 +158,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                       {formatPenceShort(m.price_pence)} is charged to your {d.dd.label || "card"} every {BILLING_WEEKS} weeks, on the day each new period starts. We email you 5 days before each payment.
                     </p>
                     <form action={updateRenewalCard}>
-                      <button type="submit" className="members-btn mt-2 w-full sm:w-auto">
+                      <PendingButton pendingLabel="Opening Stripe…" className="members-btn mt-2 w-full sm:w-auto">
                         Change card
-                      </button>
+                      </PendingButton>
                     </form>
                   </>
                 ) : !d.cardAvailable ? (
@@ -171,9 +172,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                       Save a card and your membership renews every {BILLING_WEEKS} weeks without you doing anything: {formatPenceShort(m.price_pence)} is charged to it each time, and we email you 5 days before. You can cancel at any time. Your card details go straight to Stripe, not to us.
                     </p>
                     <form action={updateRenewalCard}>
-                      <button type="submit" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
+                      <PendingButton pendingLabel="Opening Stripe…" className="members-btn members-btn-solid mt-2 w-full sm:w-auto">
                         Save a card
-                      </button>
+                      </PendingButton>
                     </form>
                   </>
                 )}
@@ -184,9 +185,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                   You can cancel at any time. Nothing more will be taken. You keep the credits you&apos;ve already paid for until the end of this period, and they aren&apos;t refunded.
                 </p>
                 <form action={cancelMembership}>
-                  <button type="submit" className="members-btn mt-4 w-full sm:w-auto">
+                  <PendingButton pendingLabel="Cancelling…" className="members-btn mt-4 w-full sm:w-auto">
                     Yes, cancel my membership
-                  </button>
+                  </PendingButton>
                 </form>
               </details>
             </section>

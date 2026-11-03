@@ -8,6 +8,7 @@ import { CALENDAR_SYNC_PATH, NOTIFICATIONS_PATH, PROFILE_PATH, SECURITY_PATH, ty
 import { MEMBERS_VIEW_PATH } from "@/lib/members-app";
 import { firstName } from "@/lib/member-view";
 import { external, Icon, MENU_ICON, NEW_TAB } from "./icons";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 /**
  * What the avatar's account menu holds (owner's members design): who you are,
@@ -91,17 +92,17 @@ export function AccountMenuContent({ overview: o, settings, coaching }: { overvi
       </ul>
       <hr className="my-1.5 border-line" />
       <form action={signOutMember}>
-        <button type="submit" className="members-menu-item text-ink">
+        <PendingButton pendingLabel="Signing out…" className="members-menu-item text-ink">
           <Icon name="out" className={MENU_ICON} />
           Sign out
-        </button>
+        </PendingButton>
       </form>
       <form action={signOutMember}>
         <input type="hidden" name="everywhere" value="yes" />
-        <button type="submit" className="members-menu-item text-ink">
+        <PendingButton pendingLabel="Signing out…" className="members-menu-item text-ink">
           <Icon name="devices" className={MENU_ICON} />
           Sign out of every device
-        </button>
+        </PendingButton>
       </form>
     </>
   );

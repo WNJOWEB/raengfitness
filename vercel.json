@@ -18,5 +18,8 @@
       "path": "/api/cron/class-reminders",
       "schedule": "41 7 * * *"
     }
+  ],
+  "regions": [
+    "dub1"
   ]
 }

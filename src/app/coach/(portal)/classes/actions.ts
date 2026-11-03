@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { after } from "next/server";
 import { failure, success, type ActionState } from "@/lib/coach/action-state";
 import { addAttendee, ATTENDANCE_STATUSES, cancelClass, ensureClassSession, getAttendance, listAttendance, setAttendance, setDefaultCapacity, updateClassSession } from "@/lib/coach/bookings";
 import { classChargeDescription, classDurationMinutes, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
@@ -98,26 +99,32 @@ export async function cancelClassAction(_prev: ActionState, formData: FormData):
   const result = await cancelClass(ctx.db, id.data, reason);
   if (!result.ok) return failure(dbMessage(result.error));
   const n = result.data;
-  let told = 0;
-  if (booked.ok) {
+  const attendees = booked.ok ? booked.data.filter((p) => p.status === "booked") : [];
+  // Everyone is emailed after the reply, one at a time (one tap no longer waits for a dozen emails).
+  if (attendees.length > 0) {
     const when = classWhen(chosen.date, chosen.slot);
-    for (const place of booked.data.filter((p) => p.status === "booked")) {
-      const person = await getClient(ctx.db, place.client_id);
-      if (!person.ok || !person.data) continue;
-      const sent = await sendNotice({
-        label: "class-cancelled-by-coach",
-        key: `class-cancelled/${place.id}`,
-        customer: {
-          email: person.data.email,
-          subject: `Class cancelled: ${when}`,
-          text: `The group class on ${when} has been cancelled by Alex, so your place is cancelled.${reason ? `\n\nReason: ${reason}` : ""}\n\nAny membership credit you used has been returned to your account. If you paid for this class by card and can't make another date, reply to this email and we'll refund your payment to your card.`,
-        },
-      });
-      if (sent.customer) told += 1;
-    }
+    after(async () => {
+      for (const place of attendees) {
+        try {
+          const person = await getClient(ctx.db, place.client_id);
+          if (!person.ok || !person.data) continue;
+          await sendNotice({
+            label: "class-cancelled-by-coach",
+            key: `class-cancelled/${place.id}`,
+            customer: {
+              email: person.data.email,
+              subject: `Class cancelled: ${when}`,
+              text: `The group class on ${when} has been cancelled by Alex, so your place is cancelled.${reason ? `\n\nReason: ${reason}` : ""}\n\nAny membership credit you used has been returned to your account. If you paid for this class by card and can't make another date, reply to this email and we'll refund your payment to your card.`,
+            },
+          });
+        } catch {
+          console.error("Class cancellation email failed");
+        }
+      }
+    });
   }
   refresh();
-  const emailed = told > 0 ? ` ${told} ${told === 1 ? "person has" : "people have"} been emailed.` : "";
+  const emailed = attendees.length > 0 ? ` They're being emailed now.` : "";
   return success(`Class cancelled. ${n === 0 ? "Nobody was booked." : `${n} ${n === 1 ? "place" : "places"} cancelled; members' credits are back and unpaid class charges are cancelled.${emailed || " Let each person know."}${emailed ? " Anyone who paid for the class needs sorting out by you." : ""}`}`);
 }
 

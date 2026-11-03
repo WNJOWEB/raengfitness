@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { portalContext } from "@/lib/coach/context";
@@ -19,7 +20,7 @@ export const metadata: Metadata = { title: "Members" };
 export default function MembersPage({ searchParams }: PageProps<"/coach/members">) {
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-7">
-      <Suspense fallback={<p className="text-muted">Loading members…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Members searchParams={searchParams} />
       </Suspense>
     </div>

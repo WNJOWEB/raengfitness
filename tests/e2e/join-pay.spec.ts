@@ -102,8 +102,8 @@ test.describe("joining and paying online", () => {
     expect(pays).toEqual([{ method: "card", provider: "stripe_test", amount_pence: 6500 }]);
 
     // Alex is told it's done (not asked to confirm), and the member is welcomed.
-    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).filter((e) => e.payload.subject.includes("Online Payer")).length).toBe(1);
-    const [alex] = (await emailsTo(request, "alex-e2e@example.com")).filter((e) => e.payload.subject.includes("Online Payer"));
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).filter((e) => e.payload.subject.startsWith("New member: Online Payer")).length).toBe(1);
+    const [alex] = (await emailsTo(request, "alex-e2e@example.com")).filter((e) => e.payload.subject.startsWith("New member: Online Payer"));
     expect(alex.payload.subject).toBe("New member: Online Payer (Regular, paid online)");
     expect(alex.payload.text).toContain("nothing to confirm");
     const [welcome] = await emailsTo(request, email);

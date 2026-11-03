@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { BILLING_WEEKS, membershipPlans } from "@/content/memberships";
 import { listClients } from "@/lib/coach/clients";
@@ -20,7 +21,7 @@ export default function NewMembershipPage({ searchParams }: PageProps<"/coach/me
       <div className="mt-4">
         <PageHeader title="Start a membership" />
       </div>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <NewMembership searchParams={searchParams} />
       </Suspense>
     </>

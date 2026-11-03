@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
+import { after } from "next/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { portalContext } from "@/lib/coach/context";
@@ -26,7 +28,7 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-7">
       {/* Reads the session cookie, so it renders per request behind the boundary. */}
-      <Suspense fallback={<p className="text-muted">Checking your sign-in…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Today />
       </Suspense>
     </div>
@@ -64,7 +66,8 @@ async function Today() {
       </>
     );
   }
-  await catchUpRenewals(db, today);
+  // The daily job makes renewals; this is only the safety net, so it runs after the page is sent instead of making every view wait for a database write.
+  after(() => catchUpRenewals(db, today));
   const [todayResult, dashboard] = await Promise.all([loadToday(db, today, now), loadDashboard(db, today, now)]);
   if (!todayResult.ok) {
     return (

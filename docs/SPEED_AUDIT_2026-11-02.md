@@ -1,5 +1,7 @@
 # Button and page speed audit: members and coach dashboards (2026-11-02)
 
+**Status (2026-11-03): all five fixes built and tested** (see the end of this file for what was done and what to check on a phone).
+
 Asked by the owner: buttons and taps feel slow in the coach dashboard and the members dashboard (used on phones). This is what is slow, why, how much, and what to do, in order of payoff.
 
 ## How it was measured
@@ -32,9 +34,10 @@ Asked by the owner: buttons and taps feel slow in the coach dashboard and the me
 - **Fix:** send the emails after the response (Next's `after()`), so the button answers as soon as the change is saved. The emails still go; they just stop holding up the screen.
 - **Effort:** about an hour. **Risk:** low (the emails already tolerate failure and de-duplicate by key).
 
-### 4. Member buttons give no sign they were pressed
-- The coach portal's forms show a pending state ("Pausing…", disabled button). The members' **Book** buttons and similar plain form buttons show nothing between the tap and the new page.
-- **Fix:** one shared pending button (disabled, label changes to "Booking…", tick on success). This turns a 1-second wait into a visible, trustworthy action.
+### 4. Some member buttons give no sign they were pressed
+- Correction after reading the code: **booking and cancelling a class already go through a sheet whose button says "One moment…"**, and opening that sheet is instant (no server trip). Those were fine.
+- The buttons with no feedback were the ones that open Stripe or save settings: **Set up Direct Debit, Change card, Save a card** (each waits for Stripe to create the page, a second or more), **Cancel my membership, Sign out, Save details, the reminders save and Turn off calendar**. The coach portal's forms already showed "Pausing…".
+- **Fix:** one shared pending button (disabled, label changes to "Opening Stripe…", "Saving…" and so on).
 - **Effort:** about an hour. **Risk:** low.
 
 ### 5. Coach pages do the same checks twice, and one page writes to the database on every view
@@ -63,3 +66,13 @@ Asked by the owner: buttons and taps feel slow in the coach dashboard and the me
 
 - Before and after, on a phone: tap Home → Book → Plan → Home, and book then cancel a class. Count how long until the screen changes. Target: the screen reacts in under 0.1 s (loading screen), the real page in under 0.5 s, a button's result in under 1 s.
 - Optional: turn on Vercel Speed Insights, which reports **Interaction to Next Paint**, the standard measure of how quickly a tap responds. It adds one small package, so it is the owner's call.
+
+## What was done (2026-11-03)
+
+1. **Region:** `vercel.json` now has `"regions": ["dub1"]` (Dublin, next to the Irish database). Takes effect on the next production deploy.
+2. **Loading screens:** `/account` shows the members header, the tab bar and the shape of a page at once (`MembersLoading`); every coach page's plain "Loading…" line is now the same quiet skeleton (`CoachLoading`). The sign-in pages are left as they were.
+3. **Emails after the reply:** booking, cancelling (member and coach), cancelling a membership, the coach's pause, resume and cancel, and recording a payment now answer first and email afterwards (`after()`); the customer's and Alex's emails also go out together. Confirming or declining a request still waits, because it marks "told" only when the email went.
+4. **Pending buttons:** `PendingButton` on Set up Direct Debit, Change card, Save a card, Cancel my membership, Sign out, Save details, reminders and calendar.
+5. **Coach:** the sign-in check is shared within a request (`cache`), and the renewal catch-up runs after the page is sent instead of before it.
+
+Tests: a browser test slows the server by 1.5 s and checks that a tab tap shows the loading screen within 0.7 s and that a pressed button says so (members), and that a coach tab tap does too.

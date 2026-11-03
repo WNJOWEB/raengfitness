@@ -542,6 +542,41 @@ test.describe("member accounts", () => {
     await expect(page).toHaveURL(/link=invalid/);
   });
 
+  test("speed (2026-11-02): a tab tap answers at once with the page's shape while a slow server answers, and a pressed button says so", async ({ page, request }) => {
+    test.slow();
+    const email = `speed-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    await askForLink(page, email);
+    await page.goto(PROD + linkPath((await emailsTo(request, email))[0]));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+
+    // The server now answers every page and action 1.5 s late (the shapes sent ahead by prefetching come at once).
+    await page.route("**/account/**", async (route) => {
+      const request = route.request();
+      const prefetch = request.headers()["next-router-prefetch"];
+      if (!prefetch) await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    // Give the phone a moment to receive the loading shapes it prefetches for the tab bar.
+    await page.waitForTimeout(1500);
+
+    await page.getByRole("navigation", { name: "Members" }).getByRole("link", { name: "Plan" }).click();
+    // At once (well before the 1.5 s): the loading screen, the same header and tab bar, nothing missing.
+    await expect(page.locator('[aria-busy="true"]').first()).toBeAttached({ timeout: 700 });
+    await expect(page.getByText("Loading your page…")).toBeAttached();
+    await expect(page.getByRole("heading", { level: 1, name: "Your membership." })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+
+    // A button that talks to the server says it was pressed, and can't be pressed twice.
+    await page.goto(`${PROD}/account/profile`);
+    const save = page.getByRole("button", { name: "Save details" });
+    await save.click();
+    await expect(page.getByRole("button", { name: "Saving…" })).toBeDisabled({ timeout: 700 });
+    await expect(page.getByRole("button", { name: "Save details" })).toBeVisible({ timeout: 10_000 });
+    await page.unroute("**/account/**");
+  });
+
   test("the menu and footer link to member sign-in, and robots keep /account out", async ({ page, request }) => {
     await page.goto(PROD);
     await expect(page.locator("footer").getByRole("link", { name: "Member Login", exact: true })).toHaveAttribute("href", "/account/sign-in");

@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
+import { after } from "next/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BILLING_WEEKS } from "@/content/memberships";
@@ -22,7 +24,7 @@ export default function MembershipsPage({ searchParams }: PageProps<"/coach/memb
           Start a membership
         </ActionLink>
       </PageHeader>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Memberships searchParams={searchParams} />
       </Suspense>
     </>
@@ -34,7 +36,8 @@ async function Memberships({ searchParams }: { searchParams: PageProps<"/coach/m
   const params = await searchParams;
   const status = (MEMBERSHIP_STATUSES as readonly string[]).includes(String(params.status)) ? (params.status as MembershipStatus) : "active";
   if (!db) return <LoadError message="The database isn't configured for this deployment." />;
-  await catchUpRenewals(db, today);
+  // The daily job makes renewals; this is only the safety net, so it runs after the page is sent instead of making every view wait for a database write.
+  after(() => catchUpRenewals(db, today));
   const loaded = collect(await Promise.all([listMemberships(db), listClients(db)] as const));
   if (!loaded.ok) return <LoadError message={loadMessage(loaded.error)} />;
   const [all, clients] = loaded.data;

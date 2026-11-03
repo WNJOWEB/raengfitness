@@ -28,35 +28,41 @@ export async function sendNotice(notice: Notice, env: Env = process.env, fetchIm
   const config = bookingDeliveryConfig(env);
   if (!config) return { customer: null, alex: null };
   const result: { customer: boolean | null; alex: boolean | null } = { customer: null, alex: null };
-  // A customer with no email on file simply isn't emailed (the coach portal allows clients without one).
-  if (notice.customer?.email) {
-    const sent = await sendEmail(
-      config,
-      {
-        idempotencyKey: `${notice.key}/customer`,
-        to: notice.customer.email,
-        replyTo: config.to,
-        subject: notice.customer.subject.slice(0, 150),
-        text: `${notice.customer.text}\n\nQuestions? Just reply to this email.`,
-      },
-      fetchImpl,
-    ).catch(() => ({ ok: false as const, status: null }));
-    result.customer = sent.ok;
-    if (!sent.ok) console.error(`Notice ${notice.label} to the customer failed (${sent.status ?? "network"})`);
+  // The two emails are independent, so they go together (a customer with no email on file simply isn't emailed:
+  // the coach portal allows clients without one).
+  const toCustomer = notice.customer?.email
+    ? sendEmail(
+        config,
+        {
+          idempotencyKey: `${notice.key}/customer`,
+          to: notice.customer.email,
+          replyTo: config.to,
+          subject: notice.customer.subject.slice(0, 150),
+          text: `${notice.customer.text}\n\nQuestions? Just reply to this email.`,
+        },
+        fetchImpl,
+      ).catch(() => ({ ok: false as const, status: null }))
+    : null;
+  const toAlex = notice.alex
+    ? sendEmail(
+        config,
+        {
+          idempotencyKey: `${notice.key}/alex`,
+          replyTo: notice.alex.replyTo ?? notice.customer?.email ?? config.to,
+          subject: notice.alex.subject.slice(0, 150),
+          text: notice.alex.text,
+        },
+        fetchImpl,
+      ).catch(() => ({ ok: false as const, status: null }))
+    : null;
+  const [customerSent, alexSent] = await Promise.all([toCustomer, toAlex]);
+  if (customerSent) {
+    result.customer = customerSent.ok;
+    if (!customerSent.ok) console.error(`Notice ${notice.label} to the customer failed (${customerSent.status ?? "network"})`);
   }
-  if (notice.alex) {
-    const sent = await sendEmail(
-      config,
-      {
-        idempotencyKey: `${notice.key}/alex`,
-        replyTo: notice.alex.replyTo ?? notice.customer?.email ?? config.to,
-        subject: notice.alex.subject.slice(0, 150),
-        text: notice.alex.text,
-      },
-      fetchImpl,
-    ).catch(() => ({ ok: false as const, status: null }));
-    result.alex = sent.ok;
-    if (!sent.ok) console.error(`Notice ${notice.label} to Alex failed (${sent.status ?? "network"})`);
+  if (alexSent) {
+    result.alex = alexSent.ok;
+    if (!alexSent.ok) console.error(`Notice ${notice.label} to Alex failed (${alexSent.status ?? "network"})`);
   }
   return result;
 }

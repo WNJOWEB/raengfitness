@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { portalContext } from "@/lib/coach/context";
@@ -25,7 +26,7 @@ export default function RequestsPage({ searchParams }: PageProps<"/coach/request
   return (
     <>
       <PageHeader title="Requests" eyebrow="Booking requests and online enquiries" />
-      <Suspense fallback={<p className="mt-8 text-muted">Loading requests…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Inbox searchParams={searchParams} />
       </Suspense>
     </>

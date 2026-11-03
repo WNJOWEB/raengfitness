@@ -13,6 +13,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { buttonClasses } from "@/components/ui/ButtonLink";
 import { Confirmation, type ConfirmationStep } from "@/components/ui/Confirmation";
 import { Section } from "@/components/ui/Section";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
   title: "Your membership",
@@ -227,9 +228,9 @@ function Body({
           ) : null}
           <form action={startSignupDirectDebit}>
             <input type="hidden" name="signup" value={signupId} />
-            <button type="submit" className={buttonClasses("action", "mt-4 w-full px-6 sm:w-auto")}>
+            <PendingButton pendingLabel="Opening your bank page…" className={buttonClasses("action", "mt-4 w-full px-6 sm:w-auto")}>
               Set up Direct Debit
-            </button>
+            </PendingButton>
           </form>
           {forwarding ? <p className="mt-3 text-sm font-semibold">Taking you to your bank details in a moment. Tap the button if you&apos;d rather go now.</p> : null}
           <p className="mt-3 text-sm">

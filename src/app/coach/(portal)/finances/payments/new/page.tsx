@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { paymentMethods } from "@/content/payments";
@@ -25,7 +26,7 @@ export default function NewPaymentPage({ searchParams }: PageProps<"/coach/finan
       <div className="mt-4">
         <PageHeader title="Record a payment" eyebrow="Money you've received" />
       </div>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <NewPayment searchParams={searchParams} />
       </Suspense>
     </>

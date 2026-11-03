@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { bookingDeliveryConfig, isSpam, text, type FormState } from "@/lib/booking-request";
 import { isClassDate } from "@/lib/availability/timetable";
@@ -154,16 +155,23 @@ export async function bookClass(formData: FormData): Promise<void> {
     durationMinutes: slot.durationMinutes ?? 60,
   });
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
-  const who = await whoIs(member);
-  if (who) {
-    const when = classWhen(date, slot);
-    await sendNotice({
-      label: "member-book",
-      key: `member-book/${result.data}`,
-      customer: { email: who.email, subject: `You're booked: ${when}`, text: `Your place on the group class on ${when} is confirmed (one membership credit used).\n\nYou can see or cancel it in your account: ${memberLinkOrigin()}${ACCOUNT_PATH}` },
-      alex: { subject: `Class booked: ${who.name}, ${when}`, text: `${who.name} (${who.email}) booked the group class on ${when} with a membership credit. Their place is confirmed; nothing to confirm.` },
-    });
-  }
+  // The emails go after the reply: the tap answers as soon as the place is booked.
+  after(async () => {
+    try {
+    const who = await whoIs(member);
+    if (who) {
+      const when = classWhen(date, slot);
+      await sendNotice({
+        label: "member-book",
+        key: `member-book/${result.data}`,
+        customer: { email: who.email, subject: `You're booked: ${when}`, text: `Your place on the group class on ${when} is confirmed (one membership credit used).\n\nYou can see or cancel it in your account: ${memberLinkOrigin()}${ACCOUNT_PATH}` },
+        alex: { subject: `Class booked: ${who.name}, ${when}`, text: `${who.name} (${who.email}) booked the group class on ${when} with a membership credit. Their place is confirmed; nothing to confirm.` },
+      });
+    }
+    } catch {
+      console.error("Member booking emails failed");
+    }
+  });
   // at= marks the class just booked on the page.
   redirect(`${back(formData)}?done=booked&at=${date}.${slot.id}`);
 }
@@ -182,17 +190,24 @@ export async function cancelClass(formData: FormData): Promise<void> {
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
   // data: for a paid place, whether a class credit was given; for a membership place, whether it was late (credit used).
   const outcome = paid ? (result.data ? "cancelled_credit" : "cancelled_paid_late") : result.data ? "cancelled_late" : "cancelled";
-  const who = await whoIs(member);
-  if (who) {
-    const when = (await placeWhen(member.db, id, publishedClasses())) ?? "your class";
-    const effect = DONE[outcome] ?? "Cancelled.";
-    await sendNotice({
-      label: "member-cancel",
-      key: `member-cancel/${id}/${minute()}`,
-      customer: { email: who.email, subject: `Cancelled: ${when}`, text: `Your place on the group class on ${when} is cancelled.\n\n${effect}` },
-      alex: { subject: `Class cancelled: ${who.name}, ${when}`, text: `${who.name} (${who.email}) cancelled their place on the group class on ${when}.\n\n${effect}` },
-    });
-  }
+  // The emails go after the reply (the lookups for them too).
+  after(async () => {
+    try {
+    const who = await whoIs(member);
+    if (who) {
+      const when = (await placeWhen(member.db, id, publishedClasses())) ?? "your class";
+      const effect = DONE[outcome] ?? "Cancelled.";
+      await sendNotice({
+        label: "member-cancel",
+        key: `member-cancel/${id}/${minute()}`,
+        customer: { email: who.email, subject: `Cancelled: ${when}`, text: `Your place on the group class on ${when} is cancelled.\n\n${effect}` },
+        alex: { subject: `Class cancelled: ${who.name}, ${when}`, text: `${who.name} (${who.email}) cancelled their place on the group class on ${when}.\n\n${effect}` },
+      });
+    }
+    } catch {
+      console.error("Member cancellation emails failed");
+    }
+  });
   redirect(`${back(formData)}?done=${outcome}${at(formData)}`);
 }
 
@@ -218,8 +233,10 @@ export async function bookClassWithCredit(formData: FormData): Promise<void> {
     idempotencyKey: `account-credit/${credit}`,
   });
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
-  // Confirmed at once: email the customer and Alex now rather than at the next reconcile (best effort).
-  await notifyClassBookings(member.db, publishedClasses()).catch(() => 0);
+  // Confirmed at once: email the customer and Alex right away rather than at the next reconcile, but after the reply (best effort).
+  after(async () => {
+    await notifyClassBookings(member.db, publishedClasses()).catch(() => 0);
+  });
   redirect(`${back(formData)}?done=booked_class_credit&at=${date}.${slot.id}`);
 }
 
@@ -272,17 +289,24 @@ export async function updateRenewalCard(): Promise<void> {
 /** The member cancels their own membership: nothing more is taken; credits already given stay until the period ends. */
 export async function cancelMembership(): Promise<void> {
   const member = await requireMember();
-  const who = await whoIs(member);
   const result = await cancelOwnMembership(member.db, member.clientId, londonToday());
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=failed`);
-  if (who) {
-    const ends = result.endsOn ? ` Your credits stay usable until ${formatLongDate(result.endsOn as DateKey)}.` : "";
-    await sendNotice({
-      label: "membership-cancel",
-      key: `membership-cancel/${member.clientId}/${minute()}`,
-      customer: { email: who.email, subject: "Your RAENG membership is cancelled", text: `Your membership is cancelled and nothing more will be taken.${ends}` },
-      alex: { subject: `Membership cancelled: ${who.name}`, text: `${who.name} (${who.email}) cancelled their own membership from their account.${ends}` },
-    });
-  }
+  // The emails go after the reply.
+  after(async () => {
+    try {
+      const who = await whoIs(member);
+      if (who) {
+        const ends = result.endsOn ? ` Your credits stay usable until ${formatLongDate(result.endsOn as DateKey)}.` : "";
+        await sendNotice({
+          label: "membership-cancel",
+          key: `membership-cancel/${member.clientId}/${minute()}`,
+          customer: { email: who.email, subject: "Your RAENG membership is cancelled", text: `Your membership is cancelled and nothing more will be taken.${ends}` },
+          alex: { subject: `Membership cancelled: ${who.name}`, text: `${who.name} (${who.email}) cancelled their own membership from their account.${ends}` },
+        });
+      }
+    } catch {
+      console.error("Membership cancellation emails failed");
+    }
+  });
   redirect(`${ACCOUNT_PATH}/plan?done=membership_cancelled`);
 }

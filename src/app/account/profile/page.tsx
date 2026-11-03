@@ -7,6 +7,7 @@ import { SettingsHeading } from "@/components/members/Settings";
 import { LIMITS } from "@/lib/form-validation";
 import { loadMembers } from "../data";
 import { saveProfile } from "../settings-actions";
+import { PendingButton } from "@/components/ui/PendingButton";
 
 export const metadata: Metadata = pageMetadata({
   title: "Profile and details",
@@ -59,9 +60,9 @@ export default async function AccountProfilePage({ searchParams }: { searchParam
             .
           </p>
         </div>
-        <button type="submit" className="members-btn members-btn-solid w-full sm:w-auto">
+        <PendingButton pendingLabel="Saving…" className="members-btn members-btn-solid w-full sm:w-auto">
           Save details
-        </button>
+        </PendingButton>
       </form>
     </MembersShell>
   );

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BILLING_WEEKS } from "@/content/memberships";
@@ -27,7 +28,7 @@ export default function MembershipPage({ params, searchParams }: PageProps<"/coa
       <p className="text-sm">
         <TextLink href="/coach/memberships">Memberships</TextLink>
       </p>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading the membership…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <MembershipView params={params} searchParams={searchParams} />
       </Suspense>
     </>

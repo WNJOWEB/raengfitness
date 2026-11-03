@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { portalContext } from "@/lib/coach/context";
@@ -20,7 +21,7 @@ const DAY = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 export default function SchedulePage({ searchParams }: PageProps<"/coach/schedule">) {
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-7">
-      <Suspense fallback={<p className="text-muted">Loading the schedule…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Schedule searchParams={searchParams} />
       </Suspense>
     </div>

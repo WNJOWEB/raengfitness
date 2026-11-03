@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { defaultPrices } from "@/lib/coach/classes";
 import { listClients } from "@/lib/coach/clients";
@@ -21,7 +22,7 @@ export default function NewSubscriptionPage({ searchParams }: PageProps<"/coach/
       <div className="mt-4">
         <PageHeader title="Set up online coaching" />
       </div>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <NewSubscription searchParams={searchParams} />
       </Suspense>
     </>

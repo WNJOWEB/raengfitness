@@ -1179,3 +1179,32 @@
     transform: scale(0.55);
   }
 }
+
+/*
+ * Loading screens for the members and coach dashboards (owner, 2026-11-02): a
+ * tap on a tab answers on the next frame with the shape of the page, then the
+ * real page streams in. White blocks on the cream page; the beat is only
+ * there when motion is allowed.
+ */
+.sk {
+  border-radius: 1.25rem;
+  background: var(--color-white);
+  border: 1px solid var(--color-line);
+}
+.sk-bar {
+  height: 0.875rem;
+  border-radius: 999px;
+  background: var(--color-white);
+  border: 1px solid var(--color-line);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sk,
+  .sk-bar {
+    animation: sk-beat 1.3s ease-in-out infinite;
+  }
+}
+@keyframes sk-beat {
+  50% {
+    opacity: 0.55;
+  }
+}

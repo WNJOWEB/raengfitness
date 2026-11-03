@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { portalContext } from "@/lib/coach/context";
@@ -18,7 +19,7 @@ export const metadata: Metadata = { title: "Inbox" };
 export default function InboxPage({ searchParams }: PageProps<"/coach/inbox">) {
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-7">
-      <Suspense fallback={<p className="text-muted">Loading the inbox…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Inbox searchParams={searchParams} />
       </Suspense>
     </div>

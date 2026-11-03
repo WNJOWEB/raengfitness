@@ -258,9 +258,9 @@ See Coach portal below.
 
 ## Speed (owner, 2026-11-02: buttons and taps feel slow in the coach and members dashboards)
 - [x] Audit done: `docs/SPEED_AUDIT_2026-11-02.md` (server in Washington DC, database in Ireland; no loading screens; emails sent before buttons reply; no pending state on member buttons; coach pages check sign-in twice and write on every Today view).
-- [ ] **P0** Run the functions in Dublin (`"regions": ["dub1"]` in `vercel.json`), then redeploy
-- [ ] **P0** Loading screens for `/account` and `/coach` (and prefetching on the tab bars)
-- [ ] **P1** Send emails after the reply (`after()`) in the member and coach actions
-- [ ] **P1** A shared pending button for the members' Book and cancel buttons
-- [ ] **P1** Coach: one sign-in check per request, no database write on the Today page load, independent loads together
-
+- [x] **P0** Run the functions in Dublin (`"regions": ["dub1"]` in `vercel.json`), then redeploy
+- [x] **P0** Loading screens for `/account` and `/coach` (and prefetching on the tab bars)
+- [x] **P1** Send emails after the reply (`after()`) in the member and coach actions
+- [x] **P1** A shared pending button for the members' Book and cancel buttons
+- [x] **P1** Coach: one sign-in check per request, no database write on the Today page load, independent loads together
+- [ ] **P1** After the Dublin deploy: tap Home, Book, Plan on a phone and compare with before (target: the screen reacts within 0.1 s, the page within 0.5 s)

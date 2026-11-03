@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listPtSessions } from "@/lib/coach/bookings";
@@ -29,7 +30,7 @@ export default function SessionsPage({ searchParams }: PageProps<"/coach/session
           Book a session
         </ActionLink>
       </PageHeader>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading sessions…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Sessions searchParams={searchParams} />
       </Suspense>
     </>

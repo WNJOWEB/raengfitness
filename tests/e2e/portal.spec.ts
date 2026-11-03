@@ -744,3 +744,17 @@ test.describe("on a phone", () => {
     await expect(page.getByRole("navigation", { name: "Coach sections" }).getByRole("link", { name: "Finances" })).toBeVisible();
   });
 });
+
+test("speed (2026-11-02): a coach tab tap answers at once with the page's shape while a slow server answers", async ({ page }) => {
+  await signIn(page);
+  await page.route("**/coach/**", async (route) => {
+    if (!route.request().headers()["next-router-prefetch"]) await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.waitForTimeout(1500);
+  await page.getByRole("link", { name: "Schedule" }).first().click();
+  await expect(page.locator('[aria-busy="true"]').first()).toBeAttached({ timeout: 700 });
+  await expect(page.getByText("Loading the page…")).toBeAttached();
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 10_000 });
+  await expect(page).toHaveURL(/\/coach\/schedule/);
+});

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { paymentMethods } from "@/content/payments";
 import { failure, type ActionState } from "@/lib/coach/action-state";
 import { getClient } from "@/lib/coach/clients";
@@ -60,18 +61,21 @@ export async function recordPaymentAction(_prev: ActionState, formData: FormData
   const result = await recordPayment(ctx.db, { clientId, service, amountPence: amount, paidOn, method, reference, note, key, allocations });
   if (!result.ok) return failure(dbMessage(result.error));
   // A receipt for the client (best effort; the payment is recorded). The key is this form's one-off key, so a double submit emails once.
-  if (client.data.email) {
+  const receiptTo = client.data.email;
+  if (receiptTo) {
     const how = paymentMethods.find((m) => m.value === method)?.label.toLowerCase() ?? "payment";
     const forWhat = allocations.length === 1 ? open.data.find((c) => c.id === allocations[0].charge_id)?.description : "";
-    await sendNotice({
+    after(() =>
+      sendNotice({
       label: "payment-recorded-by-coach",
       key: `payment-recorded/${result.data}`,
       customer: {
-        email: client.data.email,
+        email: receiptTo,
         subject: `We've received your payment: ${formatPence(amount)}`,
         text: `Thank you. We've recorded your ${how} payment of ${formatPence(amount)}, received on ${formatDate(paidOn as Parameters<typeof formatDate>[0])}${forWhat ? ` for ${forWhat}` : ""}.`,
       },
-    }).catch(() => null);
+      }).catch(() => null),
+    );
   }
   redirect(`/coach/finances/payments/${result.data}?done=recorded`);
 }

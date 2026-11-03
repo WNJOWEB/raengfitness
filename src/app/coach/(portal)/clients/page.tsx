@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { clientBalances, clientServices, CLIENT_STATUSES, listClients, listFollowUps, type ClientSort } from "@/lib/coach/clients";
@@ -21,7 +22,7 @@ export default function ClientsPage({ searchParams }: PageProps<"/coach/clients"
           Add a client
         </ActionLink>
       </PageHeader>
-      <Suspense fallback={<p className="mt-8 text-muted">Loading clients…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <Directory searchParams={searchParams} />
       </Suspense>
     </>

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { portalContext } from "@/lib/coach/context";
 import { ClientFields } from "@/components/coach/ClientFields";
@@ -17,7 +18,7 @@ export default function NewClientPage() {
       <div className="mt-4">
         <PageHeader title="Add a client" />
       </div>
-      <Suspense fallback={<p className="mt-8 text-muted">Checking your sign-in…</p>}>
+      <Suspense fallback={<CoachLoading />}>
         <NewClient />
       </Suspense>
     </>
