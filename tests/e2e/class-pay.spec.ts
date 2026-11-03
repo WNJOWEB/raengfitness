@@ -82,7 +82,10 @@ test.describe("booking a group class and paying online", () => {
     await expect(your).toContainText("Your place is held for 15 minutes while you pay.");
     await expect(page.getByText("Your place is held for 15 minutes while you pay.")).toBeVisible();
     await expect(page.getByText(/^Cancel at least 24 hours before/)).toBeVisible();
-    await page.getByRole("button", { name: "Pay £12" }).click();
+    // Owner's pick A (2026-11-03): the price is shown once as a total above the button, and the button says what happens next, not "Pay".
+    await expect(page.getByText("Total", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Pay £/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Continue to payment" }).click();
 
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Group class, /);
@@ -133,13 +136,13 @@ test.describe("booking a group class and paying online", () => {
     await page.getByRole("button", { name: "Book with your credit" }).click();
     await expect(page.getByText("This class credit has been used or has expired.").first()).toBeVisible();
     await page.getByRole("button", { name: "Pay £12 instead" }).click();
-    await expect(page.getByRole("button", { name: "Pay £12" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue to payment" })).toBeVisible();
   });
 
   test("leaving Stripe's page without paying books nothing, and the page says it's waiting", async ({ page, request }) => {
     const email = `class-leaver-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 3, "Not Paying", email);
-    await page.getByRole("button", { name: "Pay £12" }).click();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const [booking] = await sql(request, "select b.id from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email]);
     await page.goto(`${PAY}/book/done?booking=${booking.id}`);

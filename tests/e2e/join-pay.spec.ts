@@ -52,11 +52,17 @@ test.describe("joining and paying online", () => {
     await toCheckStep(page, "regular", "Online Payer", email);
     await expect(page.getByRole("heading", { name: "Check and pay" })).toBeVisible();
     await expect(page.getByText("Stripe's secure page takes £65 for your first 4 weeks")).toBeVisible();
+    // Renewals are automatic now (no payment link by email every 4 weeks).
+    await expect(page.getByText("your membership renews automatically every 4 weeks until you cancel")).toBeVisible();
+    await expect(page.getByText("payment link by email")).toHaveCount(0);
+    // The total sits above the button, which says what happens next (not "Pay £65").
+    await expect(page.getByText("Total today")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Pay £/ })).toHaveCount(0);
     // The agreement is still required before paying.
-    await page.getByRole("button", { name: "Pay £65" }).click();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
     await expect(page.locator("#agree-error")).toBeVisible();
     await page.getByLabel(/I've read and agree to the membership terms/).check();
-    await page.getByRole("button", { name: "Pay £65" }).click();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
 
     // Stripe's (stand-in) checkout: the plan and the price come from the server, not the form.
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
@@ -120,7 +126,7 @@ test.describe("joining and paying online", () => {
     const email = `renewer-${Date.now()}@example.com`;
     await toCheckStep(page, "regular", "Card Renewer", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
-    await page.getByRole("button", { name: "Pay £65" }).click();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
     await page.getByRole("button", { name: "Pay £65.00" }).click();
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
 
@@ -183,7 +189,7 @@ test.describe("joining and paying online", () => {
     const email = `backer-${Date.now()}@example.com`;
     await toCheckStep(page, "starter", "Backs Out", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
-    await page.getByRole("button", { name: "Pay £40" }).click();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
     await page.getByRole("button", { name: "Pay £40.00" }).click();
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
     const signup = new URL(page.url()).searchParams.get("signup");
@@ -220,7 +226,7 @@ test.describe("joining and paying online", () => {
     const email = `leaver-${Date.now()}@example.com`;
     await toCheckStep(page, "starter", "Not Paying", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
-    await page.getByRole("button", { name: "Pay £40" }).click();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const [signup] = await sql(request, "select s.id from akb_membership_signups s join akb_clients c on c.id = s.client_id where c.email = $1", [email]);
     // Coming back by the address alone proves nothing.

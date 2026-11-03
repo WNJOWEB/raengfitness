@@ -668,7 +668,13 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                         </button>
                       </>
                     ) : (
-                      <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                      <>
+                        <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
+                          <span>Total</span>
+                          <span>{pay.price}</span>
+                        </p>
+                        <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                      </>
                     )}
                     <p className="text-muted">{pay.cancel}</p>
                   </div>
@@ -716,7 +722,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
-                    label: demoPay ? `Pay ${pay?.price} (preview)` : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : `Pay ${pay?.price}`) : "Send request",
+                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? "Opening Stripe…" : "Continue to payment") : "Send request",
                     type: "submit",
                     pending,
                   }}

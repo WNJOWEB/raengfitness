@@ -473,8 +473,8 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                       <h3 className="card-title">Pay securely with Stripe</h3>
                       <p className="mt-1.5">
                         Next, Stripe&apos;s secure page takes £{plan.priceGbp} for your first {BILLING_WEEKS} weeks. Your membership starts as soon as
-                        it&apos;s paid{chosenClass ? " and your first class is booked" : ""}. After that, you&apos;ll get a payment link by email every{" "}
-                        {BILLING_WEEKS} weeks.
+                        it&apos;s paid{chosenClass ? " and your first class is booked" : ""}. After that, your membership renews automatically every{" "}
+                        {BILLING_WEEKS} weeks until you cancel.
                       </p>
                     </>
                   ) : (
@@ -529,10 +529,16 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                 <input type="hidden" name="message" value={details.message} />
                 <SubmissionMeta meta={meta} />
 
+                {pay && !demo ? (
+                  <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
+                    <span>Total today</span>
+                    <span>£{plan.priceGbp}</span>
+                  </p>
+                ) : null}
                 <PrivacyLine action={demo ? "continuing" : pay ? "paying" : "sending this request"} />
                 <ActionBar
                   onBack={() => setStep(2)}
-                  next={{ label: demo ? "Finish demo" : pay ? (pending ? "Opening Stripe…" : `Pay £${plan.priceGbp}`) : "Send request", type: "submit", pending }}
+                  next={{ label: demo ? "Finish demo" : pay ? (pending ? "Opening Stripe…" : "Continue to payment") : "Send request", type: "submit", pending }}
                 />
               </form>
             </section>
