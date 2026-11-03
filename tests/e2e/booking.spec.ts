@@ -426,8 +426,11 @@ test.describe("production configuration", () => {
     await expect(page.getByRole("heading", { name: "Your details" })).toBeFocused();
     await continueButton(page).click();
     await expect(page.getByText("Enter your name.")).toBeVisible();
+    // The phone number is required here too, as on a class booking.
+    await expect(page.getByText("Enter your phone number.")).toBeVisible();
     await page.getByRole("textbox", { name: "Name" }).fill("Join Tester");
     await page.getByRole("textbox", { name: "Email" }).fill("join@example.com");
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
     await continueButton(page).click();
 
     await expect(page.getByRole("heading", { name: "Check and send" })).toBeFocused();
@@ -440,6 +443,11 @@ test.describe("production configuration", () => {
     await expect(page.getByText("Please confirm you've read and agree").first()).toBeVisible();
     await expect(page.getByRole("status")).toHaveCount(0);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    // So are the health and risk terms, as before a class booking.
+    await page.getByRole("button", { name: "Send request" }).click();
+    await expect(page.locator("#waiver-error")).toBeVisible();
+    await expect(page.getByRole("status")).toHaveCount(0);
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Send request" }).click();
 
     const status = page.getByRole("status");
@@ -452,6 +460,7 @@ test.describe("production configuration", () => {
     const row = (await stored(request)).find((r) => r.name === "Join Tester");
     expect(row).toMatchObject({ kind: "booking", service: "Membership", email: "join@example.com", details: { plan: "regular", membership: "Regular membership (£65 every 4 weeks, 8 class credits)", classDate: day.date, experience: "Beginner" } });
     expect(row!.details.terms).toMatch(/^Agreed to the membership terms and class cancellation policy \(/);
+    expect(row!.details.waiver).toMatch(/^Agreed to the participation and risk terms \(version /);
     expect(row!.summary).toBe(`Regular membership · first class ${formatLongDate(day.date)} ${year}, ${row!.summary.split(", ").pop()}`);
     const sent = (await emails(request)).find((e) => e.payload.subject === "Regular membership request: Join Tester");
     expect(sent!.payload.text).toContain("Nothing has been paid.");
@@ -473,9 +482,11 @@ test.describe("production configuration", () => {
     await page.getByRole("button", { name: "Skip: I'll book my first class later" }).click();
     await page.getByRole("textbox", { name: "Name" }).fill("Later Joiner");
     await page.getByRole("textbox", { name: "Email" }).fill("later@example.com");
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
     await continueButton(page).click();
     await expect(page.locator("main dl").getByText("Book later").first()).toBeVisible();
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.waitForTimeout(3100);
     await page.getByRole("button", { name: "Send request" }).click();
     await expect(page.getByRole("status")).toContainText("You'll book it later");
@@ -663,9 +674,11 @@ test.describe("membership join (preview demonstration)", () => {
     await page.getByRole("button", { name: "Skip: I'll book my first class later" }).click();
     await page.getByRole("textbox", { name: "Name" }).fill("Join Demo");
     await page.getByRole("textbox", { name: "Email" }).fill("join-demo@example.com");
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
     await continueButton(page).click();
     await expect(page.getByRole("note", { name: "Demonstration" })).toBeVisible();
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Finish demo" }).click();
     await expect(page.getByRole("status")).toContainText("Nothing has been sent.");
     expect((await emails(request)).some((e) => e.payload.text.includes("Join Demo"))).toBe(false);
@@ -689,6 +702,7 @@ test.describe("membership join (preview demonstration)", () => {
     await page.getByRole("button", { name: "Skip: I'll book my first class later" }).click();
     await page.getByRole("textbox", { name: "Name" }).fill("Axe Joiner");
     await page.getByRole("textbox", { name: "Email" }).fill("axe@example.com");
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
     await continueButton(page).click();
     await page.waitForTimeout(1300);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

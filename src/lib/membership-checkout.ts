@@ -2,7 +2,7 @@ import { membershipPlans, BILLING_WEEKS } from "@/content/memberships";
 import { bookingMode } from "./booking";
 import { bookingDeliveryConfig } from "./booking-request";
 import type { PublishedClass } from "./class-sessions";
-import { coachDb, inList, rpc, select, update, type Db, type DbError } from "./coach/db";
+import { coachDb, inList, insert, rpc, select, update, type Db, type DbError } from "./coach/db";
 import { formatDate, londonToUtc, type DateKey } from "./coach/time";
 import type { Env } from "./env";
 import { ACCOUNT_PATH, SIGN_IN_PATH, memberLinkOrigin } from "./member-auth";
@@ -86,6 +86,19 @@ export async function startCheckout(
   });
   if (!link.ok) return { ok: false, reason: "unavailable" };
   return { ok: true, url: link.url, signupId };
+}
+
+/**
+ * The joiner ticked the participation and risk terms (content/policy.ts
+ * classWaiver), as before a class booking: keep which wording and when, with
+ * the sign-up, in the event log the coach area reads. Nothing about health.
+ */
+export async function recordJoinWaiver(db: Db, signupId: string, waiver: { version: string; at: string }): Promise<void> {
+  const clientId = await signupClient(db, signupId);
+  if (!clientId) return;
+  const done = await select<{ id: number }>(db, "akb_events", [["select", "id"], ["entity_id", `eq.${signupId}`], ["action", "eq.waiver_accepted"]]);
+  if (done.ok && done.data.length > 0) return;
+  await insert(db, "akb_events", { client_id: clientId, entity: "membership_signup", entity_id: signupId, action: "waiver_accepted", detail: { version: waiver.version, at: waiver.at } });
 }
 
 async function signupClient(db: Db, signupId: string): Promise<string | null> {

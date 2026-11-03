@@ -17,9 +17,9 @@ import { formatPenceShort, planFigures } from "@/lib/membership";
 import type { MembershipField } from "@/lib/membership-request";
 import { formatTime } from "@/lib/schedule";
 import { BILLING_WEEKS, membershipPlans } from "@/content/memberships";
-import { cancellationPolicy, membershipTerms } from "@/content/policy";
+import { cancellationPolicy, classWaiver, membershipTerms } from "@/content/policy";
 import { cn } from "@/lib/cn";
-import { ActionBar, ChoiceGroup, DemoNotice, Disclosure, PrivacyLine, StepHeading, Stepper, SubmissionMeta, TextField, useSubmissionMeta } from "./ui";
+import { ActionBar, ChoiceGroup, CompactSummary, DemoNotice, Disclosure, PrivacyLine, StepHeading, Stepper, SubmissionMeta, TextField, useSubmissionMeta, WaiverField } from "./ui";
 
 const loadCalendar = () => import("./AvailabilityCalendar");
 const AvailabilityCalendar = dynamic(() => loadCalendar().then((m) => m.AvailabilityCalendar), {
@@ -54,7 +54,7 @@ const STEPS = [
   { id: "check", label: "Check" },
 ];
 /** Which step to send the visitor back to for each answer the server questions. */
-const FIELD_STEP: Record<MembershipField, number> = { plan: 0, when: 1, experience: 2, name: 2, email: 2, phone: 2, message: 2, agree: 3 };
+const FIELD_STEP: Record<MembershipField, number> = { plan: 0, when: 1, experience: 2, name: 2, email: 2, phone: 2, message: 2, agree: 3, waiver: 3 };
 const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 type Details = { experience: string; name: string; email: string; phone: string; message: string };
@@ -140,6 +140,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
   );
 
   const [agreed, setAgreed] = useState(false);
+  const [waiver, setWaiver] = useState(false);
   const [demoDone, setDemoDone] = useState(false);
   const meta = useSubmissionMeta();
   const [serverState, formAction, pending] = useActionState(submitMembershipRequest, initialFormState as FormState<MembershipField>);
@@ -203,7 +204,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
     const checks = {
       name: nameError(details.name.trim()),
       email: emailError(details.email.trim().toLowerCase()),
-      phone: phoneError(details.phone.trim()),
+      phone: phoneError(details.phone.trim(), true),
       message: messageError(details.message),
     };
     for (const [field, error] of Object.entries(checks)) if (error) errors[field as MembershipField] = error;
@@ -239,6 +240,12 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-14">
       <div className="min-w-0 lg:col-span-8">
         <Stepper steps={STEPS} current={step} onSelect={setStep} label="Membership steps" />
+
+        {step > 0 && step < 3 ? (
+          <div className="mt-6 lg:hidden">
+            <CompactSummary demo={demo} items={rows.slice(0, step).filter((r) => r.value)} onEdit={setStep} />
+          </div>
+        ) : null}
 
         <div key={step} className={moved ? "mt-8 animate-step-in" : "mt-8"}>
           {step === 0 ? (
@@ -332,7 +339,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
 
           {step === 2 ? (
             <section aria-labelledby="step-heading">
-              <StepHeading ref={headingRef} intro={pay ? "For your membership and receipt. Your browser can fill these in." : "So Alex can reply to confirm your membership. Your browser can fill these in."}>
+              <StepHeading ref={headingRef} intro={pay ? "For your membership and receipt. Returning? Your browser can fill these in." : "So Alex can reply to confirm your membership. Returning? Your browser can fill these in."}>
                 <span id="step-heading">Your details</span>
               </StepHeading>
               <div className="mt-6 space-y-8">
@@ -347,12 +354,15 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                 />
                 {signedIn ? (
                   <p className="text-sm">Filled in from your account.</p>
+                ) : pay && !demo ? (
+                  // Joining makes the account, as booking a class does: say so, once, before they pay.
+                  <p className="text-sm">We&apos;ll use your email to sign you in to your account next time. No password.</p>
                 ) : null}
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <TextField name="name" label="Name" autoComplete="name" maxLength={100} value={details.name} onChange={update("name")} error={errors.name} />
                   <TextField name="email" label="Email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={details.email} onChange={update("email")} error={errors.email} />
                 </div>
-                <TextField name="phone" label="Phone" type="tel" inputMode="tel" autoComplete="tel" optional maxLength={30} value={details.phone} onChange={update("phone")} error={errors.phone} className="sm:max-w-sm" />
+                <TextField name="phone" label="Phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={details.phone} onChange={update("phone")} error={errors.phone} className="sm:max-w-sm" />
                 <Disclosure label="Add a note for Alex" initiallyOpen={Boolean(details.message || errors.message)}>
                   <TextField
                     name="message"
@@ -397,10 +407,14 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                 action={formAction}
                 noValidate
                 onSubmit={(e) => {
-                  if (!agreed) {
+                  if (!agreed || !waiver) {
                     e.preventDefault();
-                    setClientErrors((x) => ({ ...x, agree: "Please confirm you've read and agree to the membership terms and cancellation policy." }));
-                    requestAnimationFrame(() => document.getElementById("agree")?.focus());
+                    setClientErrors((x) => ({
+                      ...x,
+                      agree: agreed ? undefined : "Please confirm you've read and agree to the membership terms and cancellation policy.",
+                      waiver: waiver ? undefined : classWaiver.error,
+                    }));
+                    requestAnimationFrame(() => document.getElementById(agreed ? "waiver" : "agree")?.focus());
                     return;
                   }
                   if (demo) {
@@ -515,6 +529,15 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                   ) : null}
                 </div>
 
+                <WaiverField
+                  checked={waiver}
+                  error={errors.waiver}
+                  onChange={(checked) => {
+                    setWaiver(checked);
+                    if (checked) setClientErrors((x) => ({ ...x, waiver: undefined }));
+                  }}
+                />
+
                 {/* Every answer travels with the form; the server checks them all again. */}
                 <input type="hidden" name="plan" value={plan.id} />
                 {chosenClass && date ? (
@@ -536,7 +559,7 @@ export function MembershipJoin({ mode, classes, paygGbp }: MembershipJoinProps) 
                     <span>£{plan.priceGbp}</span>
                   </p>
                 ) : null}
-                <PrivacyLine action={demo ? "continuing" : pay ? "paying" : "sending this request"} />
+                <PrivacyLine action={demo ? "continuing" : "sending this request"} booking={pay && !demo} what="membership" />
                 <ActionBar
                   onBack={() => setStep(2)}
                   next={{ label: demo ? "Finish demo" : pay ? (pending ? "Opening Stripe…" : "Continue to payment") : "Send request", type: "submit", pending }}

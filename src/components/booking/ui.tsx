@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { forwardRef, useEffect, useRef, useState, type ReactNode } from "react";
 import { site } from "@/content/site";
+import { classWaiver } from "@/content/policy";
 import { cn } from "@/lib/cn";
 
 /**
@@ -394,10 +395,20 @@ export function DemoNotice({ children }: { children: ReactNode }) {
   );
 }
 
-export function PrivacyLine({ action, booking = false }: { action: string; /** A paid booking, not an enquiry: the details confirm the booking rather than get a reply. */ booking?: boolean }) {
+export function PrivacyLine({
+  action,
+  booking = false,
+  what = "booking",
+}: {
+  action: string;
+  /** Paid online, not an enquiry: the details confirm it rather than get a reply. */
+  booking?: boolean;
+  /** What was paid for: "booking" (a class) or "membership". */
+  what?: "booking" | "membership";
+}) {
   return (
     <p className="text-sm text-muted">
-      {booking ? "We use these details to confirm your booking and email you about it." : `By ${action}, you agree to Alex using these details to reply.`} Read the{" "}
+      {booking ? `We use these details to confirm your ${what} and email you about it.` : `By ${action}, you agree to Alex using these details to reply.`} Read the{" "}
       <Link href="/privacy" className="underline underline-offset-4">
         privacy notice
       </Link>
@@ -456,5 +467,82 @@ export function SubmissionMeta({ meta }: { meta: React.RefObject<Meta | null> })
       <input type="hidden" name="submissionId" ref={(el) => { if (el && meta.current) el.value = meta.current.submissionId; }} />
       <Honeypot />
     </>
+  );
+}
+
+/** Phones: one line per choice so the current step stays near the top. Every booking journey uses it. */
+export function CompactSummary({
+  demo,
+  items,
+  onEdit,
+}: {
+  demo: boolean;
+  items: { label: string; value: string; step: number }[];
+  onEdit: (step: number) => void;
+}) {
+  return (
+    <dl aria-label={demo ? "Your selection (demonstration)" : "Your choices so far"} className="card divide-y divide-line px-4">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-center gap-2 py-1">
+          <dt className="shrink-0 text-xs text-muted">{item.label}</dt>
+          <dd className="flex min-w-0 flex-1 items-center justify-between gap-3">
+            <span className="truncate text-sm font-semibold">{item.value}</span>
+            <button
+              type="button"
+              onClick={() => onEdit(item.step)}
+              className="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold underline underline-offset-4"
+            >
+              Change<span className="sr-only"> {item.label.toLowerCase()}</span>
+            </button>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * The participation and risk terms (content/policy.ts classWaiver), ticked
+ * before every class booking and every membership join (owner, 2026-10-31).
+ * The server checks the tick again and stores the wording's version and time.
+ */
+export function WaiverField({ checked, error, onChange }: { checked: boolean; error?: string; onChange: (checked: boolean) => void }) {
+  return (
+    <div>
+      <details className="card px-5 py-4 sm:px-6">
+        <summary className="cursor-pointer font-semibold">{classWaiver.title}</summary>
+        <p className="mt-3">{classWaiver.intro}</p>
+        <ol className="mt-3 space-y-3 text-sm">
+          {classWaiver.points.map((p, i) => (
+            <li key={p.title}>
+              <span className="font-semibold">
+                {i + 1}. {p.title}.
+              </span>{" "}
+              {p.body}
+            </li>
+          ))}
+        </ol>
+      </details>
+      <label className={cn("card mt-3 flex cursor-pointer items-start gap-4 px-5 py-4 sm:px-6", error && "outline-2 outline-ink")}>
+        <input
+          id="waiver"
+          type="checkbox"
+          name="waiver"
+          value="yes"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "waiver-error" : undefined}
+          className="mt-0.5 size-6 shrink-0 accent-ink"
+        />
+        <span>{classWaiver.tick}</span>
+      </label>
+      {error ? (
+        <p id="waiver-error" className="mt-2 text-sm font-semibold">
+          <span aria-hidden="true">✕ </span>
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

@@ -29,6 +29,7 @@ import { useSignedInDetails } from "@/lib/signed-in-details";
 import {
   ActionBar,
   ChoiceGroup,
+  CompactSummary,
   DemoLabel,
   DemoNotice,
   Disclosure,
@@ -39,6 +40,7 @@ import {
   TextField,
   SubmissionMeta,
   useSubmissionMeta,
+  WaiverField,
 } from "./ui";
 
 /** Lazy: the calendar only loads when a date step needs it; choosing a service starts the download. */
@@ -681,45 +683,14 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                   </div>
                 ) : null}
                 <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : "sending this request"} booking={payNow || demoPay} />
-                <div>
-                  <details className="card px-5 py-4 sm:px-6">
-                    <summary className="cursor-pointer font-semibold">{classWaiver.title}</summary>
-                    <p className="mt-3">{classWaiver.intro}</p>
-                    <ol className="mt-3 space-y-3 text-sm">
-                      {classWaiver.points.map((p, i) => (
-                        <li key={p.title}>
-                          <span className="font-semibold">
-                            {i + 1}. {p.title}.
-                          </span>{" "}
-                          {p.body}
-                        </li>
-                      ))}
-                    </ol>
-                  </details>
-                  <label className={cn("card mt-3 flex cursor-pointer items-start gap-4 px-5 py-4 sm:px-6", errors.waiver && "outline-2 outline-ink")}>
-                    <input
-                      id="waiver"
-                      type="checkbox"
-                      name="waiver"
-                      value="yes"
-                      checked={waiver}
-                      onChange={(e) => {
-                        setWaiver(e.target.checked);
-                        if (e.target.checked) setClientErrors((x) => ({ ...x, waiver: undefined }));
-                      }}
-                      aria-invalid={errors.waiver ? true : undefined}
-                      aria-describedby={errors.waiver ? "waiver-error" : undefined}
-                      className="mt-0.5 size-6 shrink-0 accent-ink"
-                    />
-                    <span>{classWaiver.tick}</span>
-                  </label>
-                  {errors.waiver ? (
-                    <p id="waiver-error" className="mt-2 text-sm font-semibold">
-                      <span aria-hidden="true">✕ </span>
-                      {errors.waiver}
-                    </p>
-                  ) : null}
-                </div>
+                <WaiverField
+                  checked={waiver}
+                  error={errors.waiver}
+                  onChange={(checked) => {
+                    setWaiver(checked);
+                    if (checked) setClientErrors((x) => ({ ...x, waiver: undefined }));
+                  }}
+                />
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
@@ -835,37 +806,6 @@ function Summary({
         {demo ? "Demonstration only. Nothing is booked." : pay ? "Your place is confirmed once you've paid." : "Alex confirms every place personally by email."}
       </p>
     </div>
-  );
-}
-
-/** Phones: one line per choice so the current step stays near the top. */
-function CompactSummary({
-  demo,
-  items,
-  onEdit,
-}: {
-  demo: boolean;
-  items: { label: string; value: string; step: number }[];
-  onEdit: (step: number) => void;
-}) {
-  return (
-    <dl aria-label={demo ? "Your selection (demonstration)" : "Your request so far"} className="card divide-y divide-line px-4">
-      {items.map((item) => (
-        <div key={item.label} className="flex items-center gap-2 py-1">
-          <dt className="shrink-0 text-xs text-muted">{item.label}</dt>
-          <dd className="flex min-w-0 flex-1 items-center justify-between gap-3">
-            <span className="truncate text-sm font-semibold">{item.value}</span>
-            <button
-              type="button"
-              onClick={() => onEdit(item.step)}
-              className="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold underline underline-offset-4"
-            >
-              Change<span className="sr-only"> {item.label.toLowerCase()}</span>
-            </button>
-          </dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 

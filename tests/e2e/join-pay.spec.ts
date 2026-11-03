@@ -36,6 +36,7 @@ async function toCheckStep(page: Page, plan: string, name: string, email: string
   await page.getByRole("button", { name: "Skip: I'll book my first class later" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("textbox", { name: "Email" }).fill(email);
+  await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
   await continueButton(page).click();
   // The form's anti-spam check refuses anything sent within 3 seconds of opening it.
   await page.waitForTimeout(3100);
@@ -62,6 +63,7 @@ test.describe("joining and paying online", () => {
     await page.getByRole("button", { name: "Continue to payment" }).click();
     await expect(page.locator("#agree-error")).toBeVisible();
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Continue to payment" }).click();
 
     // Stripe's (stand-in) checkout: the plan and the price come from the server, not the form.
@@ -81,6 +83,8 @@ test.describe("joining and paying online", () => {
     await expect(page.getByText("£65 by Visa ending 4242")).toBeVisible();
     await expect(page.getByText("8 every 4 weeks")).toBeVisible();
     await expect(page.locator("dl.cf-rise")).toContainText(/RAENG-[0-9A-F]{8}/);
+    // The health and risk tick is kept with the sign-up, as with a class booking: the wording's version and when.
+    expect(await sql(request, "select e.entity, e.detail->>'version' as version from akb_events e join akb_clients c on c.id = e.client_id where c.email = $1 and e.action = 'waiver_accepted'", [email])).toEqual([{ entity: "membership_signup", version: "2026-10-31" }]);
 
     // Direct Debit is the first option: the page says so, forwards to Stripe's bank page after a few seconds on its own, and the saved card is the fallback.
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
@@ -127,6 +131,7 @@ test.describe("joining and paying online", () => {
     const email = `renewer-${Date.now()}@example.com`;
     await toCheckStep(page, "regular", "Card Renewer", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Continue to payment" }).click();
     await page.getByRole("button", { name: "Pay £65.00" }).click();
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
@@ -190,6 +195,7 @@ test.describe("joining and paying online", () => {
     const email = `backer-${Date.now()}@example.com`;
     await toCheckStep(page, "starter", "Backs Out", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Continue to payment" }).click();
     await page.getByRole("button", { name: "Pay £40.00" }).click();
     await expect(page.getByText("Set up your Direct Debit.")).toBeVisible({ timeout: 15_000 });
@@ -227,6 +233,7 @@ test.describe("joining and paying online", () => {
     const email = `leaver-${Date.now()}@example.com`;
     await toCheckStep(page, "starter", "Not Paying", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Continue to payment" }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const [signup] = await sql(request, "select s.id from akb_membership_signups s join akb_clients c on c.id = s.client_id where c.email = $1", [email]);
@@ -242,6 +249,7 @@ test.describe("joining and paying online", () => {
     const email = `backer-${Date.now()}@example.com`;
     await toCheckStep(page, "starter", "Back Arrow", email);
     await page.getByLabel(/I've read and agree to the membership terms/).check();
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
     await page.getByRole("button", { name: "Continue to payment" }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await page.getByRole("link", { name: "Back" }).click();

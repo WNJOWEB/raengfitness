@@ -23,9 +23,10 @@ const valid = {
   experience: "rookie",
   name: "Sam Example",
   email: "Sam@Example.com",
-  phone: "",
+  phone: "07700 900123",
   message: "",
   agree: "yes",
+  waiver: "yes",
   website: "",
   startedAt: String(NOW - 20_000),
   submissionId: "join-1",
@@ -53,6 +54,16 @@ describe("parseMembershipRequest", () => {
     expect(result).toMatchObject({ kind: "invalid", errors: { plan: expect.any(String), agree: expect.any(String) } });
   });
 
+  it("requires a phone number and the health and risk tick, as a class booking does", () => {
+    const result = parseMembershipRequest(form({ ...valid, phone: "", waiver: "" }), opts);
+    expect(result).toMatchObject({ kind: "invalid", errors: { phone: expect.any(String), waiver: expect.any(String) } });
+  });
+
+  it("keeps which health and risk wording was ticked, and when", () => {
+    const result = parseMembershipRequest(form(valid), opts);
+    expect(result).toMatchObject({ kind: "valid", data: { phone: "07700 900123", waiver: { version: expect.any(String), at: new Date(NOW).toISOString() } } });
+  });
+
   it("validates the details like a booking request", () => {
     const result = parseMembershipRequest(form({ ...valid, name: "", email: "not-an-email", experience: "" }), opts);
     expect(result).toMatchObject({ kind: "invalid", errors: { name: expect.any(String), email: expect.any(String), experience: expect.any(String) } });
@@ -65,7 +76,7 @@ describe("parseMembershipRequest", () => {
 });
 
 describe("membership request text", () => {
-  const data = { plan: "regular", session: "", classDate: "", experience: "rookie", name: "Sam", email: "sam@example.com", phone: "", message: "", submissionId: "x" } as const;
+  const data = { plan: "regular", session: "", classDate: "", experience: "rookie", name: "Sam", email: "sam@example.com", phone: "07700 900123", message: "", submissionId: "x", waiver: { version: "2026-10-31", at: "2026-10-26T12:00:00.000Z" } } as const;
 
   it("says when the first class is left for later", () => {
     expect(describeFirstClass(data)).toBe("Book later");
@@ -77,6 +88,7 @@ describe("membership request text", () => {
     expect(email.subject).toBe("Regular membership request: Sam");
     expect(email.text).toContain("Regular membership (£65 every 4 weeks, 8 class credits)");
     expect(email.text).toContain("Agreed to the membership terms and class cancellation policy: 2026-10-26T12:00:00.000Z");
+    expect(email.text).toContain("Agreed to the participation and risk terms (version 2026-10-31): 2026-10-26T12:00:00.000Z");
     expect(email.text).toContain("Nothing has been paid.");
   });
 });

@@ -12,7 +12,7 @@ import { referenceFor } from "@/lib/reference";
 import { MEMBERSHIP_SERVICE, membershipEmail, membershipSummary, parseMembershipRequest, type MembershipField } from "@/lib/membership-request";
 import { idempotencyKey } from "@/lib/send-email";
 import { coachDb } from "@/lib/coach/db";
-import { onlineJoinEnabled, startCheckout } from "@/lib/membership-checkout";
+import { onlineJoinEnabled, recordJoinWaiver, startCheckout } from "@/lib/membership-checkout";
 import { stripeConfig } from "@/lib/stripe/config";
 
 /**
@@ -66,7 +66,11 @@ export async function submitMembershipRequest(
   const stripe = stripeConfig();
   if (onlineJoinEnabled() && db && stripe) {
     const checkout = await startCheckout(db, stripe, data, data.classDate && slot ? slot : null, { agreedAt, idempotencyKey: key });
-    if (checkout.ok) redirect(checkout.url);
+    if (checkout.ok) {
+      // As a class booking does: which health and risk wording was ticked, and when (nothing about health).
+      await recordJoinWaiver(db, checkout.signupId, data.waiver).catch(() => undefined);
+      redirect(checkout.url);
+    }
     if (checkout.reason === "already_member") {
       return { status: "error", message: "You're already a member. Sign in to your account to book classes, or reply to Alex to change plan.", errors: { email: "This email already has a membership." } };
     }
@@ -81,6 +85,7 @@ export async function submitMembershipRequest(
     plan: data.plan,
     membership: describePlan(data.plan),
     terms: `Agreed to the membership terms and class cancellation policy (${agreedAt})`,
+    waiver: `Agreed to the participation and risk terms (version ${data.waiver.version}) at ${data.waiver.at}`,
   };
   if (data.classDate && slot) {
     details.classDate = data.classDate;
