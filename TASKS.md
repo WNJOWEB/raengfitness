@@ -278,6 +278,10 @@ See Coach portal below.
 - [ ] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter)
 - [ ] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection
 
+## Stripe sandbox (2026-11-03, owner: test the payments properly)
+- [x] A real-Stripe test suite is built (`npm run test:sandbox`): pay page settings, saved-card renewal, declined card, card needing the bank's confirmation, refunds. Free, local database, no live data. Details in DEPLOYMENT.md.
+- [ ] Owner: add the sandbox's secret key (`sk_test_...`, Stripe sandbox, Developers, API keys) to the cloud environment as `STRIPE_TEST_SECRET_KEY` (the environment's settings, never in chat), then start a new session and ask for the sandbox tests to be run. Not yet run against the real sandbox.
+
 ## Demo members (2026-11-03, owner)
 - [x] Both demo members cancelled and set to Former; their booked classes cancelled; the demo Direct Debit's bank account removed in Stripe (so nothing is collected on 24 or 30 November). The records stay, because payment and booking history can't be erased.
 - [x] The "cancel the demo memberships before 24 November" item is closed.

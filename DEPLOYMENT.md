@@ -202,6 +202,15 @@ The coach portal now has the owner's coach design: a frame with Today, Schedule,
 
 **Replaces Square completely** (the `lib/square` code, `/api/square/webhook` and `square-reconcile` are gone). **Live on production since 2026-11-02**: the live key and the signed webhook are set on Vercel Production, and a real £1 card payment and its refund were each recorded once (the test client was archived, not deleted, to keep the record). Card payments work. Bacs Direct Debit is approved and switched on (`DIRECT_DEBIT_ENABLED=true`, 2026-11-03; below); the first real collection has not yet cleared. Without the variables below, online payment stays off and bookings and joins stay requests that Alex confirms.
 
+### Testing against Stripe's real test account (2026-11-03)
+
+The everyday tests use a Stripe stand-in, which can only prove what we expect Stripe to do. `npm run test:sandbox` (`src/lib/stripe/sandbox.test.ts`) runs the same flows against Stripe's real test account ("RAENG Fitness sandbox") with a throwaway local database: that Stripe accepts the pay page the site asks for (35-minute expiry, return and back-arrow addresses, the saved-card agreement), that a saved card is charged with nobody present, what happens on a declined card and on one that needs the bank's confirmation (a failed try, retried on day 3 and 7, then paused), and refunds as Stripe really announces them. No real money or live data is involved.
+
+- It needs `STRIPE_TEST_SECRET_KEY` (a `sk_test_` key from the sandbox, Developers, API keys) in the environment, never in the repo or chat. The suite refuses a live key and checks the account is not live.
+- It is off in ordinary runs (`npm test` skips it); `npm run test:sandbox` switches it on.
+- A test-mode key can't be used against the live Supabase project (the site refuses it), which is why the database here is local rather than a second Supabase project.
+
+
 How it works: a class (or a membership's first 4 weeks) is paid by card on **Stripe Checkout**. A member then sets up a **Bacs Direct Debit** on Stripe's page (their bank details never touch this site), and each later 4 weeks is collected from it: the next period is created about 6 days early, its collection is submitted to Stripe (Bacs takes about 3 working days), and credits work as soon as Stripe's signed webhook says it cleared. A failed collection is retried 3 days later, up to 3 tries, then the membership is paused and the member and Alex are emailed. A member can cancel any time from their account (`/account/plan`): no more periods or collections, and the credits already given stay until the period ends. Nothing is recorded from a redirect: only the signed webhook, re-read from Stripe's API.
 
 | Variable | Where | Notes |
