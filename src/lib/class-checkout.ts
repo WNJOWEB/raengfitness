@@ -246,13 +246,15 @@ export interface ManagedBooking {
   when: string;
   canCancel: boolean;
   creditBack: boolean;
+  /** The payment was refunded in full (in Stripe), so cancelling gives nothing more back. */
+  refunded: boolean;
   classCancelled: boolean;
 }
 
 /** The booking behind a private manage link, or null. */
 export async function bookingByToken(db: Db, token: string, classes: PublishedClass[]): Promise<ManagedBooking | null> {
   if (!isToken(token)) return null;
-  const r = await rpc<{ status: BookingRow["status"]; slot: string; class_date: string; starts_at: string; can_cancel: boolean; credit_back_if_cancelled: boolean; class_cancelled: boolean } | null>(
+  const r = await rpc<{ status: BookingRow["status"]; slot: string; class_date: string; starts_at: string; can_cancel: boolean; credit_back_if_cancelled: boolean; refunded?: boolean; class_cancelled: boolean } | null>(
     db,
     "akb_class_booking_by_token",
     { p_token_hash: await sha256Hex(token) },
@@ -265,6 +267,7 @@ export async function bookingByToken(db: Db, token: string, classes: PublishedCl
     when: cls ? classWhen(r.data.class_date, cls) : `${formatLongDate(date)}, ${formatClock(time)}`,
     canCancel: r.data.can_cancel,
     creditBack: r.data.credit_back_if_cancelled,
+    refunded: r.data.refunded === true,
     classCancelled: r.data.class_cancelled,
   };
 }
@@ -278,15 +281,16 @@ export async function cancelByToken(
   token: string,
   env: Env = process.env,
   fetchImpl: typeof fetch = fetch,
-): Promise<{ ok: true; creditLink: string | null } | { ok: false; reason: "not_found" | "not_booked" | "class_started" | "failed" }> {
+): Promise<{ ok: true; creditLink: string | null; refunded: boolean } | { ok: false; reason: "not_found" | "not_booked" | "class_started" | "failed" }> {
   if (!isToken(token)) return { ok: false, reason: "not_found" };
   const creditToken = randomToken();
   const hash = await sha256Hex(token);
-  const r = await rpc<{ credit: boolean }>(db, "akb_cancel_class_booking", { p_token_hash: hash, p_credit_token_hash: await sha256Hex(creditToken) });
+  const r = await rpc<{ credit: boolean; refunded?: boolean }>(db, "akb_cancel_class_booking", { p_token_hash: hash, p_credit_token_hash: await sha256Hex(creditToken) });
   if (!r.ok) {
     const rule = r.error.kind === "rule" ? r.error.rule : null;
     return { ok: false, reason: rule === "not_found" || rule === "not_booked" || rule === "class_started" ? rule : "failed" };
   }
+  const refunded = r.data.refunded === true;
   const creditLink = r.data.credit ? `${memberLinkOrigin(env)}${CLASS_BOOK_PATH}?credit=${creditToken}` : null;
   // Tell the booker it's cancelled (with the credit link when one was given) and tell Alex, once each.
   // Best effort: the cancellation has already happened and the page shows the outcome.
@@ -299,7 +303,9 @@ export async function cancelByToken(
       const when = (await placeWhen(db, booking.attendance_id, publishedClasses())) ?? "your class";
       const outcome = creditLink
         ? `Here's your credit for another group class within the next 4 weeks:\n${creditLink}\nIt works once. Nothing to pay when you book with it.`
-        : "It was less than 24 hours before the class, so there's no credit.";
+        : refunded
+          ? "Your payment for this class was already refunded, so there's no credit as well."
+          : "It was less than 24 hours before the class, so there's no credit.";
       await sendNotice(
         {
           label: "class-cancel",
@@ -307,7 +313,7 @@ export async function cancelByToken(
           customer: { email: person.email, subject: creditLink ? "Your class credit" : `Cancelled: ${when}`, text: `Your booking for the group class on ${when} is cancelled.\n\n${outcome}` },
           alex: {
             subject: `Class cancelled: ${person.full_name}, ${when}`,
-            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${creditLink ? "They were given a class credit for another class within 4 weeks." : "It was less than 24 hours before the class, so no credit was given."}`,
+            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${creditLink ? "They were given a class credit for another class within 4 weeks." : refunded ? "Their payment had already been refunded, so no credit was given and the class fee is cancelled." : "It was less than 24 hours before the class, so no credit was given."}`,
           },
         },
         env,
@@ -315,7 +321,7 @@ export async function cancelByToken(
       );
     }
   }
-  return { ok: true, creditLink };
+  return { ok: true, creditLink, refunded };
 }
 
 /** Whether a credit link can still be used, and until when. */

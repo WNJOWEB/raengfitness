@@ -52,7 +52,9 @@ export function cancelSheet(p: MemberPlace, back: MembersView): SheetPayload {
     return { kind: "info", eyebrow: "Your booking", title: longWhen(p.starts_at), body: "To change this place, message Alex.", confirm: "", keep: "Close", fields: {} };
   }
   const membershipCredit = p.how === "credit";
-  const body = p.credit_back_if_cancelled
+  const body = p.refunded
+    ? "Your payment for this class has already been refunded, so cancelling gives no credit."
+    : p.credit_back_if_cancelled
     ? membershipCredit
       ? "Your credit comes back, and your place goes to someone else."
       : "You get a class credit for another class within 4 weeks."
@@ -66,7 +68,7 @@ export function cancelSheet(p: MemberPlace, back: MembersView): SheetPayload {
     eyebrow: "Cancel booking",
     title: longWhen(p.starts_at),
     body,
-    confirm: p.credit_back_if_cancelled ? "Cancel booking" : "Cancel anyway",
+    confirm: p.credit_back_if_cancelled || p.refunded ? "Cancel booking" : "Cancel anyway",
     keep: "Keep it",
     fields,
   };

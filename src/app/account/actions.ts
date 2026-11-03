@@ -188,8 +188,13 @@ export async function cancelClass(formData: FormData): Promise<void> {
   const paid = text(formData, "paid") === "yes";
   const result = paid ? await cancelPaidPlace(member.db, member.clientId, id) : await cancelPlace(member.db, member.clientId, id);
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
-  // data: for a paid place, whether a class credit was given; for a membership place, whether it was late (credit used).
-  const outcome = paid ? (result.data ? "cancelled_credit" : "cancelled_paid_late") : result.data ? "cancelled_late" : "cancelled";
+  // For a paid place: whether a class credit was given, or the payment had been refunded. For a membership place: whether it was late (credit used).
+  const outcome =
+    result.data === true ? "cancelled_late"
+    : result.data === false ? "cancelled"
+    : result.data.credit ? "cancelled_credit"
+    : result.data.refunded ? "cancelled_paid_refunded"
+    : "cancelled_paid_late";
   // The emails go after the reply (the lookups for them too).
   after(async () => {
     try {

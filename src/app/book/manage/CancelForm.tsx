@@ -8,7 +8,7 @@ import { buttonClasses } from "@/components/ui/ButtonLink";
 const initial: CancelState = { status: "idle", creditLink: null, message: "" };
 
 /** Cancel, then (24 hours or more before) the single-use credit link, which is also emailed. */
-export function CancelForm({ token, creditBack }: { token: string; creditBack: boolean }) {
+export function CancelForm({ token, creditBack, refunded }: { token: string; creditBack: boolean; refunded: boolean }) {
   const [state, action, pending] = useActionState(cancelClassBooking, initial);
   if (state.status === "cancelled") {
     return (
@@ -21,6 +21,8 @@ export function CancelForm({ token, creditBack }: { token: string; creditBack: b
               Book with your credit
             </Link>
           </>
+        ) : state.refunded ? (
+          <p className="mt-3">Your payment for this class was already refunded, so there&apos;s no credit as well.</p>
         ) : (
           <p className="mt-3">It was less than 24 hours before the class, so there&apos;s no credit back.</p>
         )}
@@ -31,7 +33,9 @@ export function CancelForm({ token, creditBack }: { token: string; creditBack: b
     <form action={action} className="mt-8">
       <input type="hidden" name="token" value={token} />
       <p>
-        {creditBack
+        {refunded
+          ? "Your payment for this class has already been refunded, so cancelling gives no credit."
+          : creditBack
           ? "It's 24 hours or more before the class, so cancelling now gives you a credit for another class within 4 weeks."
           : "It's less than 24 hours before the class, so cancelling now gives no credit back."}
       </p>

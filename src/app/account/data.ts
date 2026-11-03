@@ -16,6 +16,7 @@ export const DONE: Record<string, string> = {
   cancelled_late: "Cancelled. It was less than 24 hours before the class, so the credit is used.",
   cancelled_credit: "Cancelled. You have a class credit for another class within 4 weeks.",
   cancelled_paid_late: "Cancelled. It was less than 24 hours before the class, so there's nothing back.",
+  cancelled_paid_refunded: "Cancelled. Your payment for this class was already refunded, so there's no credit as well.",
   booked_class_credit: "Booked with your class credit. Nothing to pay.",
   profile_saved: "Saved. Your details are updated.",
   card_updated: "Thanks, your card is saved. Your renewals will be charged to it.",
