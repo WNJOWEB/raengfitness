@@ -128,7 +128,7 @@ test.describe("joining and paying online", () => {
     expect(welcome.payload.subject).toBe("Welcome to RAENG: your Regular membership has started");
     expect(welcome.payload.text).toContain("renews automatically every 4 weeks until you cancel");
     expect(welcome.payload.text).toContain("Visa ending 4242");
-    expect(welcome.payload.text).toContain("Prefer a Direct Debit? Set it up from your account");
+    expect(welcome.payload.text).toMatch(/Prefer a Direct Debit\? Set it up here and renewals are collected from your bank instead: \S+\/memberships\/join\/done\?signup=/);
   });
 
   test("the member's plan page has no payment options (only cancelling) and sends questions to Alex's email and phone; the Direct Debit confirmation page", async ({ page, request }) => {

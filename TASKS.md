@@ -283,6 +283,7 @@ See Coach portal below.
 - [x] Join check step in the usual short form (owner, 2026-11-03): your choices, four key terms (payment, credits, cancelling a class, cancelling the membership; `membershipKeyTerms` in content/policy.ts, a short form of the published wording), a link to the full terms on /terms, then the two ticks, the total and the pay button
 - [x] A full Stripe refund of a cancelled membership's period cancels its fee and ends its unused credits (migration `20261110000000`), as for a cancelled class
 - [x] Cancelling a membership cancels its Direct Debit with Stripe (owner, 2026-11-03): straight away, or by the daily job once a collection in progress has cleared
+- [x] One Direct Debit reminder email (owner, 2026-11-03): a card member who joined online 2 or more days ago (and under 2 weeks) and is still active is emailed once, with the link to their join confirmation and its Set up Direct Debit button (daily job, `sendDirectDebitReminders`). The welcome email's Direct Debit line now links there too: the account has no Direct Debit button
 
 ## Stripe sandbox (2026-11-03, owner: test the payments properly)
 - [x] A real-Stripe test suite is built (`npm run test:sandbox`): pay page settings, saved-card renewal, declined card, card needing the bank's confirmation, refunds. Free, local database, no live data. Details in DEPLOYMENT.md.

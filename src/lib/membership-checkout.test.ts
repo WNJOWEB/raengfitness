@@ -3,7 +3,7 @@ import { publishedClasses, type PublishedClass } from "./class-sessions";
 import { rpc, type Db } from "./coach/db";
 import { addDays, londonToday, type DateKey } from "./coach/time";
 import { testDb } from "./coach/test-support";
-import { notifyNewMembers, sendRenewalLinks, signupStatus, startCheckout } from "./membership-checkout";
+import { notifyNewMembers, sendDirectDebitReminders, sendRenewalLinks, signupStatus, startCheckout } from "./membership-checkout";
 import type { MembershipRequest } from "./membership-request";
 import { deliverStripeEvent, stripeStandIn, testStripe } from "./stripe/test-support";
 
@@ -231,5 +231,53 @@ describe("a Stripe refund of a membership's first period", () => {
     expect(await sql("select entity, detail from akb_events where entity_id = $1 and action = 'waiver_accepted'", [t.signupId])).toEqual([
       { entity: "membership_signup", detail: { version: "2026-10-31", at: "2026-11-03T12:00:00.000Z" } },
     ]);
+  });
+});
+
+describe("one reminder to set up a Direct Debit (owner, 2026-11-03)", () => {
+  const ddEnv = { ...env, DIRECT_DEBIT_ENABLED: "true" };
+  async function joinedDaysAgo(api: ReturnType<typeof services>, days: number) {
+    const data = request({ plan: "starter" });
+    const out = await startCheckout(db, stripe, data, null, { agreedAt: new Date().toISOString(), idempotencyKey: `join-key-${n}`, env, fetchImpl: api.fetchImpl });
+    if (!out.ok) throw new Error(out.reason);
+    const session = await orderFor(out.signupId);
+    api.stripeApi.pay(session, 4000);
+    expect((await deliver(api, session)).status).toBe(200);
+    await sql("update akb_membership_signups set created_at = now() - make_interval(days => $2) where id = $1", [out.signupId, days]);
+    const [row] = await sql("select membership_id, client_id from akb_membership_signups where id = $1", [out.signupId]);
+    return { signupId: out.signupId, membership: String(row.membership_id), client: String(row.client_id), email: data.email };
+  }
+  const mine = (api: ReturnType<typeof services>, to: string) => api.emails.filter((e) => e.to.includes(to) && e.subject === "Pay your RAENG membership by Direct Debit");
+
+  it("emails a card member once, two days after joining, with the link to set it up", async () => {
+    const api = services();
+    const m = await joinedDaysAgo(api, 3);
+    await sendDirectDebitReminders(db, stripe, londonToday(), ddEnv, api.fetchImpl);
+    const [mail] = mine(api, m.email);
+    expect(mail.text).toContain(`https://raeng.example/memberships/join/done?signup=${m.signupId}`);
+    expect(mail.text).toContain("£40 is charged to your");
+    expect(mail.text).toContain("There's nothing you need to do");
+    // Once only, however often the daily job runs.
+    await sendDirectDebitReminders(db, stripe, londonToday(), ddEnv, api.fetchImpl);
+    const again = services();
+    await sendDirectDebitReminders(db, stripe, londonToday(), ddEnv, again.fetchImpl);
+    expect(mine(api, m.email)).toHaveLength(1);
+    expect(mine(again, m.email)).toHaveLength(0);
+  });
+
+  it("not too soon, not for old joins, not once cancelled or on Direct Debit, and not while Direct Debit is off", async () => {
+    const api = services();
+    const fresh = await joinedDaysAgo(api, 0);
+    const old = await joinedDaysAgo(api, 20);
+    const cancelled = await joinedDaysAgo(api, 3);
+    await rpc<null>(db, "akb_set_membership_status", { p_membership: cancelled.membership, p_status: "cancelled", p_on: londonToday() });
+    const onDd = await joinedDaysAgo(api, 3);
+    await sql("update akb_stripe_customers set method = 'bacs', dd_status = 'active' where client_id = $1", [onDd.client]);
+    const off = await joinedDaysAgo(api, 3);
+    await sendDirectDebitReminders(db, stripe, londonToday(), env, api.fetchImpl);
+    expect(mine(api, off.email)).toHaveLength(0);
+    await sendDirectDebitReminders(db, stripe, londonToday(), ddEnv, api.fetchImpl);
+    for (const m of [fresh, old, cancelled, onDd]) expect(mine(api, m.email)).toHaveLength(0);
+    expect(mine(api, off.email)).toHaveLength(1);
   });
 });

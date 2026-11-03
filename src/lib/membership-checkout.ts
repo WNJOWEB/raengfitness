@@ -3,9 +3,9 @@ import { bookingMode } from "./booking";
 import { bookingDeliveryConfig } from "./booking-request";
 import type { PublishedClass } from "./class-sessions";
 import { coachDb, inList, insert, rpc, select, update, type Db, type DbError } from "./coach/db";
-import { formatDate, londonToUtc, type DateKey } from "./coach/time";
+import { addDays, formatDate, londonToUtc, type DateKey } from "./coach/time";
 import type { Env } from "./env";
-import { ACCOUNT_PATH, SIGN_IN_PATH, memberLinkOrigin } from "./member-auth";
+import { SIGN_IN_PATH, memberLinkOrigin } from "./member-auth";
 import { formatPenceShort } from "./membership";
 import { describeFirstClass, type MembershipRequest } from "./membership-request";
 import { sendEmail } from "./send-email";
@@ -225,7 +225,7 @@ export async function notifyNewMembers(db: Db, classes: PublishedClass[], env: E
     const how = await rpc<{ status: string; method: string; label: string }>(db, "akb_payment_method_info", { p_client: row.client_id });
     const renewalLine =
       how.ok && how.data.status === "active" && how.data.method === "card"
-        ? `Your membership renews automatically every ${BILLING_WEEKS} weeks until you cancel: ${formatPenceShort(s.price_pence)} is charged to your ${how.data.label || "card"} on each renewal date. We'll email you 5 days before each payment. To stop it, cancel from your account at any time.${directDebitEnabled(env) ? `\n\nPrefer a Direct Debit? Set it up from your account and renewals are collected from your bank instead: ${memberLinkOrigin(env)}${ACCOUNT_PATH}/plan` : ""}`
+        ? `Your membership renews automatically every ${BILLING_WEEKS} weeks until you cancel: ${formatPenceShort(s.price_pence)} is charged to your ${how.data.label || "card"} on each renewal date. We'll email you 5 days before each payment. To stop it, cancel from your account at any time.${directDebitEnabled(env) ? `\n\nPrefer a Direct Debit? Set it up here and renewals are collected from your bank instead: ${memberLinkOrigin(env)}${JOIN_DONE_PATH}?signup=${s.id}` : ""}`
         : `Your membership renews every ${BILLING_WEEKS} weeks; you'll get a payment link by email each time.`;
     const slot = classes.find((c) => c.id === s.class_slot);
     const firstClass = s.class_date && slot ? describeFirstClass({ session: slot.label, classDate: s.class_date }) : null;
@@ -362,4 +362,66 @@ export async function paymentDue(db: Db, stripe: StripeConfig | null, clientId: 
     direct = !link.ok && link.reason === "direct-debit";
   }
   return { amountPence: due.data.outstanding_pence, url, periodEnd: due.data.period_end, direct };
+}
+
+/** Days after joining that a card member who hasn't set up a Direct Debit is reminded, once. */
+export const DD_REMINDER_AFTER_DAYS = 2;
+
+/**
+ * One reminder (owner, 2026-11-03): a member who joined online
+ * DD_REMINDER_AFTER_DAYS or more days ago, is still active and still renews by
+ * card is emailed once, with the link back to their join confirmation, whose
+ * "Set up Direct Debit" button opens Stripe's page. Joins older than two weeks
+ * are left alone. Recorded in the event log so it never goes twice; a failed
+ * email is tried again the next day. Only while Direct Debit is switched on.
+ */
+export async function sendDirectDebitReminders(db: Db, stripe: StripeConfig, today: DateKey, env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<number> {
+  const email = bookingDeliveryConfig(env);
+  if (!email || env.DIRECT_DEBIT_ENABLED?.trim() !== "true") return 0;
+  const signups = await select<{ id: string; client_id: string; membership_id: string; plan_name: string }>(db, "akb_membership_signups", [
+    ["select", "id,client_id,membership_id,plan_name"],
+    ["status", "eq.active"],
+    ["created_at", `lte.${addDays(today, -DD_REMINDER_AFTER_DAYS + 1)}T00:00:00Z`],
+    ["created_at", `gte.${addDays(today, -14)}T00:00:00Z`],
+    ["limit", "200"],
+  ]);
+  if (!signups.ok) return 0;
+  let sent = 0;
+  for (const s of signups.data) {
+    const m = await select<{ status: string; next_period_on: string | null; price_pence: number }>(db, "akb_memberships", [["select", "status,next_period_on,price_pence"], ["id", `eq.${s.membership_id}`]]);
+    const membership = m.ok ? m.data[0] : undefined;
+    if (!membership || membership.status !== "active") continue;
+    const dd = await select<{ method: string; dd_status: string; card_label: string; environment: string }>(db, "akb_stripe_customers", [["select", "method,dd_status,card_label,environment"], ["client_id", `eq.${s.client_id}`]]);
+    const row = dd.ok ? dd.data[0] : undefined;
+    if (!row || row.environment !== stripe.environment || row.method === "bacs") continue;
+    const done = await select<{ id: number }>(db, "akb_events", [["select", "id"], ["entity_id", `eq.${s.membership_id}`], ["action", "eq.direct_debit_reminder_sent"], ["limit", "1"]]);
+    if (!done.ok || done.data.length > 0) continue;
+    const person = await select<{ email: string; full_name: string }>(db, "akb_clients", [["select", "email,full_name"], ["id", `eq.${s.client_id}`]]);
+    const to = person.ok ? person.data[0] : undefined;
+    if (!to?.email) continue;
+    const renews = membership.next_period_on ? ` on ${formatDate(membership.next_period_on as DateKey)}` : "";
+    const mailed = await sendEmail(
+      email,
+      {
+        idempotencyKey: `dd-reminder/${s.membership_id}`,
+        to: to.email,
+        replyTo: email.to,
+        subject: "Pay your RAENG membership by Direct Debit",
+        text: [
+          `Your ${s.plan_name} membership renews${renews}, and at the moment ${formatPenceShort(membership.price_pence)} is charged to your ${row.card_label || "card"} each time.`,
+          "",
+          `If you'd rather pay by Direct Debit, you can set it up here:\n${memberLinkOrigin(env)}${JOIN_DONE_PATH}?signup=${s.id}`,
+          "",
+          "Your bank details go straight to Stripe, not to us, and you can cancel at any time. Happy with your card? There's nothing you need to do.",
+          "",
+          "Questions? Just reply to this email.",
+        ].join("\n"),
+      },
+      fetchImpl,
+    );
+    if (!mailed.ok) continue;
+    await insert(db, "akb_events", { client_id: s.client_id, entity: "membership", entity_id: s.membership_id, action: "direct_debit_reminder_sent", detail: {} });
+    sent += 1;
+  }
+  return sent;
 }
