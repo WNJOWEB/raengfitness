@@ -65,7 +65,7 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Class times Mon 18:30, Wed 18:30, Sat 10:15, each 60 minutes | C | Mon/Wed confirmed 2026-10-15; Saturday moved to 10:15–11:15 and the 60-minute length confirmed by the project owner 2026-10-17 (from Alex's own class listing). Shown across the site and as real dates in the booking calendar |
 | Group class: "Kettlebell Training", £10 per person, description from Alex's listing | C | Confirmed by the project owner 2026-10-17; shown on the homepage and /classes |
 | Class duration, capacity, equipment, booking requirement | U | Do not publish |
-| Cancellation / refund rules | U | Do not publish |
+| Cancellation / refund rules | C | Published (content/policy.ts; refunds option B, 2026-11-02) |
 | One-to-one from £35/session; 4 sessions £130/month | C | Confirmed by the project owner 2026-10-15 (figures from the original brief); shown on the site |
 | Online coaching £79/month | C | Confirmed by the project owner 2026-10-15; shown on the site |
 | Alex's journey (story, before/after photos) | C | Published 2026-10-15 at the owner's request: before/after photos replaced 2026-10-17 with photos supplied by the project owner as Alex's own (`assets/journey/`, cut by `scripts/supplied_photos.py`; no dates, timeframe or figures given, so none are shown), short text written from his reel motto ("1% everyday") and bio. Swap in Alex's own story when supplied |
@@ -74,7 +74,7 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Testimonials / client numbers | U | None supplied; never invent |
 | FAQ: beginners, first session, what to bring, class length (60 min), kettlebells provided | P→C | Industry-standard answers published at the owner's request 2026-10-15; class length confirmed 2026-10-17. **Alex to check the rest** |
 | Session duration, availability, contract terms | U | |
-| Membership | U | Under consideration; not on the site |
+| Membership | C | Starter, Regular, Dedicated, live with online joining (2026-11-03) |
 | Email, phone, RAENG Instagram | C | Supplied by the owner 2026-10-30: hello@raengfitness.co.uk, 07452 825256, @raeng.fitness (`site.contact`, `site.social.raeng`). Shown on FAQs & Contact and in the footer. The phone number is never in the page source: it is sent scrambled and shown on a tap ("Show number") to stop scrapers (`RevealPhone`, `lib/phone.ts`) |
 | Logo artwork | C | Supplied 2026-10-15 (`assets/brand/alexkbells-logo-source.jpg`). Monogram "AR" with kettlebell (confirmed intentional); wordmark ALEX.KBELLS; descriptor KETTLEBELL COACH. This JPG is the only version — no vector exists |
 | Photography of Alex / coaching | U | No stills supplied |

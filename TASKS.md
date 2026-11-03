@@ -7,7 +7,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - **Membership portal and coach portal: make them easy on a phone for Alex and members** (owner's focus; phone audit below in "Portal audit")
 - Google Search Console and Google Business Profile (owner and Alex together)
 - Alex's bio, portrait, qualifications, testimonials (nothing shown until supplied)
-- Watch the first real Direct Debit collection clear (needs a real member on Direct Debit; the demo ones are cancelled)
+- Live payment tests done (2026-11-03): class pay, cancel and refund; Starter join by card, Direct Debit set-up, cancel and refund; coach card link. Still to watch: the first real Direct Debit collection clear (needs a real member on Direct Debit; the demo ones are cancelled)
 - Paused-membership restart policy; small group coaching details; what 1:1 coaching includes
 - Real-phone check of both portals; compare speed after the Dublin deploy
 - Older unticked lines below are historic; the ones above are what matters.
@@ -202,7 +202,7 @@ See Coach portal below.
 - [x] Hero film cut from supplied footage (2026-10-21)
 - [x] P0 Confirm everyone in the hero film, hero still and before/after photos agrees to appear; a higher-resolution clip would look sharper on large screens — done: owner 2026-11-03: Alex keeps written consent; nothing stored on the site
 - [x] Credits/renewals built (see Master redesign). The auto-renew and "credit returned" wording now matches the portal: renewal creates the period, credits and charge; an in-time cancellation returns the credit
-- [ ] P1 Check the £12 price in the coach portal's stored data (`akb_` tables keep their own per-class price if one was saved)
+- [x] P1 Check the £12 price in the coach portal's stored data (2026-11-03: no per-class price is stored anywhere; class charges take £12 from content) (`akb_` tables keep their own per-class price if one was saved)
 
 ## RAENG rebrand (2026-10-21)
 
@@ -276,7 +276,7 @@ See Coach portal below.
 - [x] The customer receipt that failed once (2 Nov, 422) was for a test client with no email; the code already skips a client with no email address
 - [x] `/terms` page: the published membership, cancellation, refund and health-and-risk wording in one place (no new wording), linked from the footer
 - [ ] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter)
-- [ ] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection
+- [x] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection (done live 2026-11-03 by the owner, all but the first real Direct Debit collection, which needs a real member)
 - [x] Live £12 class test (2026-11-03): paid, confirmation page and email, account, cancel with credit, refund in Stripe, Stripe receipt. Found: a Stripe refund after cancelling left the fee owed and the credit live. Fixed (a full refund of a cancelled class withdraws an unused credit and cancels the fee); the test account's fee and credit cleared the same way
 - [x] The other order (2026-11-03): a class refunded in full in Stripe before it's cancelled gives no class credit when cancelled, and its fee is cancelled; the cancel screens and emails say why
 - [x] Booking journeys made consistent (owner, 2026-11-03): the membership join now asks for a phone number (required, as on a class booking), requires the health and risk tick before joining (stored with the sign-up, as with a class booking), shows the same short summary at the top on phones, says the email signs you in next time, and uses the same wording for browser fill-in and privacy. One shared summary and health-and-risk component (`components/booking/ui.tsx`)
