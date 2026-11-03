@@ -595,8 +595,14 @@ test.describe("memberships", () => {
 
   test("the page shows the home page's plan list: each plan's rules as in Alex's layout", async ({ page }) => {
     await page.goto("/memberships");
-    await expect(page.locator("h1")).toHaveText("How memberships work.");
+    // Alex's feedback (2026-11-03): the plans come first, then how it works and the terms, then the cancellation policy; no closing "Ready to start".
+    await expect(page.locator("h1")).toHaveText("Choose your membership.");
     await expect(page.getByRole("heading", { name: "Compare the prices." })).toBeVisible();
+    const top = async (selector: string) => page.locator(selector).first().evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    expect(await top("#memberships")).toBeLessThan(await top("#how-it-works"));
+    expect(await top("#how-it-works")).toBeLessThan(await top("#membership-terms"));
+    expect(await top("#membership-terms")).toBeLessThan(await top("#cancellation"));
+    await expect(page.getByRole("heading", { name: "Ready to start?" })).toHaveCount(0);
     await expect(page.locator("#memberships")).toContainText("Save up to £59 every 4 weeks, against pay as you go at £12 a class.");
     const rows = page.locator("#memberships").getByRole("list", { name: "Membership plans" }).locator("> li");
     await expect(rows).toHaveCount(4);

@@ -8,7 +8,7 @@ import { Icon } from "./icons";
  */
 export function MembersLoading() {
   return (
-    <div data-members-app className="members-app min-h-dvh bg-paper text-ink" aria-busy="true">
+    <div data-members-app data-skeleton className="members-app min-h-dvh bg-paper text-ink" aria-busy="true">
       <header className="sticky top-0 z-20 border-b border-line bg-paper">
         <div className="mx-auto grid h-[60px] max-w-[620px] grid-cols-[44px_1fr_44px] items-center px-5">
           <span aria-hidden="true" className="flex flex-col gap-[5px]">
@@ -25,7 +25,7 @@ export function MembersLoading() {
 
       <div className="mx-auto max-w-[620px] px-5 pt-7 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         <div role="status" className="members-view flex flex-col gap-7">
-          <p className="sr-only">Loading your page…</p>
+          <h1 className="sr-only">Loading your page…</h1>
           <div aria-hidden="true" className="flex flex-col gap-3">
             <div className="sk-bar w-24" />
             <div className="sk-bar !h-9 w-4/5" />

@@ -5,8 +5,8 @@
  */
 export function CoachLoading() {
   return (
-    <div role="status" aria-busy="true" className="flex flex-col gap-6">
-      <p className="sr-only">Loading the page…</p>
+    <div role="status" aria-busy="true" data-skeleton className="flex flex-col gap-6">
+      <h1 className="sr-only">Loading the page…</h1>
       <div aria-hidden="true" className="flex flex-col gap-3">
         <div className="sk-bar w-24" />
         <div className="sk-bar !h-9 w-3/4" />
