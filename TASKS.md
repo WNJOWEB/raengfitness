@@ -194,7 +194,7 @@ See Coach portal below.
 - [x] Dashboard: "No credits left" for members who have used every credit this period; renewals caught up on every visit to the dashboard or Memberships, so they still happen without `CRON_SECRET` (2026-10-24)
 - [x] P0 Confirm class capacity (set per class in the coach portal; blank means not full) — done: 15, confirmed
 - [x] End-to-end payment test done live with a real £1 payment and refund (2026-11-02); further flows are covered by mocked tests
-- [ ] P1 Confirm brand name on the site (RAENG Kettlebell Club vs Alex K Bells)
+- [x] P1 Brand name confirmed by the owner (2026-11-03): **RAENG Fitness**
 
 ## Kettlebell Club redesign (2026-10-21, later)
 - [x] New logo (black/cream), cream-led palette, hero video support, /memberships (cards, terms, cancellation policy), coach + before/after on home, minimal imagery, £12 class price, tests

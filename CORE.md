@@ -21,7 +21,7 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 ## Master redesign brief (2026-10-22)
 
 - Class schedule changed by the owner: **Monday 6:30 pm, Wednesday 6:30 pm, Saturday 9:00 am** (Saturday was 10:15). Single source: `content/classes.ts`.
-- The brief is titled "Alex K Bells" and names the old Lovable site; the owner's earlier instruction and supplied logo make the brand **RAENG Kettlebell Club**, which is kept. Confirm.
+- The brief is titled "Alex K Bells" and names the old Lovable site; the brand is **RAENG Fitness** (owner, 2026-11-03: "Raeng Fitness is the brand name"). The logo reads RAENG FITNESS and the home page title says "RAENG Fitness".
 - Regular's cost per class is £8.125; the site shows £8.13 (nearest penny), Dedicated £7.08.
 - Payments are on Stripe (live 2026-11-02): card payments with verified webhooks, memberships renewing by saved card, and Bacs Direct Debit once Stripe approves it. Nothing is faked: the site never shows a payment as received until Stripe's signed webhook has been verified and re-read from Stripe. Also built and tested: bookings as requests that Alex confirms (capacity enforced in the database when set per class), manual subscriptions and check-ins in the coach portal.
 
