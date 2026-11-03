@@ -307,7 +307,7 @@ export async function createChargeLink(
     redirectUrl?: string;
     /** Where Stripe's "back" arrow goes. Default: the return page with `cancelled=1`, so it can say "payment cancelled" instead of "waiting". */
     cancelUrl?: string;
-    /** Stripe's page stops taking payment after this long (class places are held 15 minutes, so 30 is the shortest Stripe allows). */
+    /** Stripe's page stops taking payment after this long (class places are held 15 minutes; Stripe allows no less than 30, so 35). */
     expiresInMinutes?: number;
     renewal?: { clientId: string; email: string; name: string };
   } = {},

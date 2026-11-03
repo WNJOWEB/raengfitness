@@ -75,7 +75,7 @@ export async function startClassCheckout(
   if (created.data.status === "confirmed" || !created.data.charge_id) {
     return { ok: true, url: done, bookingId: created.data.booking_id, confirmed: true };
   }
-  const link = await createChargeLink(db, stripe, created.data.charge_id, options.fetchImpl, { buyerEmail: booker.email, redirectUrl: done, expiresInMinutes: 30 });
+  const link = await createChargeLink(db, stripe, created.data.charge_id, options.fetchImpl, { buyerEmail: booker.email, redirectUrl: done, expiresInMinutes: 35 });
   if (!link.ok) return { ok: false, reason: "unavailable" };
   return { ok: true, url: link.url, bookingId: created.data.booking_id, confirmed: false };
 }

@@ -29,7 +29,7 @@ Asked by the owner: every booking and payment journey must always end on a page 
 ## What changed
 
 - Stripe's back arrow now goes to the same page with `cancelled=1`: it says "Payment cancelled. You haven't been charged." and offers the same payment page again (no second page is made, so no second payment).
-- Class place payment pages stop taking payment after 30 minutes (Stripe's shortest); a replaced link also closes its old Stripe page.
+- Class place payment pages stop taking payment after 35 minutes (Stripe's shortest is 30, plus a margin so a request arriving a moment late isn't refused); a replaced link also closes its old Stripe page.
 - `/book/done`, `/pay/done` and `/memberships/join/done` use the shared confirmation design and show service, date and time, place, price and how it was paid, a reference, what happens next, and a button (View my bookings / Sign in / Book a class).
 - Renewal links now return to `/pay/done`, which reads the payment from the database.
 - Every waiting page stops asking after 15 tries and says "Still confirming", with an email to follow.
@@ -44,5 +44,5 @@ Every page reads the database by a random id in the address (never browser state
 ## Limits
 
 - Declined cards, 3-D Secure and retries happen on Stripe's own page, which keeps the buyer there: no "failed" return reaches us for card payments, so there's no separate failed page. If asynchronous methods (such as bank debits) are ever added to Stripe Checkout, a failed-payment page is needed.
-- Between 15 and 30 minutes a held place can lapse while the Stripe page is still open; a payment then arriving is recorded and Alex is told to sort the place ("Payment received, needs you").
+- Between 15 and 35 minutes a held place can lapse while the Stripe page is still open; a payment then arriving is recorded and Alex is told to sort the place ("Payment received, needs you").
 - Request confirmations (1:1, membership and online enquiries) are a screen on the same page, not a separate address, so a refresh starts a fresh form; the reference is in the email.

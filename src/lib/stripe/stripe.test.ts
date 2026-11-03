@@ -148,19 +148,19 @@ describe("checkout links", () => {
     expect(a.calls[0].form.get("cancel_url")).toBe(`${success}&cancelled=1`);
   });
 
-  it("an explicit cancel address is kept, and a class place's page is told to stop taking payment after 30 minutes", async () => {
+  it("an explicit cancel address is kept, and a class place's page is told to stop taking payment after 35 minutes", async () => {
     const a = api();
     const { charge } = await chargeFor(1200);
     const before = Math.floor(Date.now() / 1000);
-    expect(await createChargeLink(db, stripe, charge, a.fetchImpl, { redirectUrl: "https://raeng.example/done?booking=1", cancelUrl: "https://raeng.example/other", expiresInMinutes: 30 })).toMatchObject({ ok: true });
+    expect(await createChargeLink(db, stripe, charge, a.fetchImpl, { redirectUrl: "https://raeng.example/done?booking=1", cancelUrl: "https://raeng.example/other", expiresInMinutes: 35 })).toMatchObject({ ok: true });
     const form = a.calls[0].form;
     expect(form.get("cancel_url")).toBe("https://raeng.example/other");
     const expires = Number(form.get("expires_at"));
-    expect(expires).toBeGreaterThanOrEqual(before + 30 * 60);
-    expect(expires).toBeLessThanOrEqual(before + 30 * 60 + 5);
+    expect(expires).toBeGreaterThanOrEqual(before + 35 * 60);
+    expect(expires).toBeLessThanOrEqual(before + 35 * 60 + 5);
   });
 
-  it("Stripe never gets an expiry shorter than its 30-minute minimum, nor one past 24 hours; no expiry means Stripe's default", async () => {
+  it("Stripe never gets an expiry at or near its 30-minute minimum (a request arriving a moment late would be refused), nor one at 24 hours; no expiry means Stripe's default", async () => {
     const a = api();
     const first = await chargeFor(1000);
     await createChargeLink(db, stripe, first.charge, a.fetchImpl, { expiresInMinutes: 5 });
@@ -169,8 +169,8 @@ describe("checkout links", () => {
     const third = await chargeFor(1000);
     await createChargeLink(db, stripe, third.charge, a.fetchImpl);
     const now = Math.floor(Date.now() / 1000);
-    expect(Number(a.calls[0].form.get("expires_at"))).toBeGreaterThanOrEqual(now + 30 * 60 - 5);
-    expect(Number(a.calls[1].form.get("expires_at"))).toBeLessThanOrEqual(now + 1440 * 60 + 5);
+    expect(Number(a.calls[0].form.get("expires_at"))).toBeGreaterThanOrEqual(now + 31 * 60 - 5);
+    expect(Number(a.calls[1].form.get("expires_at"))).toBeLessThanOrEqual(now + 1439 * 60 + 5);
     expect(a.calls[2].form.has("expires_at")).toBe(false);
   });
 
