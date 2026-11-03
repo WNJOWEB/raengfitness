@@ -277,6 +277,7 @@ See Coach portal below.
 - [x] `/terms` page: the published membership, cancellation, refund and health-and-risk wording in one place (no new wording), linked from the footer
 - [ ] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter)
 - [ ] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection
+- [x] Live £12 class test (2026-11-03): paid, confirmation page and email, account, cancel with credit, refund in Stripe, Stripe receipt. Found: a Stripe refund after cancelling left the fee owed and the credit live. Fixed (a full refund of a cancelled class withdraws an unused credit and cancels the fee); the test account's fee and credit cleared the same way
 
 ## Stripe sandbox (2026-11-03, owner: test the payments properly)
 - [x] A real-Stripe test suite is built (`npm run test:sandbox`): pay page settings, saved-card renewal, declined card, card needing the bank's confirmation, refunds. Free, local database, no live data. Details in DEPLOYMENT.md.
