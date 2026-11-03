@@ -38,11 +38,11 @@ export function shortWhen(iso: string): string {
 /** "in 6 days", "tomorrow", "in 3 h", "in 40 min" or "starting now", by UK calendar days. */
 export function countdown(iso: string, now: Date): string {
   const days = daysBetween(toLondon(now).date, toLondon(iso).date);
-  if (days > 1) return `in ${days} days`;
-  if (days === 1) return "tomorrow";
+  if (days > 1) return `In ${days} days`;
+  if (days === 1) return "Tomorrow";
   const minutes = Math.round((Date.parse(iso) - now.getTime()) / 60_000);
-  if (minutes >= 60) return `in ${Math.floor(minutes / 60)} h`;
-  return minutes > 0 ? `in ${minutes} min` : "starting now";
+  if (minutes >= 60) return `In ${Math.floor(minutes / 60)} h`;
+  return minutes > 0 ? `In ${minutes} min` : "Starting now";
 }
 
 /** Booked places still to come, soonest first. */

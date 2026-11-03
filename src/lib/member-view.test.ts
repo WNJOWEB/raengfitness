@@ -70,10 +70,10 @@ describe("greeting and names", () => {
 
 describe("countdown", () => {
   it("counts UK calendar days, then hours and minutes on the day", () => {
-    expect(countdown("2026-11-04T18:30:00Z", now)).toBe("in 7 days");
-    expect(countdown("2026-10-29T09:00:00Z", now)).toBe("tomorrow");
-    expect(countdown("2026-10-28T21:30:00Z", new Date("2026-10-28T18:00:00Z"))).toBe("in 3 h");
-    expect(countdown("2026-10-28T18:30:00Z", new Date("2026-10-28T18:05:00Z"))).toBe("in 25 min");
+    expect(countdown("2026-11-04T18:30:00Z", now)).toBe("In 7 days");
+    expect(countdown("2026-10-29T09:00:00Z", now)).toBe("Tomorrow");
+    expect(countdown("2026-10-28T21:30:00Z", new Date("2026-10-28T18:00:00Z"))).toBe("In 3 h");
+    expect(countdown("2026-10-28T18:30:00Z", new Date("2026-10-28T18:05:00Z"))).toBe("In 25 min");
   });
 });
 

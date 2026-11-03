@@ -52,7 +52,8 @@ function untilLabel(startsAt: string, now: Date): string {
   if (m <= 0) return "on now";
   if (m < 60) return `in ${m} min`;
   if (m < 24 * 60) return `in ${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
-  return `in ${Math.round(m / 1440)} days`;
+  const d = Math.round(m / 1440);
+  return `in ${d} ${d === 1 ? "day" : "days"}`;
 }
 
 async function Today() {
