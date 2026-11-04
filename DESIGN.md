@@ -303,3 +303,5 @@ Same tokens and type, tuned for use on a phone between sessions:
 
 
 - **Coach class page (2026-11-04):** each attendee's details open in a panel (private note, credit stepper); a Waitlist panel lists those waiting; the booking calendar shows full dates dashed with "Join the waitlist"; Account Book shows "On waitlist" with a leave button.
+
+- **Pause (2026-11-04):** on Plan, "Pause my membership" sits above "Cancel my membership" as a quiet disclosure with the rules in the text; once booked, a "Pause booked" / "Paused" card (white, like Restart) with a single button (Cancel the pause, or Restart my membership now); the progress strip's right label reads "Pause starts <date>".

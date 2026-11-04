@@ -571,6 +571,41 @@ test.describe("member accounts", () => {
     await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG membership is back on")).toBe(true);
   });
 
+  test("a member pauses their membership: once, for one period, from the end of this one (owner, 2026-11-04)", async ({ page, request }) => {
+    const email = `pause-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    await askForLink(page, email);
+    await page.goto(PROD + linkPath((await emailsTo(request, email))[0]));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${PROD}/account/plan`);
+
+    // The rules are said before they tap.
+    await page.locator("summary", { hasText: "Pause my membership" }).click();
+    await expect(page.getByText("once, for 4 weeks, and once every 6 months")).toBeVisible();
+    await expect(page.getByText("nothing is refunded")).toBeVisible();
+    await page.getByRole("button", { name: "Yes, pause my membership" }).click();
+    await expect(page.getByRole("status")).toContainText("Your pause is booked.");
+    const booked = page.getByRole("region", { name: /Pausing on/ });
+    await expect(booked).toContainText("Your credits work until the end of this period");
+    await expect(page.getByText(/Pause starts/)).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath("plan-pause-booked.png"), fullPage: true });
+    // The membership stays active; the renewal moved on by one period, and a pause can't be booked twice.
+    const [m] = await sql(request, "select m.status, (m.next_period_on - m.start_on) as days, m.pause_from is not null as has_pause from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email]);
+    expect(m).toEqual({ status: "active", days: 56, has_pause: true });
+    await expect(page.locator("summary", { hasText: "Pause my membership" })).toHaveCount(0);
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG membership will pause")).toBe(true);
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject === "Membership pause booked: Member Tester")).toBe(true);
+
+    // Changed their mind before it starts: undone, and the pause doesn't count.
+    await booked.getByRole("button", { name: "Cancel the pause" }).click();
+    await expect(page.getByRole("status")).toContainText("Your pause is cancelled.");
+    expect((await sql(request, "select (m.next_period_on - m.start_on) as days, m.pause_from is null as clear from akb_memberships m join akb_clients c on c.id = m.client_id where c.email = $1", [email]))[0]).toEqual({ days: 28, clear: true });
+    await expect(page.locator("summary", { hasText: "Pause my membership" })).toBeVisible();
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG pause is cancelled")).toBe(true);
+  });
+
   test("payments and receipts, and changing the email with a code to the new address (owner, 2026-11-03)", async ({ page, request }) => {
     const email = `extras-${Date.now()}@example.com`;
     await seedMember(request, email);

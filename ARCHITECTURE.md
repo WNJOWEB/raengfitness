@@ -285,3 +285,6 @@ Like Spotify: the membership's first 4 weeks are paid on Stripe's page, which ke
 - `akb_class_waitlist` (RLS on, no policies, service-role functions only): join only when full, offers = free places in order, 24-hour offers, max 30 waiting; refreshed by `afterPlacesChange` (cancellations, removals, size changes) and the daily crons, which email offers (`src/lib/waitlist.ts`). `/book/waitlist` is a private route (robots-disallowed).
 - Class size order: date's own > slot (`akb_settings` key `class_capacity:<slot>`) > all-classes size; `classForSlot` maps calendar slots to classes.
 - `akb_adjust_period_credits` backs the coach credit adjuster; coach notes use the attendance notes field. UI: `components/coach/DetailsPanel.tsx`, `CreditStepper.tsx`.
+
+## Member pause (2026-11-04)
+- A pause leaves the membership `active` and moves `next_period_on` on by one `period_days`; `pause_from` / `pause_until` record it. The daily renewals, Direct Debit and card collections and renewal reminders all follow `next_period_on`, so they simply wait. Rules are written in `20261122000000_akb_member_pause.sql` (`akb_member_pause_info`, `akb_member_pause`, `akb_member_pause_undo`); `src/lib/membership-pause.ts` wraps them; actions `pauseMembership` / `endPause` in `src/app/account/actions.ts`. The booking view shows pause days as "Paused".

@@ -38,6 +38,7 @@ import {
 import { deviceLabel, labelSession } from "@/lib/member-settings";
 import { requireMember } from "@/lib/member-session";
 import { sendNotice } from "@/lib/notices";
+import { pauseErrorCode, pauseOwnMembership, undoOwnPause } from "@/lib/membership-pause";
 import { afterPlacesChange, joinWaitlistAsMember, leaveWaitlistAsMember, waitlistReason } from "@/lib/waitlist";
 import { DONE } from "./data";
 import { sendEmailWithRetry } from "@/lib/send-email";
@@ -373,6 +374,64 @@ export async function restartMembership(): Promise<void> {
     }
   });
   redirect(`${ACCOUNT_PATH}/plan?done=membership_restarted`);
+}
+
+/**
+ * The member pauses their membership (owner, 2026-11-04; the rules are in
+ * migration 20261122000000): once, for one period, starting when the period
+ * they are in ends, credits kept until then. Member and Alex are told.
+ */
+export async function pauseMembership(): Promise<void> {
+  const member = await requireMember();
+  const result = await pauseOwnMembership(member.db, member.clientId);
+  if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=${pauseErrorCode(result.error)}`);
+  const { pause_from: from, pause_until: until } = result.data;
+  after(async () => {
+    try {
+      const who = await whoIs(member);
+      if (who) {
+        const dates = `It starts on ${formatLongDate(from as DateKey)}, and your membership renews on ${formatLongDate(until as DateKey)}.`;
+        await sendNotice({
+          label: "membership-pause",
+          key: `membership-pause/${member.clientId}/${from}`,
+          customer: { email: who.email, subject: "Your RAENG membership will pause", text: `Your pause is booked. ${dates} Your credits stay usable until the end of your current period, and nothing is taken for the four weeks after it. Changed your mind? You can undo it from your account.` },
+          alex: { subject: `Membership pause booked: ${who.name}`, text: `${who.name} (${who.email}) paused their membership from their account. ${dates}` },
+        });
+      }
+    } catch {
+      console.error("Membership pause emails failed");
+    }
+  });
+  redirect(`${ACCOUNT_PATH}/plan?done=membership_paused`);
+}
+
+/** The member undoes a pause that hasn't begun, or ends one that is running (the membership restarts today). */
+export async function endPause(): Promise<void> {
+  const member = await requireMember();
+  const result = await undoOwnPause(member.db, member.clientId);
+  if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=${pauseErrorCode(result.error)}`);
+  const { renews_on: renews, began } = result.data;
+  after(async () => {
+    try {
+      const who = await whoIs(member);
+      if (who) {
+        const when = formatLongDate(renews as DateKey);
+        await sendNotice({
+          label: "membership-pause-end",
+          key: `membership-pause-end/${member.clientId}/${minute()}`,
+          customer: {
+            email: who.email,
+            subject: began ? "Your RAENG membership is back on" : "Your RAENG pause is cancelled",
+            text: began ? `Your pause has ended and your membership restarts today. Your next payment is taken as usual.` : `Your pause is cancelled and your membership carries on as normal. It renews on ${when}.`,
+          },
+          alex: { subject: `Membership pause ${began ? "ended early" : "cancelled"}: ${who.name}`, text: `${who.name} (${who.email}) ${began ? "ended their pause early; the membership restarts today" : "cancelled their pause before it began"}.` },
+        });
+      }
+    } catch {
+      console.error("Membership pause emails failed");
+    }
+  });
+  redirect(`${ACCOUNT_PATH}/plan?done=${began ? "pause_ended" : "pause_undone"}`);
 }
 
 /** The member cancels their own membership: nothing more is taken; credits already given stay until the period ends. */

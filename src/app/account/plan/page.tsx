@@ -9,7 +9,8 @@ import { periodProgress } from "@/lib/member-view";
 import { AccountUnavailable, ClassCredits, PayAsYouGo, PaymentDue } from "@/components/members/Cards";
 import { PlanCoaching } from "@/components/members/CoachingCards";
 import { MembersShell } from "@/components/members/MembersShell";
-import { cancelMembership, restartMembership } from "../actions";
+import { cancelMembership, endPause, pauseMembership, restartMembership } from "../actions";
+import { memberPauseInfo } from "@/lib/membership-pause";
 import { canRestartMembership } from "@/lib/stripe/direct-debit";
 import { loadMembers } from "../data";
 import { PendingButton } from "@/components/ui/PendingButton";
@@ -29,7 +30,7 @@ export const metadata: Metadata = pageMetadata({
  * where to change plan or ask about it. Memberships renew by saved card
  * (the first payment keeps it; changed here), or by Direct Debit once offered, and the member can cancel at any time:
  * nothing more is taken and the credits already given stay until the period
- * ends (owner, 2026-10-30). Pausing or changing plan stays with Alex.
+ * ends (owner, 2026-10-30). Pausing (once, for one period) is from here too; changing plan stays with Alex.
  * Pay-as-you-go customers see their plan instead.
  */
 export default async function AccountPlanPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -39,6 +40,9 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
   const m = o.membership;
   // Cancelled while the paid period runs (and wasn't refunded): it can be restarted (owner, 2026-11-03).
   const restartable = m?.status === "cancelled" ? await canRestartMembership(d.member.db, d.member.clientId) : false;
+  // A pause (owner, 2026-11-04): once, for one period, starting when this period ends; once every 6 months.
+  const pauseRes = m?.status === "active" ? await memberPauseInfo(d.member.db, d.member.clientId) : null;
+  const pause = pauseRes?.ok ? pauseRes.data : null;
   const renewsOn = o.period ? formatLongDate(addDays(o.period.end as DateKey, 1)) : null;
   const howPaid =
     d.dd.status === "active" && d.dd.method === "card"
@@ -92,7 +96,13 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
                 </div>
                 <div className="flex justify-between text-[0.8125rem] text-ink tabular-nums">
                   <span>{formatDayMonth(o.period.start)}</span>
-                  <span>{m.status === "active" && m.renews_on ? `Renews ${formatDayMonth(m.renews_on)}` : `Ends ${formatDayMonth(o.period.end)}`}</span>
+                  <span>
+                    {pause?.state === "scheduled" && pause.pause_from
+                      ? `Pause starts ${formatDayMonth(pause.pause_from)}`
+                      : m.status === "active" && m.renews_on
+                        ? `Renews ${formatDayMonth(m.renews_on)}`
+                        : `Ends ${formatDayMonth(o.period.end)}`}
+                  </span>
                 </div>
               </div>
             ) : null}
@@ -113,6 +123,25 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
               </div>
             ))}
           </dl>
+
+          {pause && pause.state !== "none" && pause.pause_from && pause.pause_until ? (
+            <section aria-labelledby="pause-heading" className="rounded-3xl bg-white p-5.5">
+              <p className="members-eyebrow">{pause.state === "scheduled" ? "Pause booked" : "Paused"}</p>
+              <h2 id="pause-heading" className="mt-1 text-2xl font-extrabold tracking-[-0.02em]">
+                {pause.state === "scheduled" ? `Pausing on ${formatLongDate(pause.pause_from as DateKey)}` : `Paused until ${formatLongDate(pause.pause_until as DateKey)}`}
+              </h2>
+              <p className="mt-1 text-ink">
+                {pause.state === "scheduled"
+                  ? `Your credits work until the end of this period. Nothing is taken for the 4 weeks after it, and your membership renews on ${formatLongDate(pause.pause_until as DateKey)}.`
+                  : `Nothing is taken while it's paused. Your membership renews on ${formatLongDate(pause.pause_until as DateKey)}, and you get new credits then.`}
+              </p>
+              <form action={endPause}>
+                <PendingButton pendingLabel="Working…" className="members-btn members-btn-solid mt-4 w-full sm:w-auto">
+                  {pause.state === "scheduled" ? "Cancel the pause" : "Restart my membership now"}
+                </PendingButton>
+              </form>
+            </section>
+          ) : null}
 
           {restartable ? (
             <section aria-labelledby="restart-heading" className="rounded-3xl bg-white p-5.5">
@@ -156,7 +185,7 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
             </Link>
           </li>
           <li className="flex flex-col gap-1 border-b border-line py-3">
-            <span className="font-semibold">{m ? "Pause or questions" : "Change your details or questions"}</span>
+            <span className="font-semibold">{m ? "Questions" : "Change your details or questions"}</span>
             <span className="text-sm text-ink">Email or call Alex</span>
             <div className="flex flex-wrap items-center gap-x-5">
               {site.contact.email ? (
@@ -178,6 +207,26 @@ export default async function AccountPlanPage({ searchParams }: { searchParams: 
           </li>
         </ul>
       </section>
+
+      {pause?.can_pause && pause.pause_from && pause.pause_until ? (
+        <details className="pb-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm underline underline-offset-4">Pause my membership</summary>
+          <div className="mt-2 rounded-3xl bg-white p-5">
+            <p className="text-ink">
+              You can pause once, for 4 weeks, and once every 6 months. It starts when this period ends, on {formatLongDate(pause.pause_from as DateKey)}: your credits work until then, nothing is refunded, and nothing is taken for the 4 weeks after. Your membership renews on {formatLongDate(pause.pause_until as DateKey)}.
+            </p>
+            <form action={pauseMembership}>
+              <PendingButton pendingLabel="Pausing…" className="members-btn mt-4 w-full sm:w-auto">
+                Yes, pause my membership
+              </PendingButton>
+            </form>
+          </div>
+        </details>
+      ) : pause?.reason === "too_soon" && pause.next_allowed_on ? (
+        <p className="text-sm text-ink">A membership can be paused once every 6 months. You can pause again from {formatLongDate(pause.next_allowed_on as DateKey)}.</p>
+      ) : pause?.reason === "too_late" ? (
+        <p className="text-sm text-ink">The next period has already been set up, so it can&apos;t be paused. You can ask to pause the one after.</p>
+      ) : null}
 
       {m && m.status !== "cancelled" ? (
         <details className="pb-2">

@@ -12,6 +12,7 @@ import type { SheetPayload } from "@/components/members/sheet";
 import { SheetTrigger } from "@/components/members/SheetTrigger";
 import { WeekTabs } from "@/components/members/WeekTabs";
 import { loadMembers } from "../data";
+import { memberPauseInfo } from "@/lib/membership-pause";
 import { bookSheet, cancelSheet, creditSheet, leaveWaitlistSheet, sheetHref, sheetKey, waitlistSheet } from "../sheets";
 
 export const metadata: Metadata = pageMetadata({
@@ -37,8 +38,11 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
   const m = usesCredits(o) ? o.membership : null;
   const left = o.period?.left ?? 0;
   const credit = o.class_credits[0] ?? null;
+  // A pause they booked (owner, 2026-11-04): its days read "Paused", not "Next period".
+  const pauseInfo = o.membership?.status === "active" ? await memberPauseInfo(d.member.db, d.member.clientId) : null;
+  const pause = pauseInfo?.ok && pauseInfo.data.state !== "none" && pauseInfo.data.pause_from && pauseInfo.data.pause_until ? { from: pauseInfo.data.pause_from, until: pauseInfo.data.pause_until } : null;
   // A class that has already gone and wasn't theirs is only noise: left out (their own attended and missed ones stay).
-  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due), waitlist: d.waitlist })
+  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due), waitlist: d.waitlist, pause })
     .map((w) => ({ ...w, slots: w.slots.filter((s) => s.state !== "past") }))
     .filter((w) => w.slots.length > 0);
   const payg = getService("group-classes").prices[0];
@@ -58,7 +62,9 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
   };
   const initial = d.confirm ? (weeks.flatMap((w) => w.slots).map(sheetFor).find((x) => x?.key === d.confirm)?.payload ?? null) : null;
 
-  const [title, sub] = m
+  const [title, sub] = pause && d.today >= pause.from
+    ? ["Your membership is paused.", `It restarts on ${formatLongDate(pause.until as DateKey)}. New credits start then, and you can restart it sooner from Plan.`]
+    : m
     ? [
         `${left} credit${left === 1 ? "" : "s"} to use.`,
         o.period ? `Before ${formatLongDate(o.period.end as DateKey)}. One credit per class.` : "Your next period hasn't started yet.",

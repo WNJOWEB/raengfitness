@@ -92,6 +92,7 @@ export const membershipTermsAlex = {
     { title: "Four-week renewal", body: "Memberships renew automatically every four weeks, with a new allocation of class credits." },
     { title: "Unused credits", body: "Unused credits expire at the end of your four-week membership period and do not roll over." },
     { title: "Cancellations", body: "Cancel a class at least 24 hours before the session to have your credit returned. Late cancellations and missed classes forfeit the credit." },
+    { title: "Pausing", body: "You can pause your membership from your account once, for one four-week period, and once every six months. The pause starts when your current period ends: you keep the credits you have until then, nothing is refunded, and nothing is taken for the paused period. Ask before your next period is set up, a few days before it starts." },
   ],
 } as const;
 

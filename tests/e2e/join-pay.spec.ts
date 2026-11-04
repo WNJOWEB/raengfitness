@@ -164,9 +164,9 @@ test.describe("joining and paying online", () => {
     }
     await expect(page.getByText("Turn on automatic renewals")).toHaveCount(0);
     await expect(page.getByText("Payments", { exact: true })).toHaveCount(0);
-    // Questions and pausing go to Alex's email and phone, not Instagram.
+    // Questions go to Alex's email and phone, not Instagram.
     const view = page.locator(".members-view");
-    await expect(view.getByText("Pause or questions")).toBeVisible();
+    await expect(view.getByText("Questions", { exact: true })).toBeVisible();
     await expect(view.getByRole("link", { name: "hello@raengfitness.co.uk" })).toHaveAttribute("href", "mailto:hello@raengfitness.co.uk");
     await expect(view.getByRole("button", { name: "Show phone number" })).toBeVisible();
     await expect(view.getByRole("link", { name: /Instagram/ })).toHaveCount(0);

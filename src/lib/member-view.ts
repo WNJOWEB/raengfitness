@@ -66,7 +66,8 @@ export function pastPlaces(o: MemberOverview, now: Date): MemberPlace[] {
  *   to the booking page and pay (no membership, no class credit).
  * - booked: theirs, still to come (tap to cancel); attended / missed / past.
  * - full, cancelled (by the coach), next-period (after this period ends, or
- *   before the next one starts), no-credits, pay-first (period unpaid).
+ *   before the next one starts), paused (inside a pause the member booked,
+ *   owner 2026-11-04), no-credits, pay-first (period unpaid).
  */
 export type SlotState =
   | "book"
@@ -81,6 +82,7 @@ export type SlotState =
   | "waitlisted"
   | "cancelled"
   | "next-period"
+  | "paused"
   | "no-credits"
   | "pay-first";
 
@@ -97,6 +99,7 @@ export const SLOT_LABEL: Record<SlotState, string> = {
   waitlisted: "On waitlist",
   cancelled: "Cancelled",
   "next-period": "Next period",
+  paused: "Paused",
   "no-credits": "No credits",
   "pay-first": "Pay first",
 };
@@ -138,7 +141,7 @@ function weekRange(dates: DateKey[]): string {
  */
 export function bookingWeeks(
   o: MemberOverview,
-  args: { today: DateKey; now: Date; classes: PublishedClass[]; windowDays: number; full: FullClasses; paymentDue: boolean; waitlist?: readonly WaitlistEntry[] },
+  args: { today: DateKey; now: Date; classes: PublishedClass[]; windowDays: number; full: FullClasses; paymentDue: boolean; waitlist?: readonly WaitlistEntry[]; pause?: { from: string; until: string } | null },
 ): Week[] {
   const { today, now, classes, windowDays, full, paymentDue } = args;
   const onWaitlist = new Map((args.waitlist ?? []).map((w) => [fullKey(w.slot, w.class_date), w]));
@@ -165,7 +168,8 @@ export function bookingWeeks(
         // A full class can be joined on the waitlist (owner, 2026-11-04); someone already on it sees that instead.
         else if (fullKeys.includes(key)) state = onWaitlist.has(key) ? "waitlisted" : "waitlist";
         else if (o.membership && o.membership.status !== "cancelled") {
-          if (!o.period || date < o.period.start || date > o.period.end) state = "next-period";
+          if (args.pause && date >= args.pause.from && date < args.pause.until) state = "paused";
+          else if (!o.period || date < o.period.start || date > o.period.end) state = "next-period";
           else if (paymentDue) state = "pay-first";
           else if (o.period.left <= 0) state = "no-credits";
           else state = "book";

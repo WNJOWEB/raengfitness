@@ -94,6 +94,12 @@ describe("bookingWeeks for a member", () => {
     expect(states["wed-evening|2026-11-25"]).toBe("next-period");
   });
 
+  it("marks the days inside a pause the member booked as paused (owner, 2026-11-04)", () => {
+    const s = bookingWeeks(member(), { ...args, pause: { from: "2026-11-25", until: "2026-12-23" } }).flatMap((w) => w.slots);
+    expect(s.find((x) => x.date === "2026-11-25")?.state).toBe("paused");
+    expect(s.find((x) => x.date === "2026-11-23")?.state).toBe("book"); // still in the paid period
+  });
+
   it("shows full and cancelled classes, no credits and an unpaid period", () => {
     const full = { known: true as const, keys: ["sat-morning|2026-10-31"], cancelled: ["mon-evening|2026-11-02"] };
     const s = bookingWeeks(member(), { ...args, full }).flatMap((w) => w.slots);
