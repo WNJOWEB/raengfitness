@@ -45,7 +45,7 @@ export const faq: FaqItem[] = [
     id: "bring",
     question: "What should I bring?",
     answer:
-      "Comfortable clothes you can move in, a water bottle and a small towel. Kettlebells are provided. Can workout with bare feet or socks.",
+      "Comfortable clothes you can move in, a water bottle and a small towel. Kettlebells are provided. You can work out with bare feet or socks.",
     status: "confirmed",
   },
   {
@@ -77,7 +77,7 @@ export const faq: FaqItem[] = [
   {
     id: "contact",
     question: "What's the best way to contact you?",
-    answer: `Send a message on Instagram (${site.social.instagram.handle}).`,
+    answer: `Send a message on Instagram (${site.social.raeng.handle}).`,
     status: "confirmed",
   },
 ];

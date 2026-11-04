@@ -75,7 +75,7 @@ export default function ContactPage() {
             </li>
           ) : null}
           <li>
-            <a href={site.social.raeng.url} target="_blank" rel="noopener noreferrer" className={tileClass}>
+            <a href={site.social.raeng.messageUrl} target="_blank" rel="noopener noreferrer" className={tileClass}>
               <span aria-hidden="true" className={tileBadgeClass}>
                 <InstagramIcon className="size-6" />
               </span>
@@ -83,7 +83,7 @@ export default function ContactPage() {
                 <span className="card-title block">Instagram</span>
                 <span className="block min-[360px]:min-h-[2.6rem] text-[0.8125rem]">{site.social.raeng.handle}</span>
               </span>
-              <span className="sr-only">Open {site.social.raeng.handle} on Instagram (opens in a new tab)</span>
+              <span className="sr-only">Message {site.social.raeng.handle} on Instagram (opens in a new tab)</span>
             </a>
           </li>
           {phone ? <RevealPhone mode="tile" scrambled={scramblePhone(phone)} /> : null}

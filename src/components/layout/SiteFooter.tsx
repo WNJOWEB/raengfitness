@@ -37,7 +37,7 @@ export function SiteFooter() {
           <Logo variant="lockup" />
           <p className="mt-5 max-w-sm text-sm ">
             Kettlebell classes in Cumbernauld, Glasgow, with flexible memberships, plus 1:1
-            and online coaching.
+            coaching.
           </p>
         </div>
 
@@ -61,7 +61,7 @@ export function SiteFooter() {
             <ul className="text-sm lg:mt-4">
               <li>
                 <a
-                  href={site.social.instagram.url}
+                  href={site.social.raeng.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={footerLink}
@@ -70,7 +70,7 @@ export function SiteFooter() {
                     <InstagramIcon className="size-4 shrink-0" />
                     Instagram
                   </span>
-                  <span className="sr-only"> {site.social.instagram.handle} (opens in a new tab)</span>
+                  <span className="sr-only"> {site.social.raeng.handle} (opens in a new tab)</span>
                 </a>
               </li>
               <li>

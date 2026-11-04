@@ -209,8 +209,8 @@ test("the contact page leads to RAENG's Instagram", async ({ page }) => {
   await page.goto("/contact");
   await expect(page.locator("h1")).toHaveText("FAQs & Contact.");
   // Instagram is a row in the contact details, with its logo.
-  const ig = page.getByRole("link", { name: /@raeng\.fitness on Instagram/ });
-  await expect(ig).toHaveAttribute("href", "https://www.instagram.com/raeng.fitness/");
+  const ig = page.getByRole("link", { name: /Message @raeng\.fitness on Instagram/ });
+  await expect(ig).toHaveAttribute("href", "https://ig.me/m/raeng.fitness");
   await expect(ig).toHaveAttribute("target", "_blank");
 });
 
@@ -241,8 +241,8 @@ test("contact details: email shown, phone number hidden until tapped and never i
   const ways = page.locator("#ways");
   await expect(ways.getByRole("link", { name: /hello@raengfitness\.co\.uk/ })).toHaveAttribute("href", "mailto:hello@raengfitness.co.uk");
   // Instagram (RAENG's own account) sits beside the email, each with its icon, and opens in a new tab (2×2 tiles).
-  const instagram = ways.getByRole("link", { name: /@raeng\.fitness on Instagram/ });
-  await expect(instagram).toHaveAttribute("href", "https://www.instagram.com/raeng.fitness/");
+  const instagram = ways.getByRole("link", { name: /Message @raeng\.fitness on Instagram/ });
+  await expect(instagram).toHaveAttribute("href", "https://ig.me/m/raeng.fitness");
   await expect(instagram).toHaveAttribute("target", "_blank");
   await expect(ways).toContainText("@raeng.fitness");
   await expect(ways.locator("svg")).toHaveCount(4); // Email, Instagram, Phone and the address each have an icon
@@ -303,7 +303,9 @@ test("header: menu at the left, logo centred, nothing at the right, no overlap",
 test("contact, Instagram and directions links point at verified destinations", async ({ page }) => {
   await page.goto("/contact");
   const hrefs = await page.$$eval("a[href^='http']", (as) => as.map((a) => a.getAttribute("href")!));
-  expect(hrefs).toContain("https://www.instagram.com/alex.kbells/");
+  // The tile opens a message to RAENG; the footer links RAENG's profile (owner, 2026-11-04).
+  expect(hrefs).toContain("https://ig.me/m/raeng.fitness");
+  expect(hrefs).toContain("https://www.instagram.com/raeng.fitness/");
   // Alex's Facebook page: the stable page URL, never the share link with its tracking.
   expect(hrefs).toContain("https://www.facebook.com/profile.php?id=61589486540520");
   expect(hrefs.some((h) => /facebook\.com\/share|mibextid/.test(h))).toBe(false);

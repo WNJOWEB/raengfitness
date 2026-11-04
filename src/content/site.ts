@@ -52,6 +52,8 @@ export const site = {
     raeng: {
       handle: "@raeng.fitness",
       url: "https://www.instagram.com/raeng.fitness/",
+      /** Opens a new direct message to RAENG on Instagram (tested on a phone by the owner, 2026-11-04). */
+      messageUrl: "https://ig.me/m/raeng.fitness",
     },
     instagram: {
       handle: "@alex.kbells",
