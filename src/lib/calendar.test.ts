@@ -7,7 +7,7 @@ const event: ClassEvent = {
   // 6:30 pm in London on 2 November 2026 (GMT).
   startsAt: "2026-11-02T18:30:00.000Z",
   durationMinutes: 60,
-  location: "1A Dunns Wood Road, Cumbernauld, Glasgow, G67 3EN",
+  location: "1A Dunnswood Road, Cumbernauld, Glasgow, G67 3EN",
   description: "Booked in your RAENG account; to cancel, sign in at https://raengfitness.vercel.app/account",
 };
 
@@ -26,7 +26,7 @@ describe("icsFor", () => {
 
   it("escapes commas and semicolons in text", () => {
     expect(ics).toContain("SUMMARY:Kettlebell Training\\, RAENG");
-    expect(ics).toContain("LOCATION:1A Dunns Wood Road\\, Cumbernauld\\, Glasgow\\, G67 3EN");
+    expect(ics).toContain("LOCATION:1A Dunnswood Road\\, Cumbernauld\\, Glasgow\\, G67 3EN");
     expect(ics).toContain("RAENG account\\; to cancel");
   });
 

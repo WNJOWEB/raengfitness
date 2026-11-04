@@ -219,7 +219,7 @@ test("FAQs & Contact: contact details first, then questions, then getting starte
   const order = await page.locator("main > section, main > .section-rules > section").evaluateAll((els) => els.map((e) => e.id || e.getAttribute("aria-labelledby")));
   expect(order).toEqual(["contact-details", "faq-heading", "getting-started"]);
   const ways = page.locator("#ways");
-  await expect(ways).toContainText("1A Dunns Wood Road");
+  await expect(ways).toContainText("1A Dunnswood Road");
   await expect(ways.getByRole("link", { name: /Directions/ })).toHaveAttribute("href", /google\.com\/maps/);
   // No Book row and no Facebook here (the footer has Facebook); no "Follow" button.
   await expect(ways.getByRole("link", { name: /book/i })).toHaveCount(0);
@@ -308,7 +308,7 @@ test("contact, Instagram and directions links point at verified destinations", a
   expect(hrefs).toContain("https://www.facebook.com/profile.php?id=61589486540520");
   expect(hrefs.some((h) => /facebook\.com\/share|mibextid/.test(h))).toBe(false);
   const maps = hrefs.find((h) => h.startsWith("https://www.google.com/maps/search/"));
-  expect(maps && decodeURIComponent(maps)).toContain("1A Dunns Wood Road, Cumbernauld, G67 3EN");
+  expect(maps && decodeURIComponent(maps)).toContain("1A Dunnswood Road, Cumbernauld, G67 3EN");
 });
 
 
@@ -536,7 +536,7 @@ test("homepage: one idea per section, in order, and no testimonial is invented",
   await expect(classes).toContainText("£12 a class");
   await expect(classes).toContainText("places max");
   for (const name of ["HIIT", "Doubles Kettlebells", "Saturday Conditioning"]) await expect(classes).toContainText(name);
-  await expect(classes.locator("#ct-venue")).toHaveText("1A Dunns Wood Road");
+  await expect(classes.locator("#ct-venue")).toHaveText("1A Dunnswood Road");
   await expect(classes.getByText("Media House")).toHaveCount(0);
   // Alex's wording, exactly (audit of his chat, 2026-10-29): no "Media House" anywhere (the owner, 2026-10-29: not on the whole website), and the caption has no extra words.
   await expect(page.locator("main")).not.toContainText("Media House");
@@ -763,7 +763,7 @@ test("/classes: Alex's order and nothing else (2026-10-29)", async ({ page }) =>
   await expect(memberships.getByRole("list", { name: "Membership plans" }).locator("> li")).toHaveCount(3);
   await expect(memberships).not.toContainText("Pay as you go");
   await expect(page.locator("#pay-as-you-go")).toContainText("No membership required. Pay for each booking.");
-  await expect(page.locator("#location #ct-venue")).toHaveText("1A Dunns Wood Road");
+  await expect(page.locator("#location #ct-venue")).toHaveText("1A Dunnswood Road");
   // One booking button only (Alex: too many Book now's): the hero's. The class rows open the calendar too.
   await expect(page.locator("main").getByRole("link", { name: /^(Book a class|Book now|View classes and book)/ })).toHaveCount(1);
   await expect(page.locator("#timetable").getByRole("list", { name: "Class times" }).getByRole("link")).toHaveCount(3);
@@ -804,7 +804,7 @@ test("Alex's layout: each page carries the parts his layout image lists (2026-10
   // Classes: full timetable, studio location, memberships, pay as you go, booking and cancellation policies, FAQs.
   await page.goto("/classes");
   await expect(page.locator("#timetable").getByRole("list", { name: "Class times" }).getByRole("link")).toHaveCount(3);
-  await expect(page.locator("#location #ct-venue")).toHaveText("1A Dunns Wood Road");
+  await expect(page.locator("#location #ct-venue")).toHaveText("1A Dunnswood Road");
   await expect(page.locator("#pay-as-you-go").getByRole("heading", { level: 2 })).toHaveText("Pay as you go.");
   await expect(page.locator("#cancellation").getByRole("heading", { level: 2 })).toHaveText("Booking and cancellation policy.");
   await expect(page.getByRole("heading", { level: 2, name: "Questions." })).toBeVisible();
@@ -982,7 +982,7 @@ test("footer groups collapse on phones and are open on desktop", async ({ page }
   await expect(footer.getByRole("link", { name: "Classes" })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(footer.getByRole("link", { name: "FAQs & Contact" })).toBeVisible();
-  await expect(footer.getByText("1A Dunns Wood Road")).toBeVisible();
+  await expect(footer.getByText("1A Dunnswood Road")).toBeVisible();
 });
 
 test("'Get in touch' only on Coaching's closing button (owner, 2026-10-29), and the header has no Book now", async ({ page }) => {
