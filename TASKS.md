@@ -70,8 +70,8 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] Prices confirmed (2026-10-15) and published
 - [x] "Alex's journey" section built with slots for his story and before/after photos
 - [x] Journey published with before/after from his reel, 9.6k followers; standard FAQ answers added
-- [ ] **P1** Alex checks the standard FAQ answers (class length, kettlebells provided) and, if he likes, writes his own journey story
-- [ ] **P1** Testimonials from regular clients (with permission). Audit 2026-10-18: none on the site and none readable on Instagram/Facebook without logging in. Ask Alex for 3–5 quotes (first name or initials, which service, written permission and date), or screenshots of public comments he has permission to reuse
+- [x] **P1** Alex checks the standard FAQ answers (class length, kettlebells provided) and, if he likes, writes his own journey story (owner, 2026-11-04: FAQ answers confirmed)
+- [x] **P1** Testimonials from regular clients (with permission). Audit 2026-10-18: none on the site and none readable on Instagram/Facebook without logging in. Ask Alex for 3–5 quotes (first name or initials, which service, written permission and date), or screenshots of public comments he has permission to reuse (owner, 2026-11-04: no testimonials: it is a new business, to be marketed another way; the hidden section stays hidden)
 - [ ] **P1** Coaching qualifications / insurance for About Alex (only what Alex can evidence)
 - [ ] **P2** 3 Instagram post links (one per service: class, one-to-one, online) for lightweight preview cards linking to the originals: no embedded feed
 - [x] Facebook page linked (footer, About Alex, /contact, JSON-LD), 2026-10-18
@@ -91,10 +91,10 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] **P0** Vercel plan suitable for commercial use: owner 2026-11-03: being sorted as the project moves to Alex's own Vercel account
 - [x] **P0** Account ownership moving to Alex (ticked by the owner, 2026-11-03): Vercel project, GitHub repo, domain, Stripe, Supabase, Resend (DEPLOYMENT.md). Environment variables and the Stripe webhook address need re-checking after any move
 - [x] **P0** Choose and register the domain — done: raengfitness.co.uk is live
-- [ ] **P0** Confirm or withhold timetable, duration, prices (CONTENT.md questions). Site launches safely either way
+- [x] **P0** Confirm or withhold timetable, duration, prices (CONTENT.md questions). Site launches safely either way (owner, 2026-11-04: timetable, duration and prices confirmed)
 - [x] **P1** Confirm people shown in the hero video are happy to appear; confirm footage from other gyms is fine — done: owner 2026-11-03: Alex keeps written consent from anyone shown; content going forward is mostly generic kettlebell and gym pictures
 - [x] **P1** Public email/phone if wanted (`site.contact`) — done: hello@raengfitness.co.uk and the phone number are on the site
-- [ ] **P1** Genuine photos, bio, qualifications → consider `/about`
+- [ ] **P1** Genuine photos, bio, qualifications → consider `/about` (owner, 2026-11-04: bio and portrait are done; qualifications not confirmed yet)
 
 ### To launch — technical
 - [x] **P0** Check the next Vercel preview serves the homepage (framework fix) — DEPLOYMENT.md "Get a preview URL" — done: the site serves from production
@@ -147,7 +147,7 @@ See Coach portal below.
 - [x] Alex adds retention periods for client and financial records to `/privacy`
 - [ ] **P1** Real-device pass of the portal on Alex's phone
 - [x] Public calendar hides full dates and the server refuses them, from capacities set per date (2026-10-23)
-- [ ] **P2** Default class capacity per timetable slot (now set per date)
+- [x] **P2** Default class capacity per timetable slot (now set per date) (owner, 2026-11-04: built: sizes per class time are set in Classes, 'Sizes by class time')
 - [x] **P2** Anonymise-on-request (2026-11-03): Delete personal details on a client's page in the coach area (name, contact details, notes, messages, coaching records, sign-ins); payments and charges kept for tax; refused while anything is running (migration `20261117000000`)
 - [x] Card payments built (2026-10-21 for Square; moved to Stripe 2026-10-30, live 2026-11-02): payment links per charge, signed webhooks re-read from Stripe, duplicate-event table, idempotent ledger functions, refunds mirrored from Stripe, daily reconciliation, test/live guard (the `akb_square_*` table and function names predate Stripe and hold Stripe's ids)
 - [x] Test-environment options and costs checked; database + app safeguards against Sandbox records in the live database (2026-10-21)
@@ -212,9 +212,9 @@ See Coach portal below.
 - [x] Removed hero video, carousel, old logo artwork and scripts; e2e rewritten for the new structure
 
 ### Open (needs the owner)
-- [ ] P0 Confirm the venue, timetable, prices and coach details are unchanged under RAENG; confirm everyone in the supplied photos agrees to appear (and replace any frame that isn't OK)
+- [ ] P0 Confirm the venue, timetable, prices and coach details are unchanged under RAENG; confirm everyone in the supplied photos agrees to appear (and replace any frame that isn't OK) (owner, 2026-11-04: venue, timetable, prices confirmed; photo permission not mentioned)
 - [x] P1 RAENG Instagram/Facebook handles, email, phone, domain (`SITE_URL`), a verified Resend sending domain named RAENG — done: hello@, phone, domain and the verified Resend domain are set
-- [ ] P1 Alex's own words: background, qualifications, philosophy, motivation, brand story; a current portrait
+- [ ] P1 Alex's own words: background, qualifications, philosophy, motivation, brand story; a current portrait (owner, 2026-11-04: bio and portrait done)
 - [x] Online booking and payment decision: card payments live on Stripe (2026-11-02); 1:1 and online coaching stay requests Alex confirms
 - [ ] P2 Real RAENG logo artwork if one exists; Online coaching feature list, capacity/cancellation policy, testimonials
 
@@ -223,7 +223,7 @@ See Coach portal below.
 - [x] Pictures limited to the hero film, the before-and-after and one photo each on /classes and /coaching
 - [x] Booking requests are live in production (stored for the coach area; Alex confirms each one)
 - [x] Card payments live on Stripe (2026-11-02)
-- [ ] **P1, needs Alex** Max class capacity, and what's included in 1:1 coaching (he mentioned confirming both; never guessed)
+- [x] **P1, needs Alex** Max class capacity, and what's included in 1:1 coaching (he mentioned confirming both; never guessed) (owner, 2026-11-04: max class size is 15; what 1:1 includes is done)
 - [ ] **P1, needs Alex** 2–3 member quotes with permission (the section is built and hidden until then)
 - [ ] **P2** Alex's layout references (ChatGPT images, 21 Oct) and his 25 Oct voice note weren't in the chat export: compare once received
 - [x] Membership join flow (`/memberships/join`, 2026-10-26): plan → optional first class → details → terms agreed → request to Alex; nothing paid online
@@ -239,7 +239,7 @@ See Coach portal below.
 - [ ] P2 Coaching: email Alex when a client messages or checks in (needs Resend); an exercise library with demo links reused across programmes; programme templates;  reply-time wording on the unlock page only once Alex confirms how fast he replies
 - [x] ~~/classes interactive steps (owner pick B, 2026-10-29)~~ removed again at the owner's request (2026-10-29): see DESIGN.md. Was: tap-to-open rail, membership calculator in step 2, bank transfer/cash removed from step 2, memberships section on the page. Not pushed live yet; bank transfer/cash still on the booking page and FAQ (ask owner)
 - [x] Alex's feedback, 2026-10-29 (home, memberships, nav layout, online coaching off, small group coaching named): see DESIGN.md. Not yet live until merged
-- [ ] **Needs Alex** Small group coaching: price, group size, times and how to book (today it only links to FAQs & Contact)
+- [x] **Needs Alex** Small group coaching: price, group size, times and how to book (today it only links to FAQs & Contact) (owner, 2026-11-04: small group coaching details were provided privately)
 - [x] **Needs Alex** Membership cancellation: how to cancel a membership and when it takes effect (his mockup had a placeholder; nothing is invented) — done: members cancel from the Plan page; stops the next period, credits stay until the period ends
 - [x] **Needs Alex** Whether the closing "Ready to start? Book now" band stays: kept (owner, 2026-11-03)
 - [ ] P2 When online coaching returns: set `onlineCoachingOffered` true, remove the two redirects in next.config.ts, restore the routes in lib/routes.ts, the nav link, the home row and the tests (git history)
@@ -253,7 +253,7 @@ See Coach portal below.
 - [x] P2 Sessions that extend while in use (2026-11-03: 30 days from last use, up to a year from signing in; the cookie is renewed on account page views; migration `20261118000000`)
 - [x] P2 Class reminder email the day before (2026-11-03: its own switch on Notifications; sent by the morning job for tomorrow's classes)
 - [x] P2 Payment history and receipts in the account (2026-11-03: Payments and receipts in the account menu, a printable receipt for each); name, phone and email editable on Profile
-- [ ] **Needs Alex's rules first** Pause or cancel a membership from the account (notice, pause limits, refunds); (the waitlist is built, see below)
+- [ ] **Needs Alex's rules first** Pause or cancel a membership from the account (notice, pause limits, refunds); (the waitlist is built, see below) (owner, 2026-11-04: the membership and cancellation rules are confirmed; the pause button is not built)
 - [x] Applied `20261024000000_akb_cancel_class.sql` and `20261027000000_akb_member_accounts.sql` to the live database (2026-10-28) (DEPLOYMENT.md → Member accounts)
 - [x] **P0, needs Alex** Resend in production (also turns on booking alerts); without it members can't get sign-in links — done: Resend is live
 - [x] **P1, needs Alex** Confirm the privacy wording; a retention period and a contact email if he wants one listed — done: privacy wording signed off; retention set (6 years / 2 years / 12 months)
@@ -305,7 +305,7 @@ See Coach portal below.
 - [x] Records kept (owner's pick, 2026-11-02): payment and booking records 6 years; name, email, phone and notes deleted or anonymised 2 years after the last booking, payment or message; enquiries that never became a booking 12 months. On `/privacy`. **Deletion is manual for now**: review once a year (clients with no activity for 2 years, enquiries older than 12 months); a coach-portal list to help is a possible follow-up.
 - [x] Class size: 15 places (already set; the coach portal can change a single class). On the FAQ "How many people are in a class?".
 - [x] **P1** Photo consent, option A: each person visible in the hero video and photos sends a short written OK (a text or WhatsApp screenshot, kept by Alex). Anyone who hasn't agreed is blurred or replaced before launch. — done: owner 2026-11-03: Alex keeps the written consent
-- [ ] **P1** Alex's bio, portrait, qualifications with certificates, and 3 to 5 testimonials with written permission (nothing added until supplied).
+- [ ] **P1** Alex's bio, portrait, qualifications with certificates, and 3 to 5 testimonials with written permission (nothing added until supplied). (owner, 2026-11-04: bio and portrait done, no testimonials; qualifications not confirmed)
 
 ## Speed (owner, 2026-11-02: buttons and taps feel slow in the coach and members dashboards)
 - [x] Audit done: `docs/SPEED_AUDIT_2026-11-02.md` (server in Washington DC, database in Ireland; no loading screens; emails sent before buttons reply; no pending state on member buttons; coach pages check sign-in twice and write on every Today view).
