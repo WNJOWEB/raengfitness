@@ -575,7 +575,11 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                   setClientErrors(found);
                   if (Object.keys(found).length > 0 || demo) e.preventDefault();
                   if (Object.keys(found).length > 0) {
-                    requestAnimationFrame(() => document.getElementById(Object.keys(found)[0])?.focus());
+                    requestAnimationFrame(() => {
+                      const first = document.getElementById(Object.keys(found)[0]);
+                      first?.focus({ preventScroll: true });
+                      first?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+                    });
                     return;
                   }
                   if (demo) setDemoDone(true);
@@ -665,6 +669,17 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 {!demo && !usesSessions ? times.map((t) => <input key={t} type="hidden" name="times" value={t} />) : null}
                 <SubmissionMeta meta={meta} />
 
+                {/* The health and risk terms and their tick come before the total and the button (owner, 2026-11-04): on a phone the total and "Continue" are what people see last, and a tick they hadn't met yet stopped them. */}
+                <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : "sending this request"} booking={payNow || demoPay} />
+                <WaiverField
+                  checked={waiver}
+                  error={errors.waiver}
+                  onChange={(checked) => {
+                    setWaiver(checked);
+                    if (checked) setClientErrors((x) => ({ ...x, waiver: undefined }));
+                  }}
+                />
+
                 {demoPay && pay ? (
                   <div className="rule-list space-y-2 pt-4 text-sm">
                     <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
@@ -697,15 +712,6 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                     <p className="text-muted">{pay.cancel}</p>
                   </div>
                 ) : null}
-                <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : "sending this request"} booking={payNow || demoPay} />
-                <WaiverField
-                  checked={waiver}
-                  error={errors.waiver}
-                  onChange={(checked) => {
-                    setWaiver(checked);
-                    if (checked) setClientErrors((x) => ({ ...x, waiver: undefined }));
-                  }}
-                />
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
@@ -713,6 +719,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                     type: "submit",
                     pending,
                   }}
+                  hint={errors.waiver ? "Tick the health and risk box above to continue." : Object.keys(errors).length > 0 ? "Please check the highlighted fields above." : undefined}
                 />
               </form>
             </section>

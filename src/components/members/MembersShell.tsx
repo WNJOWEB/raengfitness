@@ -15,6 +15,7 @@ import { ConfirmSheet } from "./ConfirmSheet";
 import { external, Icon, NEW_TAB } from "./icons";
 import { MembersDrawer } from "./MembersDrawer";
 import type { SheetPayload } from "./sheet";
+import { LinkPending } from "./LinkPending";
 import { TabPending } from "./TabPending";
 import { Toast } from "./Toast";
 
@@ -91,18 +92,21 @@ export function MembersShell({
             {coaching ? <CoachingCard coaching={coaching} small className="mt-3" /> : null}
             <Link href={MEMBERS_VIEW_PATH.book} className="members-btn mt-3">
               Book a class
+              <LinkPending />
             </Link>
             <ul className="mt-3.5 mb-6 grid grid-cols-2 gap-2.5">
               <li>
                 <Link href={`${MEMBERS_VIEW_PATH.home}#booked`} className="members-tile">
                   <Icon name="list" />
                   My bookings
+                  <LinkPending />
                 </Link>
               </li>
               <li>
                 <Link href={MEMBERS_VIEW_PATH.plan} className="members-tile">
                   <Icon name="plan" />
                   {m ? `${left} credit${left === 1 ? "" : "s"}` : "Your plan"}
+                  <LinkPending />
                 </Link>
               </li>
               <li>

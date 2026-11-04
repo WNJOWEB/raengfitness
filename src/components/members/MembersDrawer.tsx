@@ -17,6 +17,13 @@ export function MembersDrawer({ children, label = "Members menu" }: { children: 
     ref.current?.close();
   }, [pathname]);
 
+  // The menu stays open while the next page loads (see onClick below), and the page being left can be kept hidden
+  // by the router: its menu is closed as it is hidden, so going back never shows it open.
+  useEffect(() => {
+    const dialog = ref.current;
+    return () => dialog?.close();
+  }, []);
+
   return (
     <>
       <button
@@ -38,7 +45,13 @@ export function MembersDrawer({ children, label = "Members menu" }: { children: 
         aria-label={label}
         className="members-drawer"
         onClick={(e) => {
-          if (e.target === ref.current || (e.target as HTMLElement).closest("a")) ref.current?.close();
+          if (e.target === ref.current) return ref.current?.close();
+          const link = (e.target as HTMLElement).closest("a");
+          if (!link) return;
+          // A link to another page keeps the menu open, with the tapped tile pressed (LinkPending), until the page
+          // arrives and the path changes (above): a tap never just vanishes (owner, 2026-11-04). A link to a new tab,
+          // or to a place on this same page, closes it at once.
+          if (link.target === "_blank" || link.pathname === window.location.pathname) ref.current?.close();
         }}
       >
         {/* Opening the menu focuses the panel, not the close button, so a tap shows no focus box (iOS drew one round "Close"). Tab reaches the button next. */}

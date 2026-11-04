@@ -159,6 +159,29 @@ test.describe("booking a group class and paying online", () => {
     await expect(page.getByRole("button", { name: "Continue to payment" })).toBeVisible();
   });
 
+  test("the health and risk tick comes before the total, and Continue explains what is missing (owner, 2026-11-04)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await toDetails(page, `${PAY}/book/group-class`, 4, "Tick Order", `tick-${Date.now()}@example.com`);
+    const tick = page.getByLabel(/I've read and agree to the health and risk terms/);
+    const total = page.getByText("Total", { exact: true });
+    const [tickBox, totalBox] = [await tick.boundingBox(), await total.boundingBox()];
+    expect(tickBox!.y, "the tick sits above the total").toBeLessThan(totalBox!.y);
+
+    // Not ticked: Continue doesn't go to Stripe, and says why beside the button and at the box.
+    await tick.uncheck();
+    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await expect(page.getByText("Tick the health and risk box above to continue.")).toBeVisible();
+    await expect(tick).toBeFocused();
+    await expect(page).not.toHaveURL(new RegExp(`^${STRIPE}`));
+    await expect(tick).toBeInViewport();
+
+    // Ticked: the message goes and Continue opens Stripe.
+    await tick.check();
+    await expect(page.getByText("Tick the health and risk box above to continue.")).toHaveCount(0);
+    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
+  });
+
   test("leaving Stripe's page without paying books nothing, and the page says it's waiting", async ({ page, request }) => {
     const email = `class-leaver-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 3, "Not Paying", email);

@@ -809,6 +809,34 @@ test.describe("member accounts", () => {
     await page.unroute("**/account/**");
   });
 
+  test("the account menu: a tapped tile stays pressed, with the menu open, until the page arrives (owner, 2026-11-04)", async ({ page, request }) => {
+    const email = `menu-press-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    await askForLink(page, email);
+    await page.goto(PROD + linkPath((await emailsTo(request, email))[0]));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.route("**/account/**", async (route) => {
+      if (!route.request().headers()["next-router-prefetch"]) await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    await page.getByRole("button", { name: "Members menu" }).or(page.locator("button[aria-controls='members-drawer']")).first().click();
+    const drawer = page.locator("#members-drawer");
+    await expect(drawer).toBeVisible();
+    await drawer.getByRole("link", { name: /credits?$|Your plan/ }).first().click();
+    // At once, well before the 1.5 s: the tile is pressed and the menu is still there, so the wait never looks like a missed tap.
+    await expect(drawer.locator(".link-pending")).toBeAttached({ timeout: 700 });
+    await expect(drawer).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Your membership." })).toBeVisible({ timeout: 10_000 });
+    // The menu closes when the page arrives, and is not left open under the page that was left (going back).
+    await expect(page.locator("#members-drawer[open]")).toHaveCount(0);
+    await page.goBack();
+    await expect(page.locator("#members-drawer[open]")).toHaveCount(0);
+    await page.unroute("**/account/**");
+  });
+
   test("the menu and footer link to member sign-in, and robots keep /account out", async ({ page, request }) => {
     await page.goto(PROD);
     await expect(page.locator("footer").getByRole("link", { name: "Member Login", exact: true })).toHaveAttribute("href", "/account/sign-in");

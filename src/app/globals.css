@@ -784,6 +784,30 @@
 .members-tile:hover {
   border-color: var(--color-ink);
 }
+/* A tapped menu tile or button looks pressed at once and stays pressed until the next page arrives (LinkPending; owner, 2026-11-04). */
+.members-tile:active,
+.members-tile:has(.link-pending),
+.members-btn:active,
+.members-btn:has(.link-pending) {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+  /* Snaps to the palette's ink and paper at once: no blend of colours in between. */
+  transition: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .members-tile {
+    transition: transform 120ms;
+  }
+  .members-tile:active,
+  .members-tile:has(.link-pending) {
+    transition: transform 120ms;
+  }
+  .members-tile:active,
+  .members-btn:active {
+    transform: scale(0.97);
+  }
+}
 .members-menu-item {
   display: flex;
   width: 100%;
