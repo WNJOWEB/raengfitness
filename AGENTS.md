@@ -20,7 +20,7 @@ Read `CORE.md` (facts and their status), then the relevant `DESIGN.md`, `CONTENT
 - No fake booking or payment success flows.
 
 ## Owner rules (non-negotiable)
-- **Never use the words "Get in touch"** on the site (buttons, links, headings, copy). The main button is always **"Book now"**, whether or not booking is switched on; where nothing can be booked it opens /book, which says so honestly. This holds even when the owner says "go ahead with your recommendation". Enforced by a unit test and an e2e test.
+- **Never use the words "Get in touch"** on the site (buttons, links, headings, copy). The main button is always **"Book now"**, whether or not booking is switched on; where nothing can be booked it opens /book, which says so honestly. This holds even when the owner says "go ahead with your recommendation". Enforced by a unit test and an e2e test. **One exception, kept by the owner (2026-10-29, confirmed 2026-11-04):** the closing button on /coaching reads "Get in touch" and opens the 1:1 booking request. Audits and reviews must not flag it or change it unless the owner asks.
 
 - **Home page order is fixed (owner, 2026-10-27, final):** hero → Coached by → Why kettlebells → Meet your coach → Classes (three steps) → Memberships → More ways to train → Ready to start (Book now). This overrides Alex's earlier stated order (book, what I offer, why kettlebells, about me). Audits and reviews must not flag this order or suggest moving Why kettlebells or Meet your coach down; keep it unless the owner asks to change it.
 
