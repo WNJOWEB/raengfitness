@@ -17,7 +17,7 @@ export function ConfirmSheet({
   initial,
   closeHref,
 }: {
-  actions: Record<"book" | "credit" | "cancel", Action>;
+  actions: Record<"book" | "credit" | "cancel" | "waitlist" | "waitlist-leave", Action>;
   initial: SheetPayload | null;
   closeHref: string;
 }) {

@@ -153,6 +153,11 @@ export function returnCredit(db: Db, attendanceId: string): Promise<DbResult<nul
   return rpc<null>(db, "akb_return_credit", { p_attendance: attendanceId });
 }
 
+/** Adds or takes away credits on a period (the credit adjuster; migration 20261121000000). Returns the new total. */
+export function adjustCredits(db: Db, periodId: string, delta: number, reason: string): Promise<DbResult<number>> {
+  return rpc<number>(db, "akb_adjust_period_credits", { p_period: periodId, p_delta: delta, p_reason: reason });
+}
+
 /** "3 of 8 credits left" */
 export function creditsLine(period: Pick<MembershipPeriod, "credits" | "credits_left">): string {
   return `${period.credits_left} of ${period.credits} credit${period.credits === 1 ? "" : "s"} left`;

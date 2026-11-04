@@ -26,6 +26,17 @@ export function setDefaultCapacity(db: Db, capacity: number): Promise<DbResult<n
   return rpc<null>(db, "akb_set_default_class_capacity", { p_capacity: capacity });
 }
 
+/** The slots that have a usual size of their own ({"mon-evening": 12}); a slot not listed uses the all-classes size (migration 20261119000000). */
+export async function getSlotCapacities(db: Db): Promise<Record<string, number>> {
+  const result = await rpc<Record<string, number>>(db, "akb_slot_capacities", {});
+  return result.ok && result.data && typeof result.data === "object" ? result.data : {};
+}
+
+/** Sets a slot's usual size; null removes it. */
+export function setSlotCapacity(db: Db, slot: string, capacity: number | null): Promise<DbResult<null>> {
+  return rpc<null>(db, "akb_set_slot_capacity", { p_slot: slot, p_capacity: capacity });
+}
+
 /** The class row for a timetable date, created if needed. Only call for a date checked with isTimetableClass. */
 export function ensureClassSession(db: Db, args: { slot: string; date: string; startsAt: string; duration: number }): Promise<DbResult<string>> {
   return rpc<string>(db, "akb_ensure_class_session", { p_slot: args.slot, p_date: args.date, p_starts_at: args.startsAt, p_duration: args.duration });
@@ -160,5 +171,34 @@ export function addPackage(
 
 export async function cancelPackage(db: Db, id: string): Promise<DbResult<null>> {
   const result = await update(db, "akb_packages", [["id", `eq.${id}`]], { status: "cancelled", updated_at: new Date().toISOString() });
+  return result.ok ? { ok: true, data: null } : result;
+}
+
+/* --------------------------------------------------------------- waitlist */
+
+export interface WaitlistPerson {
+  id: string;
+  status: "waiting" | "offered";
+  created_at: string;
+  offered_at: string | null;
+  client_id: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
+/** Who is waiting for a full class, in the order they joined (migration 20261120000000). */
+export async function listWaitlist(db: Db, sessionId: string): Promise<DbResult<WaitlistPerson[]>> {
+  return rpc<WaitlistPerson[]>(db, "akb_class_waitlist_list", { p_session: sessionId });
+}
+
+/** Alex takes someone off a waitlist; the next person is offered a freed offer. */
+export function removeFromWaitlist(db: Db, id: string): Promise<DbResult<boolean>> {
+  return rpc<boolean>(db, "akb_waitlist_remove", { p_id: id });
+}
+
+/** Alex's private note on one person's place in a class (never shown to them). */
+export async function setAttendanceNotes(db: Db, id: string, notes: string): Promise<DbResult<null>> {
+  const result = await update(db, "akb_class_attendance", [["id", `eq.${id}`]], { notes, updated_at: new Date().toISOString() });
   return result.ok ? { ok: true, data: null } : result;
 }

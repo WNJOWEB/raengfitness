@@ -38,6 +38,7 @@ import {
 import { deviceLabel, labelSession } from "@/lib/member-settings";
 import { requireMember } from "@/lib/member-session";
 import { sendNotice } from "@/lib/notices";
+import { afterPlacesChange, joinWaitlistAsMember, leaveWaitlistAsMember, waitlistReason } from "@/lib/waitlist";
 import { DONE } from "./data";
 import { sendEmailWithRetry } from "@/lib/send-email";
 import { stripeConfig } from "@/lib/stripe/config";
@@ -224,8 +225,9 @@ export async function cancelClass(formData: FormData): Promise<void> {
     : result.data.credit ? "cancelled_credit"
     : result.data.refunded ? "cancelled_paid_refunded"
     : "cancelled_paid_late";
-  // The emails go after the reply (the lookups for them too).
+  // The emails go after the reply (the lookups for them too), and a freed place is offered to the waitlist.
   after(async () => {
+    await afterPlacesChange(member.db);
     try {
     const who = await whoIs(member);
     if (who) {
@@ -318,6 +320,31 @@ export async function updateRenewalCard(): Promise<void> {
   );
   if (!result.ok) redirect(`${ACCOUNT_PATH}/plan?error=card_unavailable`);
   redirect(result.url);
+}
+
+/** Joins the waitlist of a full class, as themselves (owner, 2026-11-04). */
+export async function joinWaitlist(formData: FormData): Promise<void> {
+  const member = await requireMember();
+  const slot = publishedClasses().find((c) => c.id === text(formData, "slot"));
+  const date = text(formData, "date");
+  if (!slot || !isClassDate(date, slot, londonToday())) redirect(`${back(formData)}?error=not_found`);
+  const result = await joinWaitlistAsMember(member.db, member.clientId, slot.id, date);
+  if (!result.ok) {
+    const reason = waitlistReason(result.error);
+    redirect(`${back(formData)}?error=${reason === "not_full" || reason === "waitlist_full" || reason === "already_booked" || reason === "class_started" || reason === "class_cancelled" ? reason : "failed"}`);
+  }
+  redirect(`${back(formData)}?done=waitlist_joined`);
+}
+
+/** Leaves a waitlist from the account. */
+export async function leaveWaitlist(formData: FormData): Promise<void> {
+  const member = await requireMember();
+  const id = text(formData, "entry");
+  if (!isUuid(id)) redirect(`${back(formData)}?error=not_found`);
+  const result = await leaveWaitlistAsMember(member.db, member.clientId, id);
+  if (!result.ok) redirect(`${back(formData)}?error=failed`);
+  after(() => afterPlacesChange(member.db));
+  redirect(`${back(formData)}?done=waitlist_left`);
 }
 
 /**

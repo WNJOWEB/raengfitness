@@ -536,7 +536,51 @@ test.describe("production configuration", () => {
         if ((await cell.count()) || !(await next.isEnabled())) break;
         await next.click();
       }
-      await expect(cell).toBeDisabled();
+      // A fully booked date can still be opened (owner, 2026-11-04): its times say Full, with the waitlist one tap away.
+      await expect(cell).toBeEnabled();
+      await pickDate(page, `${formatLongDate(last.date)}, fully booked, waitlist open`);
+      const join = page.getByRole("link", { name: /^Join the waitlist/ }).first();
+      await expect(join).toHaveAttribute("href", `/book/waitlist?class=${session.id}&date=${last.date}`);
+      await expect(page.locator("#times label").filter({ hasText: "Full" }).first().locator("input")).toBeDisabled();
+
+      // The waitlist page: the same required answers as booking, nothing to pay.
+      await join.click();
+      await expect(page.getByRole("heading", { level: 1, name: "Join the waitlist." })).toBeVisible();
+      const visitor = `waiter-${Date.now()}@example.com`;
+      await page.getByRole("textbox", { name: "Name" }).fill("Wendy Waiter");
+      await page.getByRole("textbox", { name: "Email" }).fill(visitor);
+      await page.waitForTimeout(3100);
+      await page.getByRole("button", { name: "Join the waitlist" }).click();
+      await expect(page.getByText("Enter your phone number.")).toBeVisible();
+      await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
+      await page.getByRole("button", { name: "Join the waitlist" }).click();
+      await expect(page.getByRole("status")).toContainText("You're on the waitlist.");
+      await expect(page.getByRole("status")).toContainText("You're number 1 in the queue");
+
+      // Emailed with a private link to leave (on a button, so a mail scanner opening it changes nothing).
+      const joined = (await emails(request)).find((e) => e.payload.to.includes(visitor) && e.payload.subject.startsWith("You're on the waitlist:"));
+      expect(joined?.payload.text).toContain("Places aren't held");
+      const leave = /https?:\/\/\S+\/book\/waitlist\?leave=[A-Za-z0-9_-]{43}/.exec(joined?.payload.text ?? "")?.[0];
+      expect(leave).toBeDefined();
+      expect((await run("select w.status from akb_class_waitlist w join akb_clients c on c.id = w.client_id where c.email = $1", [visitor]))[0]).toEqual({ status: "waiting" });
+
+      // A place opens (the booked person cancels): the next in the queue is offered it and emailed once, by the daily job.
+      await run("update akb_class_attendance set status = 'cancelled' where client_id = $1", [client.id]);
+      expect((await run("select w.status from akb_class_waitlist w join akb_clients c on c.id = w.client_id where c.email = $1", [visitor]))[0]).toEqual({ status: "offered" });
+      const cron = { headers: { authorization: "Bearer e2e-cron-secret-0123456789" } };
+      await request.get(`${PROD}/api/cron/class-reminders`, cron);
+      await request.get(`${PROD}/api/cron/class-reminders`, cron);
+      const offers = (await emails(request)).filter((e) => e.payload.to.includes(visitor) && e.payload.subject.startsWith("A place has opened:"));
+      expect(offers).toHaveLength(1);
+      expect(offers[0].payload.text).toMatch(/\/book\/group-class/);
+      expect(offers[0].payload.text).toContain("whoever books first");
+
+      // Leaving from the email's link (a button), once; the link then says it's done.
+      await page.goto(leave!.replace(/^https?:\/\/[^/]+/, PROD));
+      await expect(page.getByRole("heading", { level: 1, name: "Leave the waitlist?" })).toBeVisible();
+      await page.getByRole("button", { name: "Leave the waitlist" }).click();
+      await expect(page.getByRole("heading", { level: 1, name: "You've left the waitlist." })).toBeVisible();
+      expect((await run("select w.status from akb_class_waitlist w join akb_clients c on c.id = w.client_id where c.email = $1", [visitor]))[0]).toEqual({ status: "left" });
     } finally {
       await run("update akb_class_sessions set capacity = null where slot = $1 and class_date = $2::date", [session.id, last.date]);
     }

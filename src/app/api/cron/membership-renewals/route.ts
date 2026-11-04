@@ -7,6 +7,7 @@ import { londonToday } from "@/lib/coach/time";
 import { sendDirectDebitReminders, sendRenewalLinks } from "@/lib/membership-checkout";
 import { collectDirectDebits, notifyDirectDebitFailures, notifyRenewalPayments, endUnusedDirectDebits, sendRenewalReminders } from "@/lib/stripe/direct-debit";
 import { stripeConfig } from "@/lib/stripe/config";
+import { afterPlacesChange } from "@/lib/waitlist";
 
 /**
  * Renews memberships every four weeks (vercel.json "crons", daily): each
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
   if (!tidied.ok) console.error(`Member sign-in clean-up failed (${tidied.error.kind} ${tidied.error.code})`);
   const holds = await rpc<number>(db, "akb_release_class_holds", {});
   if (!holds.ok) console.error(`Class hold release failed (${holds.error.kind} ${holds.error.code})`);
+  // Places freed by holds that ran out are offered to the waitlist, and lapsed offers go to the next person.
+  await afterPlacesChange(db);
   const stripe = stripeConfig();
   const links = stripe ? await sendRenewalLinks(db, stripe, londonToday()) : null;
   if (links?.failed) console.error(`Membership pay links: ${links.failed} couldn't be sent`);

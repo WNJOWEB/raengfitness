@@ -16,10 +16,39 @@ const where = `${groupClass.name} at ${site.location.street}, ${site.location.to
 export const sheetKey = {
   book: (s: WeekSlot) => `book.${s.date}.${s.slot}`,
   cancel: (p: MemberPlace) => `cancel.${p.id}`,
+  waitlist: (s: WeekSlot) => `waitlist.${s.date}.${s.slot}`,
 };
 
 export function sheetHref(view: MembersView, key: string): string {
   return `${MEMBERS_VIEW_PATH[view]}?confirm=${encodeURIComponent(key)}`;
+}
+
+/** A full class: join its waitlist (owner, 2026-11-04). */
+export function waitlistSheet(s: WeekSlot, back: MembersView): SheetPayload {
+  return {
+    kind: "waitlist",
+    eyebrow: "This class is full",
+    title: s.label,
+    body: "Join the waitlist and we'll email you if a place opens. Places aren't held: they go to whoever books first, so book soon when you hear from us. It's free, and you can leave any time.",
+    confirm: "Join the waitlist",
+    keep: "Not now",
+    fields: { slot: s.slot, date: s.date, back },
+  };
+}
+
+/** Already on a class's waitlist: where they are, and leaving. */
+export function leaveWaitlistSheet(s: WeekSlot, entryId: string, position: number, offered: boolean, back: MembersView): SheetPayload {
+  return {
+    kind: "waitlist-leave",
+    eyebrow: "You're on the waitlist",
+    title: s.label,
+    body: offered
+      ? "A place has opened. Check your email, or book it from this page if it shows Book. Places go to whoever books first."
+      : `You're ${position === 1 ? "next" : `number ${position}`} in the queue. We'll email you if a place opens.`,
+    confirm: "Leave the waitlist",
+    keep: "Stay on it",
+    fields: { entry: entryId, back },
+  };
 }
 
 export function bookSheet(s: WeekSlot, left: number, back: MembersView): SheetPayload {

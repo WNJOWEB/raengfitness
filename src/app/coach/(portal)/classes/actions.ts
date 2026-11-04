@@ -3,8 +3,8 @@
 import { refresh } from "next/cache";
 import { after } from "next/server";
 import { failure, success, type ActionState } from "@/lib/coach/action-state";
-import { addAttendee, ATTENDANCE_STATUSES, cancelClass, ensureClassSession, getAttendance, listAttendance, setAttendance, setDefaultCapacity, updateClassSession } from "@/lib/coach/bookings";
-import { classChargeDescription, classDurationMinutes, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
+import { addAttendee, ATTENDANCE_STATUSES, cancelClass, ensureClassSession, getAttendance, listAttendance, removeFromWaitlist, setAttendance, setAttendanceNotes, setDefaultCapacity, setSlotCapacity, updateClassSession } from "@/lib/coach/bookings";
+import { classChargeDescription, classDurationMinutes, classSlots, findSlot, isTimetableClass, occurrence, slotLabel } from "@/lib/coach/classes";
 import { getClient } from "@/lib/coach/clients";
 import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
@@ -12,7 +12,8 @@ import { ATTENDANCE_STATUS } from "@/lib/coach/labels";
 import { FormReader } from "@/lib/coach/validate";
 import { classWhen } from "@/lib/class-checkout";
 import { sendNotice } from "@/lib/notices";
-import { payWithCredit, periodOn } from "@/lib/coach/memberships";
+import { afterPlacesChange } from "@/lib/waitlist";
+import { adjustCredits, payWithCredit, periodOn } from "@/lib/coach/memberships";
 
 const CHECK = "Please check the highlighted fields.";
 
@@ -79,6 +80,8 @@ export async function setAttendanceAction(_prev: ActionState, formData: FormData
   if (!before.data) return failure("That place no longer exists.");
   const result = await setAttendance(ctx.db, id, status);
   if (!result.ok) return failure(dbMessage(result.error));
+  // A cancelled place may free one for the waitlist.
+  if (status === "cancelled") after(() => afterPlacesChange(ctx.db));
   refresh();
   return success(`Marked ${ATTENDANCE_STATUS[status].toLowerCase()}${status === "cancelled" ? ". An unpaid charge for it was cancelled too" : ""}.`);
 }
@@ -141,6 +144,8 @@ export async function updateClassAction(_prev: ActionState, formData: FormData):
   if (!id.ok) return failure(dbMessage(id.error));
   const result = await updateClassSession(ctx.db, id.data, { capacity, notes });
   if (!result.ok) return failure(dbMessage(result.error));
+  // A bigger class frees places for the waitlist.
+  after(() => afterPlacesChange(ctx.db));
   refresh();
   return success(capacity ? `Saved. This class holds ${capacity}.` : "Saved. This class uses the usual class size.");
 }
@@ -154,6 +159,76 @@ export async function setDefaultCapacityAction(_prev: ActionState, formData: For
   if (!form.ok || size === null) return failure(CHECK, form.errors);
   const result = await setDefaultCapacity(ctx.db, size);
   if (!result.ok) return failure(dbMessage(result.error));
+  after(() => afterPlacesChange(ctx.db));
   refresh();
   return success(`Saved. Classes now hold ${size} unless you set a different size for a date.`);
+}
+
+/** A usual size for each class time (owner, 2026-11-04); an empty box removes it, so that time uses the all-classes size. */
+export async function setSlotCapacitiesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await actionContext();
+  if ("error" in ctx) return ctx.error;
+  const form = new FormReader(formData);
+  const sizes = classSlots().map((s) => ({ slot: s.id, size: form.int(`slot-${s.id}`, { label: `the size for ${slotLabel(s)}`, min: 1, max: 200 }) }));
+  if (!form.ok) return failure(CHECK, form.errors);
+  for (const { slot, size } of sizes) {
+    const result = await setSlotCapacity(ctx.db, slot, size);
+    if (!result.ok) return failure(dbMessage(result.error));
+  }
+  after(() => afterPlacesChange(ctx.db));
+  refresh();
+  return success("Saved. Each class time now uses its own size, or the size for every class where it's empty.");
+}
+
+/** Alex's private note on one person's place (owner, 2026-11-04). Empty clears it. */
+export async function saveAttendanceNotesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await actionContext();
+  if ("error" in ctx) return ctx.error;
+  const form = new FormReader(formData);
+  const id = form.id("attendance", { label: "a place", required: true });
+  const notes = form.text("notes", { label: "the note", max: 1000, multiline: true });
+  if (!form.ok || !id) return failure(CHECK, form.errors);
+  const result = await setAttendanceNotes(ctx.db, id, notes ?? "");
+  if (!result.ok) return failure(dbMessage(result.error));
+  refresh();
+  return success(notes ? "Note saved." : "Note cleared.");
+}
+
+/** The credit adjuster (owner, 2026-11-04): add or take away credits on a member's current period, with a reason. */
+export async function adjustCreditsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await actionContext();
+  if ("error" in ctx) return ctx.error;
+  const form = new FormReader(formData);
+  const period = form.id("period", { label: "a membership period", required: true });
+  const delta = form.int("delta", { label: "the change", min: -20, max: 20, required: true });
+  const reason = form.text("reason", { label: "the reason", max: 200, required: true });
+  if (!form.ok || !period || delta === null || !reason) return failure(CHECK, form.errors);
+  if (delta === 0) return failure("Choose how many credits to add or take away.");
+  const result = await adjustCredits(ctx.db, period, delta, reason);
+  if (!result.ok) {
+    const rule = result.error.kind === "rule" ? result.error.rule : null;
+    return failure(
+      rule === "invalid_credits"
+        ? "That would take it below the credits already used, or above 60."
+        : rule === "period_over"
+          ? "That period has ended."
+          : dbMessage(result.error),
+    );
+  }
+  refresh();
+  return success(`Done. They now have ${result.data} credits this period.`);
+}
+
+/** Takes someone off a class's waitlist. */
+export async function removeFromWaitlistAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await actionContext();
+  if ("error" in ctx) return ctx.error;
+  const form = new FormReader(formData);
+  const id = form.id("entry", { label: "a waitlist place", required: true });
+  if (!form.ok || !id) return failure("That place on the waitlist no longer exists.");
+  const result = await removeFromWaitlist(ctx.db, id);
+  if (!result.ok) return failure(dbMessage(result.error));
+  after(() => afterPlacesChange(ctx.db));
+  refresh();
+  return success(result.data ? "Taken off the waitlist." : "They're not on the waitlist any more.");
 }

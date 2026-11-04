@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { addAttendee, addPackage, addPtSession, ensureClassSession, getClassSession, getDefaultCapacity, getPackage, listAttendance, reschedulePtSession, setAttendance, setDefaultCapacity, setPtStatus, updateClassSession } from "./bookings";
+import { addAttendee, addPackage, addPtSession, ensureClassSession, getClassSession, getDefaultCapacity, getPackage, getSlotCapacities, listAttendance, reschedulePtSession, setAttendance, setDefaultCapacity, setPtStatus, setSlotCapacity, updateClassSession } from "./bookings";
 import { createClient } from "./clients";
 import { isTimetableClass, classOccurrences } from "./classes";
 import type { Db } from "./db";
@@ -123,6 +123,43 @@ describe("the usual class size", () => {
     expect(await setDefaultCapacity(db, 0)).toMatchObject({ ok: false, error: { rule: "invalid_capacity" } });
     expect(await setDefaultCapacity(db, 201)).toMatchObject({ ok: false, error: { rule: "invalid_capacity" } });
     expect(await getDefaultCapacity(db)).toBe(15);
+  });
+});
+
+describe("a usual class size for each class time (owner, 2026-11-04)", () => {
+  const sat = { slot: "sat-morning", date: "2026-11-14", startsAt: "2026-11-14T09:00:00.000Z", duration: 60 };
+  const mon = { slot: "mon-evening", date: "2026-11-16", startsAt: "2026-11-16T18:30:00.000Z", duration: 60 };
+
+  it("a slot's own size applies to that slot only, below a date's own size and above the all-classes size", async () => {
+    expect(await getSlotCapacities(db)).toEqual({});
+    expect((await setSlotCapacity(db, "sat-morning", 1)).ok).toBe(true);
+    expect(await getSlotCapacities(db)).toEqual({ "sat-morning": 1 });
+    const [satId, monId] = [await ensureClassSession(db, sat), await ensureClassSession(db, mon)];
+    if (!satId.ok || !monId.ok) throw new Error("no session");
+    expect(await getClassSession(db, sat.slot, sat.date)).toMatchObject({ ok: true, data: { capacity: 1, capacity_set: null } });
+    expect(await getClassSession(db, mon.slot, mon.date)).toMatchObject({ ok: true, data: { capacity: 15, capacity_set: null } });
+
+    const [a, b] = [await newClient(), await newClient()];
+    expect((await addAttendee(db, { clientId: a, ...sat, pricePence: 1000, description: "x" })).ok).toBe(true);
+    expect(await addAttendee(db, { clientId: b, ...sat, pricePence: 1000, description: "x" })).toMatchObject({ ok: false, error: { rule: "class_full" } });
+    // Monday is untouched by Saturday's size.
+    expect((await addAttendee(db, { clientId: a, ...mon, pricePence: 1000, description: "x" })).ok).toBe(true);
+    expect((await addAttendee(db, { clientId: b, ...mon, pricePence: 1000, description: "x" })).ok).toBe(true);
+
+    // A date's own size wins; clearing the slot's size goes back to the all-classes size.
+    expect((await updateClassSession(db, satId.data, { capacity: 2, notes: "" })).ok).toBe(true);
+    expect((await addAttendee(db, { clientId: b, ...sat, pricePence: 1000, description: "x" })).ok).toBe(true);
+    expect((await updateClassSession(db, satId.data, { capacity: null, notes: "" })).ok).toBe(true);
+    expect((await setSlotCapacity(db, "sat-morning", null)).ok).toBe(true);
+    expect(await getSlotCapacities(db)).toEqual({});
+    expect(await getClassSession(db, sat.slot, sat.date)).toMatchObject({ ok: true, data: { capacity: 15 } });
+  });
+
+  it("refuses a size outside 1 to 200 and a made-up slot name", async () => {
+    expect(await setSlotCapacity(db, "sat-morning", 0)).toMatchObject({ ok: false, error: { rule: "invalid_capacity" } });
+    expect(await setSlotCapacity(db, "sat-morning", 201)).toMatchObject({ ok: false, error: { rule: "invalid_capacity" } });
+    expect(await setSlotCapacity(db, "Sat Morning; drop table", 10)).toMatchObject({ ok: false, error: { rule: "invalid_slot" } });
+    expect(await getSlotCapacities(db)).toEqual({});
   });
 });
 

@@ -18,6 +18,8 @@ interface Props {
   noun: string;
   /** Places still free on a class date (group classes, when the count is known); shown beside each time. */
   placesLeft?: (slotId: string, date: DateKey) => number;
+  /** Where to join the waitlist for a full time (group classes; owner, 2026-11-04). Without it a full time just says Full. */
+  waitlistHref?: (slotId: string, date: DateKey) => string;
 }
 
 /**
@@ -25,7 +27,7 @@ interface Props {
  * radios: arrow keys move between the dates that can be chosen, and dates
  * without availability are disabled and labelled.
  */
-export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSlot, noun, placesLeft }: Props) {
+export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSlot, noun, placesLeft, waitlistHref }: Props) {
   const byDate = new Map(avail.days.map((d) => [d.date, d]));
   const months = [...new Set([monthKey(avail.from), monthKey(avail.to)])];
   // Open on the chosen date's month, else the month of the first date that can be booked.
@@ -71,11 +73,12 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
           {cells.map((key, i) => {
             if (!key) return <span key={`pad-${i}`} />;
             const status = statusOf(key);
-            const selectable = status === "available";
+            // With a waitlist (group classes), a fully booked date can be opened to see its times and join the waitlist.
+            const selectable = status === "available" || (status === "full" && Boolean(waitlistHref));
             const selected = key === date;
             const day = fromDateKey(key).getDate();
             const label = `${formatLongDate(key)}, ${
-              status === "available" ? "available" : status === "full" ? "fully booked" : "no sessions"
+              status === "available" ? "available" : status === "full" ? (waitlistHref ? "fully booked, waitlist open" : "fully booked") : "no sessions"
             }`;
             return (
               <label
@@ -84,8 +87,10 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                 className={cn(
                   "relative flex h-12 items-center justify-center rounded-xl text-sm transition-colors duration-150 sm:h-14",
                   // Bookable dates are outlined rounded squares in bold; the rest stay plain on the page (2026-10-27: outlines, not white fills).
-                  selectable && "cursor-pointer font-bold hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-ink",
-                  selectable && !selected && "border border-line",
+                  selectable && "cursor-pointer hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-ink",
+                  status === "available" && "font-bold",
+                  // A fully booked date that can still be opened for its waitlist: dashed, not bold.
+                  selectable && !selected && (status === "available" ? "border border-line" : "border border-dashed border-line text-muted"),
                   selected && "bg-ink text-paper",
                   // Dates that can't be booked recede (disabled controls are exempt from text contrast).
                   !selectable && "text-grey",
@@ -105,7 +110,7 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                   className="sr-only"
                 />
                 <span aria-hidden="true">{day}</span>
-                {selectable && !selected ? (
+                {status === "available" && !selected ? (
                   <span aria-hidden="true" className="absolute bottom-1.5 size-1 rounded-full bg-ink sm:bottom-2" />
                 ) : null}
               </label>
@@ -121,7 +126,7 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
           </li>
           {avail.days.some((d) => dayStatus(d) === "full") ? (
             <li className="flex items-center gap-2">
-              <span aria-hidden="true" className="line-through">21</span> Fully booked
+              <span aria-hidden="true" className="line-through">21</span> {waitlistHref ? "Fully booked: join the waitlist" : "Fully booked"}
             </li>
           ) : null}
           <li className="flex items-center gap-2">
@@ -137,8 +142,8 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
         {chosenDay ? (
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-1">
             {chosenDay.slots.map((slot) => (
+              <div key={slot.id} className="flex flex-col">
               <label
-                key={slot.id}
                 className={cn(
                   "flex min-h-12 rounded-xl border px-4 text-sm font-semibold transition-colors duration-150",
                   // With a places-left line the time and the line stack (two columns of tiles on a phone are narrow).
@@ -165,6 +170,12 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                   <span className="text-xs font-normal">{placesLabel(placesLeft(slot.id, date))}</span>
                 ) : null}
               </label>
+              {!slot.available && waitlistHref && date ? (
+                <a href={waitlistHref(slot.id, date)} className="inline-flex min-h-11 items-center px-1 text-sm font-semibold underline underline-offset-4 hover:no-underline">
+                  Join the waitlist<span className="sr-only"> for {formatTime(slot.time)}</span>
+                </a>
+              ) : null}
+              </div>
             ))}
           </div>
         ) : (

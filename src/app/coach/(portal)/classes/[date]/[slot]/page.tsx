@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getClassSession, getDefaultCapacity, listAttendance } from "@/lib/coach/bookings";
+import { getClassSession, getDefaultCapacity, getSlotCapacities, listAttendance, listWaitlist } from "@/lib/coach/bookings";
 import { CLASS_NAME, classDurationMinutes, defaultPrices, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
 import { listClients } from "@/lib/coach/clients";
 import { portalContext } from "@/lib/coach/context";
@@ -17,7 +17,9 @@ import { addMinutesIso, formatClock, formatLongDate, formatStamp, toLondon } fro
 import type { AttendanceStatus } from "@/lib/coach/types";
 import { ActionForm, Checkbox, Field, MoneyField, SelectField, SubmitButton, TextArea } from "@/components/coach/form";
 import { Badge, EmptyState, LoadError, Panel, TextLink } from "@/components/coach/ui";
-import { addAttendeeAction, cancelClassAction, setAttendanceAction, updateClassAction } from "../../actions";
+import { CreditStepper } from "@/components/coach/CreditStepper";
+import { DetailsPanel } from "@/components/coach/DetailsPanel";
+import { addAttendeeAction, adjustCreditsAction, cancelClassAction, removeFromWaitlistAction, saveAttendanceNotesAction, setAttendanceAction, updateClassAction } from "../../actions";
 import { payWithCreditAction, returnCreditAction } from "../../../memberships/actions";
 import { creditsLine, periodsOn } from "@/lib/coach/memberships";
 
@@ -57,7 +59,8 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
   if (!loaded.ok) return <LoadError message={loadMessage(loaded.error)} />;
   const [row, requests, clients] = loaded.data;
   const usualSize = await getDefaultCapacity(db);
-  const size = row?.capacity ?? usualSize;
+  const slotSizes = await getSlotCapacities(db);
+  const size = row?.capacity ?? slotSizes[slot.id] ?? usualSize;
   const places = row ? await listAttendance(db, { sessionIds: [row.id] }) : { ok: true as const, data: [] };
   if (!places.ok) return <LoadError message={loadMessage(places.error)} />;
   const charges = places.data.length ? await listCharges(db, { attendanceIds: places.data.map((p) => p.id) }) : { ok: true as const, data: [] };
@@ -66,6 +69,9 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
   const periods = await periodsOn(db, clients.filter((c) => c.status !== "former").map((c) => c.id), date);
   if (!periods.ok) return <LoadError message={loadMessage(periods.error)} />;
   const periodFor = (clientId: string) => periods.data.find((x) => x.client_id === clientId);
+  // Who is waiting for a place (a full class's waitlist; migration 20261120000000).
+  const waitlistLoaded = row ? await listWaitlist(db, row.id) : { ok: true as const, data: [] };
+  const waitlist = waitlistLoaded.ok ? waitlistLoaded.data : [];
 
   const name = (id: string) => clients.find((c) => c.id === id)?.full_name ?? "Client";
   const pending = requests.filter((r) => r.status === "new" || r.status === "awaiting");
@@ -86,7 +92,7 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
             {formatClock(slot.start)}–{formatClock(ends)}
           </span>
           <span className="tabular-nums">
-            · {booked} of {size} booked
+            · {booked} of {size} booked{waitlist.length ? `, ${waitlist.length} waiting` : ""}
           </span>
           {cancelled ? <Badge tone="strong">Cancelled</Badge> : full ? <Badge tone="strong">Full</Badge> : null}
           {date < today ? <Badge tone="muted">Past</Badge> : null}
@@ -118,7 +124,8 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
                     <li key={p.id} className="py-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <TextLink href={`/coach/clients/${p.client_id}?tab=bookings`}>{name(p.client_id)}</TextLink>
-                        <span className="flex flex-wrap gap-2">
+                        <span className="flex flex-wrap items-center gap-2">
+                          {p.notes ? <Badge tone="muted">Note</Badge> : null}
                           <Badge tone={p.status === "attended" ? "strong" : p.status === "booked" ? "plain" : "muted"}>{ATTENDANCE_STATUS[p.status]}</Badge>
                           {onCredit ? (
                             <Badge tone="muted">{forfeited ? "Credit used (late or missed)" : p.status === "cancelled" ? "Credit returned" : "Membership credit"}</Badge>
@@ -157,6 +164,45 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
                             Record payment
                           </TextLink>
                         ) : null}
+                        <DetailsPanel label="Details" title={name(p.client_id)}>
+                          <dl className="border-t border-line text-sm">
+                            {(
+                              [
+                                ["Email", clients.find((c) => c.id === p.client_id)?.email || "Not given"],
+                                ["Phone", clients.find((c) => c.id === p.client_id)?.phone || "Not given"],
+                                ["This class", `${ATTENDANCE_STATUS[p.status]}${p.late_cancel ? ", cancelled late" : ""}`],
+                                ["Paid", onCredit ? "With a membership credit" : PAYMENT_STATE_LABEL[state]],
+                              ] as const
+                            ).map(([k, v]) => (
+                              <div key={k} className="flex justify-between gap-4 border-b border-line py-2.5">
+                                <dt className="text-muted">{k}</dt>
+                                <dd className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{v}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                          <ActionForm action={saveAttendanceNotesAction} label={`Private note for ${name(p.client_id)}`}>
+                            <input type="hidden" name="attendance" value={p.id} />
+                            <TextArea name="notes" label="Your private note" defaultValue={p.notes} rows={3} maxLength={1000} hint="Only you see this. Training notes: avoid health details unless you need them to coach safely." />
+                            <div>
+                              <SubmitButton variant="secondary">Save note</SubmitButton>
+                            </div>
+                          </ActionForm>
+                          {period ? (
+                            <ActionForm action={adjustCreditsAction} resetOnSuccess label={`Adjust credits for ${name(p.client_id)}`}>
+                              <input type="hidden" name="period" value={period.id} />
+                              <p className="font-semibold">Credits this period</p>
+                              <p className="text-sm text-muted">Add or take away credits (for a goodwill credit, or a mistake). They can&apos;t go below the credits already used.</p>
+                              <CreditStepper key={period.credits} credits={period.credits} used={period.credits_used} />
+                              <Field name="reason" label="Reason" required maxLength={200} hint="For your records." />
+                              <div>
+                                <SubmitButton variant="secondary">Save credits</SubmitButton>
+                              </div>
+                            </ActionForm>
+                          ) : null}
+                          <p>
+                            <TextLink href={`/coach/clients/${p.client_id}`}>Open their full record</TextLink>
+                          </p>
+                        </DetailsPanel>
                       </div>
                     </li>
                   );
@@ -164,6 +210,40 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
               </ul>
             )}
           </Panel>
+
+          {waitlist.length > 0 || (full && !cancelled) ? (
+            <Panel title="Waitlist" id="waitlist-heading">
+              {waitlist.length === 0 ? (
+                <p className="text-sm text-muted">Nobody is waiting. When this class is full, people can join its waitlist from the booking page and their account.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted">In the order they joined. When a place opens, the next people are emailed. Places aren&apos;t held: they go to whoever books first.</p>
+                  <ul className="mt-3 divide-y divide-line border-y border-line">
+                    {waitlist.map((w, i) => (
+                      <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                        <span className="min-w-0">
+                          <span className="font-semibold tabular-nums">{i + 1}. </span>
+                          <TextLink href={`/coach/clients/${w.client_id}`}>{w.name}</TextLink>
+                          <span className="block text-sm text-muted [overflow-wrap:anywhere]">
+                            {[w.email, w.phone].filter(Boolean).join(" · ")} · joined {formatStamp(w.created_at)}
+                          </span>
+                        </span>
+                        <span className="flex flex-wrap items-center gap-2">
+                          {w.status === "offered" ? <Badge tone="strong">Offered a place</Badge> : <Badge tone="muted">Waiting</Badge>}
+                          <ActionForm action={removeFromWaitlistAction} label={`Take ${w.name} off the waitlist`} confirm={`Take ${w.name} off the waitlist?`}>
+                            <input type="hidden" name="entry" value={w.id} />
+                            <SubmitButton variant="quiet" className="min-h-11 text-xs">
+                              Remove
+                            </SubmitButton>
+                          </ActionForm>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Panel>
+          ) : null}
 
           {pending.length ? (
             <Panel title="Requests for this class" id="pending-heading">

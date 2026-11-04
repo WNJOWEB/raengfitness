@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
     return { rules: { userAgent: "*", disallow: "/" } };
   }
   return {
-    rules: { userAgent: "*", allow: "/", disallow: ["/coach$", "/coach/", "/account", "/memberships/join/done", "/memberships/join/direct-debit", "/book/done", "/book/manage", "/pay/done"] },
+    rules: { userAgent: "*", allow: "/", disallow: ["/coach$", "/coach/", "/account", "/memberships/join/done", "/memberships/join/direct-debit", "/book/done", "/book/manage", "/book/waitlist", "/pay/done"] },
     sitemap: `${siteUrl()}/sitemap.xml`,
   };
 }

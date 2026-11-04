@@ -16,7 +16,7 @@ import {
 import { describePreferences, initialFormState, type BookingField, type FieldErrors, type FormState } from "@/lib/booking-request";
 import { emailError, messageError, nameError, phoneError } from "@/lib/form-validation";
 import { formatLongDate, formatShortDate, fromDateKey, toDateKey, weekdayIndex, type DateKey } from "@/lib/availability/dates";
-import { classAvailability } from "@/lib/availability/timetable";
+import { classAvailability, classForSlot } from "@/lib/availability/timetable";
 import type { AvailabilityWindow } from "@/lib/availability/types";
 import type { PublishedClass } from "@/lib/class-sessions";
 import { addMinutes, formatTime } from "@/lib/schedule";
@@ -105,7 +105,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
   const chosenPlan = useChosenPlan();
   const [full, setFull] = useState<{ full: string[]; cancelled: string[] }>({ full: [], cancelled: [] });
   // Places left per "slot|date" (only dates with a row) and the usual class size, for "N places left" on each class.
-  const [places, setPlaces] = useState<{ left: Record<string, number>; size: number | null }>({ left: {}, size: null });
+  const [places, setPlaces] = useState<{ left: Record<string, number>; size: number | null; sizes: Record<string, number> }>({ left: {}, size: null, sizes: {} });
   const fullSet = new Set(full.full);
   const cancelledSet = new Set(full.cancelled);
   const initialStep = initialService ? 1 : 0;
@@ -234,7 +234,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
     if (demo || service !== "group-class") return;
     let live = true;
     fetch("/api/classes/full")
-      .then((r) => (r.ok ? (r.json() as Promise<{ full?: unknown; cancelled?: unknown; left?: unknown; size?: unknown; known?: unknown }>) : { full: [], cancelled: [] }))
+      .then((r) => (r.ok ? (r.json() as Promise<{ full?: unknown; cancelled?: unknown; left?: unknown; size?: unknown; sizes?: unknown; known?: unknown }>) : { full: [], cancelled: [] }))
       .then((body) => {
         const keys = (list: unknown) => (Array.isArray(list) ? list.filter((k): k is string => typeof k === "string") : []);
         if (!live) return;
@@ -243,8 +243,11 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
         const raw = "left" in body && typeof body.left === "object" && body.left !== null ? (body.left as Record<string, unknown>) : {};
         for (const [k, v] of Object.entries(raw)) if (typeof v === "number" && Number.isInteger(v) && v >= 0) left[k] = v;
         const size = "size" in body && typeof body.size === "number" && Number.isInteger(body.size) && body.size > 0 ? body.size : null;
+        const sizes: Record<string, number> = {};
+        const rawSizes = "sizes" in body && typeof body.sizes === "object" && body.sizes !== null ? (body.sizes as Record<string, unknown>) : {};
+        for (const [k, v] of Object.entries(rawSizes)) if (typeof v === "number" && Number.isInteger(v) && v > 0) sizes[k] = v;
         // Only trust the counts when the server could read them.
-        setPlaces("known" in body && body.known === true ? { left, size } : { left: {}, size: null });
+        setPlaces("known" in body && body.known === true ? { left, size, sizes } : { left: {}, size: null, sizes: {} });
       })
       .catch(() => {});
     return () => {
@@ -462,7 +465,19 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                         date={date}
                         slotId={slotId}
                         noun={noun}
-                        placesLeft={demoPay ? samplePlaces : service === "group-class" && places.size !== null ? (slot, day) => places.left[`${slot}|${day}`] ?? places.size : undefined}
+                        waitlistHref={
+                          !demo && service === "group-class"
+                            ? (slot, day) => {
+                                const cls = classForSlot(classes, slot, day);
+                                return cls?.id ? `/book/waitlist?class=${encodeURIComponent(cls.id)}&date=${day}` : "/book/group-class";
+                              }
+                            : undefined
+                        }
+                        placesLeft={demoPay ? samplePlaces : service === "group-class" && places.size !== null ? (slot, day) => {
+                              const id = classForSlot(classes, slot, day)?.id ?? "";
+                              return places.left[`${id}|${day}`] ?? places.sizes[id] ?? places.size ?? 0;
+                            }
+                          : undefined}
                         onDate={(d) => {
                           setDate(d);
                           setSlotId(null);

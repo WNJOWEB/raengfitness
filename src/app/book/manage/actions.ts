@@ -1,6 +1,8 @@
 "use server";
 
+import { after } from "next/server";
 import { cancelByToken } from "@/lib/class-checkout";
+import { afterPlacesChange } from "@/lib/waitlist";
 import { coachDb } from "@/lib/coach/db";
 
 export interface CancelState {
@@ -17,7 +19,11 @@ export async function cancelClassBooking(_previous: CancelState, formData: FormD
   const db = coachDb();
   if (typeof token !== "string" || !db) return { status: "error", creditLink: null, message: "This booking can't be cancelled online. Please message Alex." };
   const result = await cancelByToken(db, token);
-  if (result.ok) return { status: "cancelled", creditLink: result.creditLink, refunded: result.refunded, message: "" };
+  if (result.ok) {
+    // The place they gave up may be offered to the waitlist.
+    after(() => afterPlacesChange(db));
+    return { status: "cancelled", creditLink: result.creditLink, refunded: result.refunded, message: "" };
+  }
   const message =
     result.reason === "class_started"
       ? "The class has already started, so it can't be cancelled."

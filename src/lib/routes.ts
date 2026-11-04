@@ -14,8 +14,8 @@ export const publicRoutes = [
   "/book/one-to-one",
 ] as const;
 
-/** Member sign-in (2026-10-26): linked from the menu and footer, never in the sitemap or indexed. */
-export const memberRoutes = ["/account/sign-in"] as const;
+/** Member sign-in (2026-10-26) and the waitlist page (2026-11-04, reached from a full class): linked from the site, never in the sitemap or indexed. */
+export const memberRoutes = ["/account/sign-in", "/book/waitlist"] as const;
 
 /** Coach sign-in: linked from the footer, but never in the sitemap or indexed. */
 export const coachRoutes = ["/coach/login"] as const;

@@ -97,7 +97,7 @@ describe("bookingWeeks for a member", () => {
   it("shows full and cancelled classes, no credits and an unpaid period", () => {
     const full = { known: true as const, keys: ["sat-morning|2026-10-31"], cancelled: ["mon-evening|2026-11-02"] };
     const s = bookingWeeks(member(), { ...args, full }).flatMap((w) => w.slots);
-    expect(s.find((x) => x.date === "2026-10-31")?.state).toBe("full");
+    expect(s.find((x) => x.date === "2026-10-31")?.state).toBe("waitlist"); // a full class can be joined on the waitlist (2026-11-04)
     expect(s.find((x) => x.date === "2026-11-02")?.state).toBe("cancelled");
     const noneLeft = bookingWeeks(member({ period: { start: "2026-10-28", end: "2026-11-24", credits: 8, used: 8, left: 0 } }), args).flatMap((w) => w.slots);
     expect(noneLeft.find((x) => x.date === "2026-10-31")?.state).toBe("no-credits");
@@ -164,5 +164,30 @@ describe("after cancelling the membership (owner, 2026-11-03: the account become
     const o = member({ period: { start: "2026-10-28", end: "2026-11-24", credits: 8, used: 8, left: 0 } });
     expect(usesCredits(o)).toBe(true);
     expect(states(o).has("pay")).toBe(false);
+  });
+});
+
+describe("a full class and the waitlist (owner, 2026-11-04)", () => {
+  const slotsOf = (o: MemberOverview, extra: Partial<Parameters<typeof bookingWeeks>[1]> = {}) => bookingWeeks(o, { ...args, ...extra }).flatMap((w) => w.slots);
+  const fullWed = { known: true as const, keys: ["wed-evening|2026-11-04"], cancelled: [] };
+  const wed = (slots: ReturnType<typeof slotsOf>) => slots.find((s) => s.slot === "wed-evening" && s.date === "2026-11-04");
+
+  it("a full class can be joined on the waitlist (not just 'Full'), by a member or anyone else", () => {
+    expect(wed(slotsOf(member({ places: [] }), { full: fullWed }))?.state).toBe("waitlist");
+    expect(wed(slotsOf(member({ membership: null, period: null, places: [] }), { full: fullWed }))?.state).toBe("waitlist");
+  });
+
+  it("someone already waiting sees that, not another Join", () => {
+    const entry = { id: "w1", status: "waiting" as const, slot: "wed-evening", class_date: "2026-11-04", starts_at: "2026-11-04T18:30:00Z", position: 2 };
+    expect(wed(slotsOf(member({ places: [] }), { full: fullWed, waitlist: [entry] }))?.state).toBe("waitlisted");
+  });
+
+  it("a class with a place free is a normal card, whether or not they were waiting", () => {
+    const entry = { id: "w1", status: "offered" as const, slot: "wed-evening", class_date: "2026-11-04", starts_at: "2026-11-04T18:30:00Z", position: 1 };
+    expect(wed(slotsOf(member({ places: [] }), { waitlist: [entry] }))?.state).toBe("book");
+  });
+
+  it("their own booking on a full class stays Booked", () => {
+    expect(wed(slotsOf(member({ places: [place({})] }), { full: fullWed }))?.state).toBe("booked");
   });
 });

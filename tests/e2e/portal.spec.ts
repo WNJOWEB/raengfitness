@@ -140,10 +140,10 @@ test("confirming a class request creates the client, books the place, and paymen
 
   await page.goto(`/coach/classes/${date}/sat-morning`);
   const row = page.getByRole("listitem").filter({ hasText: person.name });
-  await expect(row.getByText("Booked", { exact: true })).toBeVisible();
-  await expect(row.getByText("Unpaid")).toBeVisible();
+  await expect(row.getByText("Booked", { exact: true }).first()).toBeVisible();
+  await expect(row.getByText("Unpaid").first()).toBeVisible();
   await row.getByRole("button", { name: "Attended" }).click();
-  await expect(row.getByText("Attended", { exact: true })).toBeVisible();
+  await expect(row.getByText("Attended", { exact: true }).first()).toBeVisible();
 
   // A £7 part payment (of the £12 class), then the rest.
   await row.getByRole("link", { name: "Record payment" }).click();
@@ -298,6 +298,95 @@ test("class capacity: a date's own size is kept, and full is refused", async ({ 
   await add.getByLabel("Client").selectOption({ label: p2.name });
   await add.getByRole("button", { name: "Add to class" }).click();
   await expect(add.getByRole("alert")).toContainText("That class is full");
+});
+
+test("a usual class size for each class time: its own, else the size for every class (owner, 2026-11-04)", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/coach/classes");
+  const bySlot = page.getByRole("form", { name: "Sizes by class time" });
+  await bySlot.getByLabel(/Wednesday/).fill("9");
+  await bySlot.getByRole("button", { name: "Save sizes by class time" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved. Each class time now uses its own size" })).toBeVisible();
+  // A Wednesday now holds 9; the other times keep the usual size.
+  await page.goto(`/coach/classes/${next(2, 5)}/wed-evening`);
+  await expect(page.locator("h1 + p")).toContainText("of 9 booked");
+  await page.goto(`/coach/classes/${next(0, 5)}/mon-evening`);
+  await expect(page.locator("h1 + p")).not.toContainText("of 9 booked");
+  // Clearing the box goes back to the usual size; a size outside 1 to 200 is refused.
+  await page.goto("/coach/classes");
+  await expect(page.getByRole("form", { name: "Sizes by class time" }).getByLabel(/Wednesday/)).toHaveValue("9");
+  await page.getByRole("form", { name: "Sizes by class time" }).getByLabel(/Wednesday/).fill("500");
+  await page.getByRole("form", { name: "Sizes by class time" }).getByRole("button", { name: "Save sizes by class time" }).click();
+  await expect(page.getByRole("form", { name: "Sizes by class time" }).getByRole("alert")).toContainText("Please check the highlighted fields");
+  await page.getByRole("form", { name: "Sizes by class time" }).getByLabel(/Wednesday/).fill("");
+  await page.getByRole("form", { name: "Sizes by class time" }).getByRole("button", { name: "Save sizes by class time" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  await page.goto(`/coach/classes/${next(2, 5)}/wed-evening`);
+  await expect(page.locator("h1 + p")).not.toContainText("of 9 booked");
+});
+
+test("a class's waitlist and a booking's details: who's waiting and removing them, a private note, and the credit adjuster (owner, 2026-11-04)", async ({ page, request }) => {
+  // A Saturday no other test uses (and inside the new membership's first four weeks).
+  const date = next(5, 2);
+  const member = unique("Panel Member");
+  const w1 = unique("Wait First");
+  const w2 = unique("Wait Second");
+  const memberId = await seedClient(request, member);
+  await sql(request, "select akb_start_membership($1, 'regular', 'Regular', 6500, 8, akb_london_today())", [memberId]);
+  const [w1Id, w2Id] = [await seedClient(request, w1), await seedClient(request, w2)];
+  // The class has its own size of 1, taken by the member (paid with a credit); two people queue behind them.
+  await sql(request, "select akb_ensure_class_session('sat-morning', $1::date, $2::timestamptz, 60)", [date, `${date}T09:00:00Z`]);
+  await sql(request, "update akb_class_sessions set capacity = 1 where slot = 'sat-morning' and class_date = $1::date", [date]);
+  await sql(request, "select akb_member_book_class($1, 'sat-morning', $2::date, $3::timestamptz, 60)", [memberId, date, `${date}T09:00:00Z`]);
+  await sql(request, "select akb_member_waitlist_join($1, 'sat-morning', $2::date)", [w1Id, date]);
+  await sql(request, "select akb_member_waitlist_join($1, 'sat-morning', $2::date)", [w2Id, date]);
+  await signIn(page);
+  await page.goto(`/coach/classes/${date}/sat-morning`);
+
+  // The waitlist, in order, with contact details; the header counts them.
+  await expect(page.locator("h1 + p")).toContainText("1 of 1 booked, 2 waiting");
+  const waitlist = page.getByRole("region", { name: "Waitlist" });
+  await expect(waitlist.getByRole("listitem").nth(0)).toContainText(w1.name);
+  await expect(waitlist.getByRole("listitem").nth(1)).toContainText(w2.name);
+  await expect(waitlist.getByRole("listitem").nth(0)).toContainText(w1.email);
+  page.once("dialog", (d) => d.accept());
+  await waitlist.getByRole("form", { name: `Take ${w1.name} off the waitlist` }).getByRole("button", { name: "Remove" }).click();
+  // The row goes (and so does its message); the next person moves up.
+  await expect(waitlist.getByRole("listitem")).toHaveCount(1);
+  await expect(waitlist.getByRole("listitem").first()).toContainText(w2.name);
+  expect(await sql(request, "select status from akb_class_waitlist where client_id = $1", [w1Id])).toEqual([{ status: "removed" }]);
+  expect(await sql(request, "select status from akb_class_waitlist where client_id = $1", [w2Id])).toEqual([{ status: "waiting" }]);
+
+  // The booking's details open in a panel: contact, a private note, and the credit adjuster.
+  const row = page.getByRole("listitem").filter({ hasText: member.name }).first();
+  await row.getByRole("button", { name: "Details" }).click();
+  const panel = page.getByRole("dialog", { name: member.name });
+  await expect(panel).toContainText(member.email);
+  await expect(panel).toContainText("With a membership credit");
+  await panel.getByLabel("Your private note").fill("Left shoulder is sore: scale the presses.");
+  await panel.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Note saved." })).toBeVisible();
+  expect((await sql(request, "select notes from akb_class_attendance where client_id = $1", [memberId]))[0]).toEqual({ notes: "Left shoulder is sore: scale the presses." });
+  // The stepper: plus twice, a reason, Save; the total changes only then, and it's logged.
+  await page.reload();
+  await page.getByRole("listitem").filter({ hasText: member.name }).first().getByRole("button", { name: "Details" }).click();
+  const again = page.getByRole("dialog", { name: member.name });
+  await expect(again.getByLabel("Your private note")).toHaveValue("Left shoulder is sore: scale the presses.");
+  await again.getByRole("button", { name: "Add one credit" }).click();
+  await again.getByRole("button", { name: "Add one credit" }).click();
+  await expect(again.getByText("adding 2")).toBeVisible();
+  expect((await sql(request, "select p.credits from akb_membership_periods p join akb_memberships m on m.id = p.membership_id where m.client_id = $1", [memberId]))[0]).toEqual({ credits: 8 });
+  await again.getByRole("button", { name: "Save credits" }).click();
+  await expect(again.getByRole("alert")).toContainText("Please check the highlighted fields");
+  await again.getByLabel("Reason").fill("Venue was shut last week");
+  await again.getByRole("button", { name: "Save credits" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "They now have 10 credits this period." })).toBeVisible();
+  // The stepper starts again from the new total, and the reason box is empty.
+  await expect(again.getByText("credits (1 used)")).toBeVisible();
+  await expect(again.getByLabel("Reason")).toHaveValue("");
+  expect((await sql(request, "select p.credits from akb_membership_periods p join akb_memberships m on m.id = p.membership_id where m.client_id = $1", [memberId]))[0]).toEqual({ credits: 10 });
+  expect(await sql(request, "select detail->>'reason' as reason, detail->>'delta' as delta from akb_events where client_id = $1 and action = 'credits_adjusted'", [memberId])).toEqual([{ reason: "Venue was shut last week", delta: "2" }]);
+  await page.screenshot({ path: test.info().outputPath("class-details.png"), fullPage: true });
 });
 
 test("class size: 15 to begin with, and Alex changes it for every class", async ({ page }) => {
@@ -623,7 +712,7 @@ test("memberships: start the plan chosen on the site, pay places with credits, 2
   await add.getByRole("button", { name: "Add to class" }).click();
   await expect(page.getByRole("status").filter({ hasText: "paid with a membership credit" })).toBeVisible();
   const mine = page.getByRole("listitem").filter({ hasText: person.name });
-  await expect(mine.getByText("Membership credit")).toBeVisible();
+  await expect(mine.getByText("Membership credit", { exact: true }).first()).toBeVisible();
   await page.goto(membershipUrl);
   await expect(page.getByText("3 of 4 credits left").first()).toBeVisible();
 

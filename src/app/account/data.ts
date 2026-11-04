@@ -8,6 +8,7 @@ import { requireMember } from "@/lib/member-session";
 import { paymentDue } from "@/lib/membership-checkout";
 import { directDebitEnabled, stripeConfig } from "@/lib/stripe/config";
 import { paymentMethodInfo } from "@/lib/stripe/direct-debit";
+import { memberWaitlist } from "@/lib/waitlist";
 
 /** After an action: what happened (?done=). Shown as a toast. */
 export const DONE: Record<string, string> = {
@@ -18,6 +19,8 @@ export const DONE: Record<string, string> = {
   cancelled_paid_late: "Cancelled. It was less than 24 hours before the class, so there's nothing back.",
   cancelled_paid_refunded: "Cancelled. Your payment for this class was already refunded, so there's no credit as well.",
   booked_class_credit: "Booked with your class credit. Nothing to pay.",
+  waitlist_joined: "You're on the waitlist. We'll email you if a place opens. Places go to whoever books first.",
+  waitlist_left: "You've left the waitlist.",
   profile_saved: "Saved. Your details are updated.",
   email_changed: "Your email is changed. Sign in with the new address from now on.",
   card_updated: "Thanks, your card is saved. Your renewals will be charged to it.",
@@ -36,6 +39,8 @@ export const DONE: Record<string, string> = {
 /** Why an action couldn't happen (?error=). Shown as an alert at the top. */
 export const ERRORS: Record<string, string> = {
   class_full: "Sorry, that class is full.",
+  not_full: "That class has a place free now. Book it instead.",
+  waitlist_full: "The waitlist for that class is full.",
   class_cancelled: "That class has been cancelled.",
   no_credits: "You've no credits left this period.",
   already_booked: "You're already booked on that class.",
@@ -71,7 +76,7 @@ export async function loadMembers(searchParams: Promise<Params>) {
   const params = await searchParams;
   const now = new Date();
   const today = londonToday(now);
-  const [overview, settings, coaching, full, due, dd] = await Promise.all([
+  const [overview, settings, coaching, full, due, dd, waitlist] = await Promise.all([
     memberOverview(member.db, member.clientId),
     // The account menu's "On" / "Connected"; the menu leaves them out if this can't be read.
     memberSettings(member.db, member.clientId),
@@ -81,11 +86,13 @@ export async function loadMembers(searchParams: Promise<Params>) {
     // Members who pay online: this period's payment, if it's still to pay (credits wait for it).
     paymentDue(member.db, stripeConfig(), member.clientId),
     paymentMethodInfo(member.db, member.clientId),
+    // Full classes they're waiting for (shown on Book; left out if it can't be read).
+    memberWaitlist(member.db, member.clientId),
   ]);
   const one = (k: string) => (typeof params[k] === "string" ? (params[k] as string) : null);
   const done = one("done") ? (DONE[one("done")!] ?? null) : null;
   const error = one("error") ? (ERRORS[one("error")!] ?? ERRORS.failed) : null;
-  return { member, now, today, overview, settings: settings.ok ? settings.data : null, coaching: coaching.ok && (coaching.data.active || onlineCoachingOffered) ? coaching.data : null, full, due, dd, ddAvailable: directDebitEnabled(), cardAvailable: stripeConfig() !== null, done, error, justBooked: done ? one("at") : null, confirm: one("confirm") };
+  return { member, now, today, overview, waitlist: waitlist.ok ? waitlist.data : [], settings: settings.ok ? settings.data : null, coaching: coaching.ok && (coaching.data.active || onlineCoachingOffered) ? coaching.data : null, full, due, dd, ddAvailable: directDebitEnabled(), cardAvailable: stripeConfig() !== null, done, error, justBooked: done ? one("at") : null, confirm: one("confirm") };
 }
 
 

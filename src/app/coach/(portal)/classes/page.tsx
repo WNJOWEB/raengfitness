@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { CoachLoading } from "@/components/coach/CoachLoading";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getDefaultCapacity, listClassSessions } from "@/lib/coach/bookings";
+import { getDefaultCapacity, getSlotCapacities, listClassSessions } from "@/lib/coach/bookings";
 import { CLASS_NAME, classOccurrences, classSlots, slotLabel } from "@/lib/coach/classes";
 import { portalContext } from "@/lib/coach/context";
 import { collect } from "@/lib/coach/db";
@@ -11,7 +11,7 @@ import { listRequests } from "@/lib/coach/requests";
 import { addDays, addMonths, endOfMonth, formatClock, formatDate, formatMonth, weekday } from "@/lib/coach/time";
 import { ActionForm, Field, SubmitButton } from "@/components/coach/form";
 import { Badge, LoadError, PageHeader, Panel, TextLink } from "@/components/coach/ui";
-import { setDefaultCapacityAction } from "./actions";
+import { setDefaultCapacityAction, setSlotCapacitiesAction } from "./actions";
 import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = { title: "Classes" };
@@ -44,6 +44,7 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
   if (!loaded.ok) return <LoadError message={loadMessage(loaded.error)} />;
   const [rows, requests] = loaded.data;
   const usualSize = await getDefaultCapacity(db);
+  const slotSizes = await getSlotCapacities(db);
   const rowFor = (date: string, slot: string) => rows.find((r) => r.class_date === date && r.slot === slot);
   const pendingFor = (date: string, slot: string) => requests.filter((r) => r.class_date === date && r.class_slot === slot).length;
 
@@ -59,7 +60,7 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
           {upcoming.map((o) => {
             const row = rowFor(o.date, o.slot.id);
             const pending = pendingFor(o.date, o.slot.id);
-            const size = row?.capacity ?? usualSize;
+            const size = row?.capacity ?? slotSizes[o.slot.id] ?? usualSize;
             const full = (row?.booked ?? 0) >= size;
             return (
               <li key={`${o.date}-${o.slot.id}`}>
@@ -143,11 +144,25 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
 
       <Panel title="Class size" id="size-heading">
         <ActionForm action={setDefaultCapacityAction} label="Class size">
-          <Field name="size" label="Places in every class" type="number" inputMode="numeric" min={1} max={200} defaultValue={usualSize} hint="Applies to all classes. To change one date, open it and set its own size." />
+          <Field name="size" label="Places in every class" type="number" inputMode="numeric" min={1} max={200} defaultValue={usualSize} hint="Applies to every class time below that doesn't have its own. To change one date, open it and set its own size." />
           <div>
             <SubmitButton variant="secondary">Save</SubmitButton>
           </div>
         </ActionForm>
+        <h3 className="mt-8 text-base font-bold">By class time</h3>
+        <p className="mt-1 text-sm text-muted">A usual size for one class time. Leave it empty to use the size above.</p>
+        <div className="mt-3">
+          <ActionForm action={setSlotCapacitiesAction} label="Sizes by class time">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {classSlots().map((s) => (
+                <Field key={s.id} name={`slot-${s.id}`} label={slotLabel(s)} type="number" inputMode="numeric" min={1} max={200} defaultValue={slotSizes[s.id] ?? ""} />
+              ))}
+            </div>
+            <div>
+              <SubmitButton variant="secondary">Save sizes by class time</SubmitButton>
+            </div>
+          </ActionForm>
+        </div>
       </Panel>
     </div>
   );

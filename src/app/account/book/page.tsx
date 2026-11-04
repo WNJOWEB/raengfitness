@@ -12,7 +12,7 @@ import type { SheetPayload } from "@/components/members/sheet";
 import { SheetTrigger } from "@/components/members/SheetTrigger";
 import { WeekTabs } from "@/components/members/WeekTabs";
 import { loadMembers } from "../data";
-import { bookSheet, cancelSheet, creditSheet, sheetHref, sheetKey } from "../sheets";
+import { bookSheet, cancelSheet, creditSheet, leaveWaitlistSheet, sheetHref, sheetKey, waitlistSheet } from "../sheets";
 
 export const metadata: Metadata = pageMetadata({
   title: "Book a class",
@@ -38,7 +38,7 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
   const left = o.period?.left ?? 0;
   const credit = o.class_credits[0] ?? null;
   // A class that has already gone and wasn't theirs is only noise: left out (their own attended and missed ones stay).
-  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due) })
+  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due), waitlist: d.waitlist })
     .map((w) => ({ ...w, slots: w.slots.filter((s) => s.state !== "past") }))
     .filter((w) => w.slots.length > 0);
   const payg = getService("group-classes").prices[0];
@@ -49,6 +49,11 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
     if (s.state === "book") return { key: sheetKey.book(s), payload: bookSheet(s, left, "book") };
     if (s.state === "use-credit" && credit) return { key: sheetKey.book(s), payload: creditSheet(s, credit.id, "book") };
     if (s.state === "booked" && s.place) return { key: sheetKey.cancel(s.place), payload: cancelSheet(s.place, "book") };
+    if (s.state === "waitlist") return { key: sheetKey.waitlist(s), payload: waitlistSheet(s, "book") };
+    if (s.state === "waitlisted") {
+      const entry = d.waitlist.find((w) => w.slot === s.slot && w.class_date === s.date);
+      if (entry) return { key: sheetKey.waitlist(s), payload: leaveWaitlistSheet(s, entry.id, entry.position, entry.status === "offered", "book") };
+    }
     return null;
   };
   const initial = d.confirm ? (weeks.flatMap((w) => w.slots).map(sheetFor).find((x) => x?.key === d.confirm)?.payload ?? null) : null;
@@ -125,7 +130,7 @@ function SlotCard({ slot: s, sheet, payHref }: { slot: WeekSlot; sheet: { key: s
       <SheetTrigger
         payload={sheet.payload}
         href={sheetHref("book", sheet.key)}
-        className={`${CARD} ${booked ? "border-ink bg-ink text-paper" : "border-ink hover:bg-ink hover:text-paper"}`}
+        className={`${CARD} ${booked ? "border-ink bg-ink text-paper" : s.state === "waitlisted" ? "border-dashed border-ink hover:bg-ink hover:text-paper" : "border-ink hover:bg-ink hover:text-paper"}`}
       >
         <CardBody s={s} />
       </SheetTrigger>

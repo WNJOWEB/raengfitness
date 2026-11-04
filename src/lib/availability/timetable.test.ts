@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { weekdayIndex } from "./dates";
-import { CLASS_WINDOW_DAYS, classAvailability, isClassDate } from "./timetable";
+import { CLASS_WINDOW_DAYS, classAvailability, classForSlot, classSlotId, isClassDate } from "./timetable";
 
 const sessions = [
   { day: "Monday", start: "18:30" },
@@ -29,5 +29,25 @@ describe("classAvailability", () => {
     expect(isClassDate("2026-12-28", sessions[0], today)).toBe(false); // beyond CLASS_WINDOW_DAYS
     expect(isClassDate("2026-02-31", sessions[0], today)).toBe(false);
     expect(CLASS_WINDOW_DAYS).toBe(28);
+  });
+});
+
+describe("classForSlot", () => {
+  const timetable = [
+    { id: "mon-evening", day: "Monday", start: "18:30" },
+    { id: "wed-evening", day: "Wednesday", start: "18:30" },
+    { id: "sat-morning", day: "Saturday", start: "09:00" },
+  ] as const;
+
+  it("finds the timetable class behind a calendar time (what sizes, places left and the waitlist are keyed by)", () => {
+    expect(classForSlot(timetable, classSlotId("2026-11-02", "18:30"), "2026-11-02")?.id).toBe("mon-evening"); // a Monday
+    expect(classForSlot(timetable, classSlotId("2026-11-04", "18:30"), "2026-11-04")?.id).toBe("wed-evening");
+    expect(classForSlot(timetable, classSlotId("2026-11-07", "09:00"), "2026-11-07")?.id).toBe("sat-morning");
+  });
+
+  it("nothing for a time the timetable doesn't have, or a day it doesn't run on", () => {
+    expect(classForSlot(timetable, classSlotId("2026-11-02", "09:00"), "2026-11-02")).toBeNull();
+    expect(classForSlot(timetable, classSlotId("2026-11-03", "18:30"), "2026-11-03")).toBeNull(); // a Tuesday
+    expect(classForSlot(timetable, "something-else", "2026-11-02")).toBeNull();
   });
 });

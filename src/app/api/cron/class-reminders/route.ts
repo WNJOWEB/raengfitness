@@ -3,6 +3,7 @@ import { bookingDeliveryConfig } from "@/lib/booking-request";
 import { coachDb } from "@/lib/coach/db";
 import { londonToday } from "@/lib/coach/time";
 import { cronAuthorized } from "@/lib/cron-auth";
+import { afterPlacesChange } from "@/lib/waitlist";
 import { dayBeforeSent, dueDayBefore, dueReminders, reminderEmail, reminderSent } from "@/lib/member-settings";
 import { sendEmailWithRetry } from "@/lib/send-email";
 
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
   const db = coachDb();
   const mail = bookingDeliveryConfig();
   if (!db || !mail) return NextResponse.json({ skipped: "not-configured" }, { headers: noStore });
+  // The waitlist first: lapsed offers move on, and anyone newly offered a place is emailed.
+  await afterPlacesChange(db);
   const due = await dueReminders(db, londonToday());
   if (!due.ok) {
     console.error(`Class reminders failed (${due.error.kind} ${due.error.code})`);

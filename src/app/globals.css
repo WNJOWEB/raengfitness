@@ -878,6 +878,12 @@
   background: var(--color-white);
   padding: 12px max(22px, env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
 }
+/* A sheet with a long form (the coach's booking details): scrolls inside itself. */
+.members-sheet-scroll {
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .members-sheet:not([open]),
 .members-drawer:not([open]) {
   display: none;

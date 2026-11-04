@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { bookClass, bookClassWithCredit, cancelClass } from "@/app/account/actions";
+import { bookClass, bookClassWithCredit, cancelClass, joinWaitlist, leaveWaitlist } from "@/app/account/actions";
 import { mapsUrl, site } from "@/content/site";
 import type { MemberOverview } from "@/lib/member-auth";
 import type { CoachingStatus } from "@/lib/coaching";
@@ -162,7 +162,7 @@ export function MembersShell({
         </ul>
       </nav>
 
-      <ConfirmSheet actions={{ book: bookClass, credit: bookClassWithCredit, cancel: cancelClass }} initial={sheet} closeHref={path} />
+      <ConfirmSheet actions={{ book: bookClass, credit: bookClassWithCredit, cancel: cancelClass, waitlist: joinWaitlist, "waitlist-leave": leaveWaitlist }} initial={sheet} closeHref={path} />
       <Toast message={done} />
       {done || error ? <ClearStatus /> : null}
     </div>

@@ -615,6 +615,57 @@ test.describe("member accounts", () => {
     await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your RAENG email has been changed")).toBe(true);
   });
 
+  test("a full class: join the waitlist from Book, see 'On waitlist', and leave it (owner, 2026-11-04)", async ({ page, request }) => {
+    const email = `waitlist-${Date.now()}@example.com`;
+    await seedMember(request, email);
+    // A Monday 15 to 21 days ahead (no other test uses it), full: a size of 1, taken by someone else.
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + 15);
+    while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+    const date = d.toISOString().slice(0, 10);
+    const dayText = `${d.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" })} ${d.getUTCDate()} ${d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" })}`;
+    const [holder] = await sql(request, "insert into akb_clients (full_name, email, status) values ('Holder', $1, 'active') returning id", [`holder-${Date.now()}@example.com`]);
+    await sql(request, "select akb_ensure_class_session('mon-evening', $1::date, $2::timestamptz, 60)", [date, `${date}T18:30:00Z`]);
+    await sql(request, "update akb_class_sessions set capacity = 1 where slot = 'mon-evening' and class_date = $1::date", [date]);
+    await sql(request, "insert into akb_class_attendance (class_session_id, client_id) select id, $1 from akb_class_sessions where slot = 'mon-evening' and class_date = $2::date", [holder.id, date]);
+
+    await askForLink(page, email);
+    await page.goto(PROD + linkPath((await emailsTo(request, email))[0]));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+    await page.goto(`${PROD}/account/book`);
+
+    /** The card for that Monday, on whichever week tab holds it. */
+    const card = async (state: string) => {
+      const tabs = page.getByRole("tab");
+      for (let i = 0; i < (await tabs.count()); i++) {
+        await tabs.nth(i).click();
+        const found = page.getByRole("tabpanel").getByRole("link", { name: new RegExp(`${dayText}.*: ${state}$`) });
+        if ((await found.count()) > 0) return found.first();
+      }
+      throw new Error(`no ${state} card for ${dayText}`);
+    };
+
+    // Full classes can be joined, not just "Full".
+    await (await card("Waitlist")).click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toContainText("This class is full");
+    await expect(sheet).toContainText("Places aren't held");
+    await sheet.getByRole("button", { name: "Join the waitlist" }).click();
+    await expect(page.getByRole("status")).toContainText("You're on the waitlist.");
+    expect(await sql(request, "select w.status from akb_class_waitlist w join akb_clients c on c.id = w.client_id where c.email = $1", [email])).toEqual([{ status: "waiting" }]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath("book-waitlist.png"), fullPage: true });
+
+    // Now it says so, and tapping it shows the place in the queue and lets them leave.
+    await (await card("On waitlist")).click();
+    await expect(page.getByRole("dialog")).toContainText("You're next in the queue.");
+    await page.getByRole("dialog").getByRole("button", { name: "Leave the waitlist" }).click();
+    await expect(page.getByRole("status")).toContainText("You've left the waitlist.");
+    expect(await sql(request, "select w.status from akb_class_waitlist w join akb_clients c on c.id = w.client_id where c.email = $1", [email])).toEqual([{ status: "left" }]);
+    await card("Waitlist");
+  });
+
   test("an address with no account gets the same answer and no email", async ({ page, request }) => {
     const email = `not-a-member-${Date.now()}@example.com`;
     await askForLink(page, email);

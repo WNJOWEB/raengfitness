@@ -20,6 +20,17 @@ export function classSlotId(date: DateKey, time: TimeOfDay): string {
 }
 
 /**
+ * The timetable class behind a calendar time: `slotId` is "class-<date>-<time>"
+ * (classSlotId) and `date` its day, so the class is the one on that weekday at
+ * that time. Its `id` ("mon-evening") is what class sizes, places left and the
+ * waitlist are keyed by. Null when there's no such class.
+ */
+export function classForSlot<T extends ClassSlot>(classes: readonly T[], slotId: string, date: DateKey): T | null {
+  const day = WEEKDAYS[weekdayIndex(date)];
+  return classes.find((c) => classSlotId(date, c.start) === slotId && c.day === day) ?? null;
+}
+
+/**
  * `full`: "slot|date" keys of classes that have reached the capacity Alex set
  * (lib/class-capacity.ts); they show as fully booked and can't be chosen.
  * `cancelled`: classes Alex cancelled; they aren't offered at all.

@@ -31,24 +31,40 @@ interface OverviewRow {
   cancelled_at: string | null;
 }
 
-/** The usual class size (the portal setting), for the public "places max" fact; null when it can't be read. */
-export async function usualClassSize(env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<number | null> {
+/**
+ * The usual class sizes, for the public "places max" fact and the places left on
+ * a date nobody has booked yet: the size for every class, and the slots with a
+ * size of their own (migration 20261119000000). Null when they can't be read.
+ */
+export async function classSizes(env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<{ all: number; slots: Record<string, number> } | null> {
   const config = supabaseConfig(env);
   if (!config) return null;
-  try {
-    const response = await fetchImpl(`${config.url}/rest/v1/rpc/akb_default_class_capacity`, {
+  const call = async (name: string): Promise<unknown> => {
+    const response = await fetchImpl(`${config.url}/rest/v1/rpc/${name}`, {
       method: "POST",
       headers: { apikey: config.secretKey, Authorization: `Bearer ${config.secretKey}`, "Content-Type": "application/json" },
       body: "{}",
       cache: "no-store",
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) return null;
-    const size = (await response.json()) as unknown;
-    return typeof size === "number" && Number.isInteger(size) && size > 0 ? size : null;
+    if (!response.ok) throw new Error(String(response.status));
+    return response.json();
+  };
+  try {
+    const [all, slots] = await Promise.all([call("akb_default_class_capacity"), call("akb_slot_capacities")]);
+    if (typeof all !== "number" || !Number.isInteger(all) || all <= 0) return null;
+    const own: Record<string, number> = {};
+    if (slots && typeof slots === "object") for (const [k, v] of Object.entries(slots)) if (typeof v === "number" && Number.isInteger(v) && v > 0) own[k] = v;
+    return { all, slots: own };
   } catch {
     return null;
   }
+}
+
+/** The size of each of these slots (its own, else the all-classes size) and the most places any of them has. */
+export function sizesFor(sizes: { all: number; slots: Record<string, number> }, slotIds: readonly string[]): { bySlot: Record<string, number>; max: number } {
+  const bySlot = Object.fromEntries(slotIds.map((id) => [id, sizes.slots[id] ?? sizes.all]));
+  return { bySlot, max: slotIds.length ? Math.max(...Object.values(bySlot)) : sizes.all };
 }
 
 export async function fullClasses(today: DateKey, env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<FullClasses> {

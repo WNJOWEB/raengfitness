@@ -3,6 +3,7 @@ import type { PublishedClass } from "@/lib/class-sessions";
 import { fullKey, type FullClasses } from "@/lib/class-capacity";
 import { daysBetween, formatClock, formatDayMonth, londonToUtc, startOfWeek, toLondon } from "@/lib/coach/time";
 import type { MemberOverview, MemberPlace } from "@/lib/member-auth";
+import type { WaitlistEntry } from "@/lib/waitlist";
 
 /**
  * The members area's view model (owner's members design, 2026-10-28): what
@@ -76,6 +77,8 @@ export type SlotState =
   | "missed"
   | "past"
   | "full"
+  | "waitlist"
+  | "waitlisted"
   | "cancelled"
   | "next-period"
   | "no-credits"
@@ -90,6 +93,8 @@ export const SLOT_LABEL: Record<SlotState, string> = {
   missed: "Missed",
   past: "Past",
   full: "Full",
+  waitlist: "Waitlist",
+  waitlisted: "On waitlist",
   cancelled: "Cancelled",
   "next-period": "Next period",
   "no-credits": "No credits",
@@ -133,9 +138,10 @@ function weekRange(dates: DateKey[]): string {
  */
 export function bookingWeeks(
   o: MemberOverview,
-  args: { today: DateKey; now: Date; classes: PublishedClass[]; windowDays: number; full: FullClasses; paymentDue: boolean },
+  args: { today: DateKey; now: Date; classes: PublishedClass[]; windowDays: number; full: FullClasses; paymentDue: boolean; waitlist?: readonly WaitlistEntry[] },
 ): Week[] {
   const { today, now, classes, windowDays, full, paymentDue } = args;
+  const onWaitlist = new Map((args.waitlist ?? []).map((w) => [fullKey(w.slot, w.class_date), w]));
   const last = addDays(today, windowDays);
   const places = new Map(o.places.filter((p) => p.status !== "cancelled").map((p) => [`${p.slot}|${p.class_date}`, p]));
   const credit = o.class_credits[0] ?? null;
@@ -156,7 +162,8 @@ export function bookingWeeks(
         if (Date.parse(startsAt) <= now.getTime()) state = place ? (place.status === "no_show" ? "missed" : "attended") : "past";
         else if (place?.status === "booked") state = "booked";
         else if (cancelledKeys.includes(key)) state = "cancelled";
-        else if (fullKeys.includes(key)) state = "full";
+        // A full class can be joined on the waitlist (owner, 2026-11-04); someone already on it sees that instead.
+        else if (fullKeys.includes(key)) state = onWaitlist.has(key) ? "waitlisted" : "waitlist";
         else if (o.membership && o.membership.status !== "cancelled") {
           if (!o.period || date < o.period.start || date > o.period.end) state = "next-period";
           else if (paymentDue) state = "pay-first";

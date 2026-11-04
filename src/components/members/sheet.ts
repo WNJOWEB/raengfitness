@@ -5,7 +5,7 @@
  */
 export interface SheetPayload {
   /** Which action the confirm button runs; "info" only explains (no form). */
-  kind: "book" | "credit" | "cancel" | "info";
+  kind: "book" | "credit" | "cancel" | "waitlist" | "waitlist-leave" | "info";
   eyebrow: string;
   title: string;
   body: string;
