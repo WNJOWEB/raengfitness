@@ -18,6 +18,7 @@ import {
   type ClientInput,
 } from "@/lib/coach/clients";
 import { actionContext } from "@/lib/coach/context";
+import { rpc } from "@/lib/coach/db";
 import { dbMessage } from "@/lib/coach/errors";
 import { addCharge, getCharge, SERVICE_KEYS, voidCharge } from "@/lib/coach/ledger";
 import { stripeConfig } from "@/lib/stripe/config";
@@ -83,6 +84,41 @@ export async function deleteClientAction(_prev: ActionState, formData: FormData)
     );
   }
   redirect("/coach/clients");
+}
+
+/** Signs the client's account out on every device (owner, 2026-11-03): a lost phone, a shared one, or on request. */
+export async function signOutEverywhereAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await actionContext();
+  if ("error" in ctx) return ctx.error;
+  const form = new FormReader(formData);
+  const id = form.id("client", { label: "a client", required: true });
+  if (!form.ok) return failure("That client no longer exists.");
+  const ended = await rpc<number>(ctx.db, "akb_member_end_sessions", { p_client: id });
+  if (!ended.ok) return failure(dbMessage(ended.error));
+  return success(ended.data > 0 ? `Signed out on ${ended.data} device${ended.data === 1 ? "" : "s"}.` : "They weren't signed in anywhere.");
+}
+
+/**
+ * Deletes a former client's personal details on request (UK GDPR right to
+ * erasure; owner, 2026-11-03; migration 20261117000000). Payments and charges
+ * stay, as UK tax rules require. Refused while something is still running.
+ */
+export async function eraseClientAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await actionContext();
+  if ("error" in ctx) return ctx.error;
+  const form = new FormReader(formData);
+  const id = form.id("client", { label: "a client", required: true });
+  if (!form.ok) return failure("That client no longer exists.");
+  const erased = await rpc<null>(ctx.db, "akb_erase_client", { p_client: id });
+  if (!erased.ok) {
+    return failure(
+      erased.error.kind === "rule" && erased.error.rule === "still_active"
+        ? "They still have a membership, coaching or a booking running. Cancel those first, then delete their details."
+        : dbMessage(erased.error),
+    );
+  }
+  refresh();
+  return success("Their personal details are deleted. Payments and charges are kept, as tax rules require.");
 }
 
 async function clientExists(ctx: Exclude<Awaited<ReturnType<typeof actionContext>>, { error: ActionState }>, id: string): Promise<ActionState | null> {

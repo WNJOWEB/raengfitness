@@ -148,7 +148,7 @@ See Coach portal below.
 - [ ] **P1** Real-device pass of the portal on Alex's phone
 - [x] Public calendar hides full dates and the server refuses them, from capacities set per date (2026-10-23)
 - [ ] **P2** Default class capacity per timetable slot (now set per date)
-- [ ] **P2** Anonymise-on-request for former clients with financial history (now: set to Former)
+- [x] **P2** Anonymise-on-request (2026-11-03): Delete personal details on a client's page in the coach area (name, contact details, notes, messages, coaching records, sign-ins); payments and charges kept for tax; refused while anything is running (migration `20261117000000`)
 - [x] Card payments built (2026-10-21 for Square; moved to Stripe 2026-10-30, live 2026-11-02): payment links per charge, signed webhooks re-read from Stripe, duplicate-event table, idempotent ledger functions, refunds mirrored from Stripe, daily reconciliation, test/live guard (the `akb_square_*` table and function names predate Stripe and hold Stripe's ids)
 - [x] Test-environment options and costs checked; database + app safeguards against Sandbox records in the live database (2026-10-21)
 - [x] Test environment decided (2026-10-21), kept for Stripe: tests run against a Stripe stand-in and the real migrations; the database guard stops test records reaching the live ledger (DEPLOYMENT.md → Stripe payments)
@@ -247,14 +247,14 @@ See Coach portal below.
 - [x] The owner's redesign brief (2026-10-28) is done: home Why kettlebells and Classes, /classes, /coaching, /online-coaching and /about are built, and the owner is happy with them (2026-10-29); nothing left to redesign from the zip
 - [x] After cancelling (owner, 2026-11-03): the account becomes pay as you go once the cancelled membership's credits are used (or refunded) or its period ends: classes show Book and go through payment, a class credit first; credits still to use are booked as before (`usesCredits`, `bookingWeeks`). Joining again is allowed then; while credits remain the join says so instead of "already a member" (migration `20261112000000`). Restart: a member who cancelled can restart from the Plan page while the period they paid for runs (not if it was refunded or has ended): same plan and renewal date, credits kept, nothing charged now; member and Alex emailed (migration `20261113000000`)
 - [x] **P1** Sign-in code in the email alongside the link (done 2026-11-03: 6 digits in the subject and first line; typed on the sign-in page, `autocomplete=one-time-code`; one use with its link, 15 minutes, 5 wrong tries; migration `20261111000000`) (iPhone mail apps open links in their own browser, so the member is signed in there, not in Safari)
-- [ ] P2 Sessions that extend while in use (now a fixed 30 days from sign-in)
+- [x] P2 Sessions that extend while in use (2026-11-03: 30 days from last use, up to a year from signing in; the cookie is renewed on account page views; migration `20261118000000`)
 - [x] P2 Class reminder email the day before (2026-11-03: its own switch on Notifications; sent by the morning job for tomorrow's classes)
 - [x] P2 Payment history and receipts in the account (2026-11-03: Payments and receipts in the account menu, a printable receipt for each); name, phone and email editable on Profile
 - [ ] **Needs Alex's rules first** Pause or cancel a membership from the account (notice, pause limits, refunds); waitlist for full classes (needs class capacities)
 - [x] Applied `20261024000000_akb_cancel_class.sql` and `20261027000000_akb_member_accounts.sql` to the live database (2026-10-28) (DEPLOYMENT.md → Member accounts)
 - [x] **P0, needs Alex** Resend in production (also turns on booking alerts); without it members can't get sign-in links — done: Resend is live
 - [x] **P1, needs Alex** Confirm the privacy wording; a retention period and a contact email if he wants one listed — done: privacy wording signed off; retention set (6 years / 2 years / 12 months)
-- [ ] **P2** A "Sign out everywhere" button for a member in the coach area (today: `select akb_member_end_sessions('<client id>')`)
+- [x] **P2** A "Sign out everywhere" button for a member in the coach area (2026-11-03, client page, Sign-in and privacy)
 - [x] Payments moved from Square to Stripe (2026-10-30, owner): Checkout, signed webhook, refunds, reconcile; Direct Debit memberships (card first, then Bacs Direct Debit every 4 weeks, early collection, retries then pause, member cancel any time). Built against a Stripe stand-in.
 - [x] Renewals by saved card (2026-11-02, owner): first payment keeps the card with an agreement on Stripe's page, charged on the day each period starts, reminder 5 days before, receipt after, retries day 3 and 7 then pause, change card from the plan page, cancel any time. Direct Debit is on (`DIRECT_DEBIT_ENABLED=true`, 2026-11-03).
 - [x] P1 Owner: renewal wording signed off 2026-11-03; a membership paused for failed payments restarts by itself once what's owed is paid (owner, 2026-11-03; migration `20261114000000`; the Plan page and the paused email say so). A pause Alex sets himself stays his

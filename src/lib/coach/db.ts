@@ -83,7 +83,10 @@ async function toError(response: Response, op: string, target: string): Promise<
   } else {
     error = { kind: "invalid", code };
   }
-  console.error(`Coach portal: ${op} ${target} failed (${response.status} ${code}${error.rule ? ` ${error.rule}` : ""})`);
+  // A rule the database enforces (already a member, class full, a wrong code...) is an expected answer the
+  // page shows the visitor, not a fault: logged as information so the error list shows only real problems.
+  if (error.kind === "rule") console.info(`Database: ${op} ${target} refused (${error.rule})`);
+  else console.error(`Database: ${op} ${target} failed (${response.status} ${code})`);
   return error;
 }
 
@@ -98,7 +101,7 @@ async function call<T>(db: Db, op: string, target: string, path: string, init: R
     const text = await response.text();
     return { ok: true, data: (text ? JSON.parse(text) : null) as T };
   } catch {
-    console.error(`Coach portal: ${op} ${target} failed (network)`);
+    console.error(`Database: ${op} ${target} failed (network)`);
     return { ok: false, error: { kind: "unavailable", code: "network" } };
   }
 }

@@ -145,6 +145,9 @@ test.describe("member accounts", () => {
     const tabs = page.getByRole("navigation", { name: "Members" });
     await expect(tabs.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
 
+    // Each account page view renews the cookie (owner, 2026-11-03: stay signed in while active).
+    const renewed = await page.request.get(`${PROD}/account`, { maxRedirects: 0 });
+    expect(renewed.headers()["set-cookie"] ?? "").toMatch(/akb_member_session=[^;]+;.*Max-Age=2592000/i);
     // The session cookie: httpOnly, site-wide since 2026-10-28 (the booking form fills in details).
     const cookie = (await page.context().cookies(PROD + "/")).find((c) => c.name === "akb_member_session");
     expect(cookie).toMatchObject({ httpOnly: true, path: "/", sameSite: "Lax" });

@@ -14,7 +14,7 @@ export const ACCOUNT_PATH = "/account";
 export const SIGN_IN_PATH = "/account/sign-in";
 export const CONFIRM_PATH = "/account/confirm";
 export const MEMBER_SESSION_COOKIE = "akb_member_session";
-/** Matches the database: sessions last 30 days. */
+/** Matches the database: a session lasts 30 days from its last use (up to a year from signing in). */
 export const MEMBER_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 /** 32 random bytes, base64url: 43 characters. Used for sign-in links and sessions. */

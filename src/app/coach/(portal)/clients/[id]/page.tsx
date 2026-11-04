@@ -32,6 +32,8 @@ import {
   addPackageAction,
   cancelPackageAction,
   deleteClientAction,
+  eraseClientAction,
+  signOutEverywhereAction,
   toggleFollowUpAction,
   stripeLinkAction,
   updateClientAction,
@@ -205,6 +207,35 @@ async function Overview({ db, client, today }: TabProps) {
         </Panel>
         <Panel title="Activity" id="activity-heading">
           <ActivityList events={events} />
+        </Panel>
+        <Panel title="Sign-in and privacy" id="privacy-heading">
+          <p className="text-sm text-muted">Sign them out on every device, for a lost or shared phone. They sign in again with a new email code.</p>
+          <div className="mt-3">
+            <ActionForm action={signOutEverywhereAction} label="Sign out everywhere">
+              <input type="hidden" name="client" value={client.id} />
+              <div>
+                <SubmitButton variant="secondary">Sign out everywhere</SubmitButton>
+              </div>
+            </ActionForm>
+          </div>
+          {client.full_name === "Deleted client" && !client.email ? (
+            <p className="mt-5 text-sm">Their personal details have been deleted.</p>
+          ) : (
+            <>
+              <p className="mt-5 text-sm text-muted">
+                If they ask for their personal details to be deleted: their name, contact details, notes, messages and coaching records go, and payments and
+                charges stay (tax rules require them). Only once nothing is running for them.
+              </p>
+              <div className="mt-3">
+                <ActionForm action={eraseClientAction} confirm={`Delete ${client.full_name}'s personal details? This can't be undone.`} label="Delete personal details">
+                  <input type="hidden" name="client" value={client.id} />
+                  <div>
+                    <SubmitButton variant="secondary">Delete personal details</SubmitButton>
+                  </div>
+                </ActionForm>
+              </div>
+            </>
+          )}
         </Panel>
         <Panel title="Remove" id="remove-heading">
           <p className="text-sm text-muted">Only for records added by mistake with no bookings or payments. Otherwise set the status to Former, so their history is kept.</p>

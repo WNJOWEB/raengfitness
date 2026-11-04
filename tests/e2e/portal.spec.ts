@@ -177,6 +177,23 @@ test("confirming a class request creates the client, books the place, and paymen
   await expect(page.getByRole("listitem").filter({ hasText: "Due later" }).getByText("£5.00")).toBeVisible();
 });
 
+test("sign a client out everywhere, and delete a former client's personal details (payments kept)", async ({ page, request }) => {
+  const person = { name: `Erase Me ${Date.now()}`, email: `erase-${Date.now()}@example.com`, phone: "07700 900999" };
+  const clientId = await seedClient(request, person);
+  await sql(request, "insert into akb_member_sessions (client_id, session_hash, expires_at) values ($1, $2, now() + interval '30 days')", [clientId, "9".repeat(64)]);
+  await sql(request, "select akb_record_payment($1, 'group', 1200, akb_london_today(), 'cash', '', '', $2, '[]'::jsonb)", [clientId, `erase-e2e-${Date.now()}`]);
+  await signIn(page);
+  await page.goto(`/coach/clients/${clientId}`);
+  const panel = page.getByRole("region", { name: "Sign-in and privacy" });
+  await panel.getByRole("button", { name: "Sign out everywhere" }).click();
+  await expect(panel.getByText("Signed out on 1 device.")).toBeVisible();
+  page.once("dialog", (d) => d.accept());
+  await panel.getByRole("button", { name: "Delete personal details" }).click();
+  await expect(panel.getByText("Their personal details have been deleted.")).toBeVisible();
+  expect((await sql(request, "select full_name, email, phone from akb_clients where id = $1", [clientId]))[0]).toEqual({ full_name: "Deleted client", email: "", phone: "" });
+  expect(await sql(request, "select amount_pence from akb_payments where client_id = $1", [clientId])).toEqual([{ amount_pence: 1200 }]);
+});
+
 test("a returning client's request is linked by email and reuses their record", async ({ page, request }) => {
   const person = unique("Ray Return");
   const clientId = await seedClient(request, person);
