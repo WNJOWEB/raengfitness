@@ -280,7 +280,7 @@ See Coach portal below.
 - [x] Supabase warning about `rls_auto_enable` closed (`20261107000000_revoke_rls_auto_enable.sql`, applied)
 - [x] The customer receipt that failed once (2 Nov, 422) was for a test client with no email; the code already skips a client with no email address
 - [x] `/terms` page: the published membership, cancellation, refund and health-and-risk wording in one place (no new wording), linked from the footer
-- [ ] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter)
+- [x] Left as is: no Supabase backups and leaked-password protection (Free plan), old `akb_square_*` table names, 9 unindexed keys and 14 unused indexes (too small to matter) (owner, 2026-11-04: staying on the Free plan, an upgrade is not necessary)
 - [x] Manual, on a real phone: pay for a £12 class and refund it; join Starter by card; cancel a class 24 h+ ahead; Alex sends and pays a card link from a client page; watch the first Direct Debit collection (done live 2026-11-03 by the owner, all but the first real Direct Debit collection, which needs a real member)
 - [x] Live £12 class test (2026-11-03): paid, confirmation page and email, account, cancel with credit, refund in Stripe, Stripe receipt. Found: a Stripe refund after cancelling left the fee owed and the credit live. Fixed (a full refund of a cancelled class withdraws an unused credit and cancels the fee); the test account's fee and credit cleared the same way
 - [x] The other order (2026-11-03): a class refunded in full in Stripe before it's cancelled gives no class credit when cancelled, and its fee is cancelled; the cancel screens and emails say why
