@@ -29,10 +29,19 @@ const sections: { heading: string; body: React.ReactNode }[] = [
     body: (
       <p>
         This website belongs to {site.name}, a kettlebell coach based at{" "}
-        {site.location.street}, {site.location.town}, {site.location.postcode}. You can contact us on
-        Instagram at{" "}
-        <a href={site.social.instagram.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
-          {site.social.instagram.handle}
+        {site.location.street}, {site.location.town}, {site.location.postcode}. You can contact us
+        {site.contact.email ? (
+          <>
+            {" "}by email at{" "}
+            <a href={`mailto:${site.contact.email}`} className="underline underline-offset-4">
+              {site.contact.email}
+            </a>{" "}
+            or
+          </>
+        ) : null}{" "}
+        on Instagram at{" "}
+        <a href={site.social.raeng.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
+          {site.social.raeng.handle}
           <span className="sr-only"> (opens in a new tab)</span>
         </a>
         .

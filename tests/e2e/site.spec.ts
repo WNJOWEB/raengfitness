@@ -300,6 +300,18 @@ test("header: menu at the left, logo centred, nothing at the right, no overlap",
   }
 });
 
+test("'Message on Instagram' opens a new message to RAENG, and the privacy notice gives RAENG's email and Instagram (owner, 2026-11-04)", async ({ page }) => {
+  for (const path of ["/about", "/coaching"]) {
+    await page.goto(path);
+    await expect(page.getByRole("link", { name: /^Message on Instagram/ })).toHaveAttribute("href", "https://ig.me/m/raeng.fitness");
+  }
+  await page.goto("/privacy");
+  const who = page.locator("p").filter({ hasText: "You can contact us" });
+  await expect(who.getByRole("link", { name: "hello@raengfitness.co.uk" })).toHaveAttribute("href", "mailto:hello@raengfitness.co.uk");
+  await expect(who.getByRole("link", { name: /@raeng\.fitness/ })).toHaveAttribute("href", "https://www.instagram.com/raeng.fitness/");
+  await expect(who).not.toContainText("@alex.kbells");
+});
+
 test("contact, Instagram and directions links point at verified destinations", async ({ page }) => {
   await page.goto("/contact");
   const hrefs = await page.$$eval("a[href^='http']", (as) => as.map((a) => a.getAttribute("href")!));
@@ -322,7 +334,7 @@ test("business structured data is valid JSON with the verified address only", as
   const data = JSON.parse(raw ?? "{}");
   expect(data["@type"]).toBe("LocalBusiness");
   expect(data.address.postalCode).toBe("G67 3EN");
-  expect(data.sameAs).toEqual(["https://www.instagram.com/alex.kbells/", "https://www.facebook.com/profile.php?id=61589486540520"]);
+  expect(data.sameAs).toEqual(["https://www.instagram.com/raeng.fitness/", "https://www.instagram.com/alex.kbells/", "https://www.facebook.com/profile.php?id=61589486540520"]);
   // Nothing unconfirmed: no prices, hours, ratings or phone numbers.
   for (const key of ["priceRange", "openingHours", "openingHoursSpecification", "aggregateRating", "telephone"]) {
     expect(data[key], key).toBeUndefined();

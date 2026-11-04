@@ -27,11 +27,10 @@ interface CtaBandProps {
 
 /**
  * Closing call to action: one line (the class times unless the page gives its
- * own), one booking button and Instagram as a quieter link. No arrow (owner rule). Nothing here books anything: the button opens
+ * own), one booking button and Instagram as a quieter link (a new message to RAENG, owner 2026-11-04). No arrow (owner rule). Nothing here books anything: the button opens
  * the booking request flow.
  */
 export function CtaBand({ title = "Ready to start?", body, headingId = "cta-heading", id, service = "any", tone = "white", instagram: showInstagram = true, label }: CtaBandProps) {
-  const { instagram } = site.social;
   const cta = getPrimaryCtaFor(service);
   const times = isPublishable(timetable.status) ? groupedSessions(timetable.sessions) : [];
 
@@ -52,7 +51,7 @@ export function CtaBand({ title = "Ready to start?", body, headingId = "cta-head
           <StartTraining href={cta.href} label={label ?? (cta.kind === "booking" ? hero.primaryLabel : cta.label)} external={cta.external} className="w-full" />
           {showInstagram ? (
             <a
-              href={instagram.url}
+              href={site.social.raeng.messageUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="group mt-4 inline-flex min-h-11 items-center gap-2 font-semibold"

@@ -14,7 +14,7 @@ export function JsonLd() {
     description: site.description,
     url: siteUrl(),
     logo: `${siteUrl()}/icon.png`,
-    sameAs: [site.social.instagram.url, site.social.facebook.url],
+    sameAs: [site.social.raeng.url, site.social.instagram.url, site.social.facebook.url],
     address: {
       "@type": "PostalAddress",
       streetAddress: l.street,
