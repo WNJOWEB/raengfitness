@@ -390,6 +390,10 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
   }
 
   const errors: FieldErrors = { ...serverState.errors, ...clientErrors };
+  // The free first class doesn't apply to this email (the server said so): say why, then Continue pays.
+  // Changing the email clears it, so the server decides again.
+  const returning =
+    payNow && !credit && serverState.returning !== undefined && serverState.returning === details.email.trim().toLowerCase() ? serverState.message : null;
   const serverErrorList = Object.entries(serverState.errors).filter((e): e is [BookingField, string] => Boolean(e[1]));
 
   const summary = (
@@ -699,6 +703,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                   </>
                 ) : null}
                 {credit ? <input type="hidden" name="credit" value={credit} /> : null}
+                {returning ? <input type="hidden" name="confirmPaid" value="yes" /> : null}
                 {/* The membership plan chosen on the plan cards (?plan=), group classes only. */}
                 {chosenPlan && service === "group-class" ? <input type="hidden" name="plan" value={chosenPlan.id} /> : null}
                 {!demo && !usesSessions ? days.map((d) => <input key={d} type="hidden" name="days" value={d} />) : null}
@@ -740,9 +745,18 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                       <>
                         <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
                           <span>Total</span>
-                          <span>{pay.offer ? `${pay.price}, or free if it's your first class` : pay.price}</span>
+                          <span>{pay.offer && !returning ? `${pay.price}, or free if it's your first class` : pay.price}</span>
                         </p>
-                        {pay.offer ? <p className="font-semibold">{pay.offer}</p> : <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>}
+                        {returning ? (
+                          <div role="status">
+                            <p className="font-semibold">{returning}</p>
+                            <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                          </div>
+                        ) : pay.offer ? (
+                          <p className="font-semibold">{pay.offer}</p>
+                        ) : (
+                          <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                        )}
                       </>
                     )}
                     <p className="text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
@@ -751,7 +765,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
-                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? (pay?.offer ? "Booking…" : "Opening Stripe…") : pay?.offer ? "Continue" : "Continue to payment") : enquiry ? "Send enquiry" : "Send request",
+                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? (pay?.offer && !returning ? "Booking…" : "Opening Stripe…") : pay?.offer && !returning ? "Continue" : "Continue to payment") : enquiry ? "Send enquiry" : "Send request",
                     type: "submit",
                     pending,
                   }}

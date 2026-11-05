@@ -24,6 +24,9 @@ import { notifyClassBookings, recordWaiver, startClassCheckout } from "@/lib/cla
 import { coachDb } from "@/lib/coach/db";
 import { onlineJoinEnabled } from "@/lib/membership-checkout";
 import { stripeConfig } from "@/lib/stripe/config";
+import { firstClassFree } from "@/content/offers";
+import { getService } from "@/content/services";
+import { publishable } from "@/lib/publish";
 
 /**
  * Validates a booking request on the server and gets it to Alex: stored in
@@ -91,6 +94,7 @@ export async function submitBookingRequest(
     const checkout = await startClassCheckout(db, stripe, { name: data.name, email: data.email, phone: data.phone }, slot, data.classDate, {
       idempotencyKey: key,
       creditToken: typeof credit === "string" && credit ? credit : null,
+      confirmPaid: formData.get("confirmPaid") === "yes",
     });
     if (checkout.ok) {
       // Keep the record of the ticked terms with the booking (best effort: the booking itself is already made).
@@ -98,6 +102,10 @@ export async function submitBookingRequest(
       // Booked straight away (free first class or a class credit): send the confirmation now, after the reply.
       if (checkout.confirmed) after(() => notifyClassBookings(db, publishedClasses()).then(() => undefined).catch(() => undefined));
       redirect(checkout.url);
+    }
+    // Not their first class: the form says so and they continue to pay (nothing is booked yet).
+    if (checkout.reason === "returning") {
+      return { status: "idle", message: returningMessage(), errors: {}, returning: data.email.trim().toLowerCase() };
     }
     const whenError: Partial<Record<typeof checkout.reason, string>> = {
       class_full: "That class is now full. Choose another date.",
@@ -163,4 +171,10 @@ function requestDetails(data: BookingRequest): Record<string, string> {
   if (data.days.length) details.days = listLabels(data.days.map((d) => labelFor(PREFERRED_DAYS, d)));
   if (data.times.length) details.times = listLabels(data.times.map((t) => labelFor(PREFERRED_TIMES, t)));
   return details;
+}
+
+/** "You've trained with RAENG before, so this class is £12." (price from content). */
+function returningMessage(): string {
+  const price = publishable(getService("group-classes").prices)[0];
+  return firstClassFree.returning.replace("{price}", price ? `£${price.amountGbp}` : "paid");
 }

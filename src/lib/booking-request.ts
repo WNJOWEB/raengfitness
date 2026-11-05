@@ -270,6 +270,12 @@ export interface FormState<F extends string = string> {
   errors: FieldErrors<F>;
   /** On success of a request: the short reference to show the sender (and repeat in the email Alex and they get). */
   reference?: string;
+  /**
+   * A group class for someone the free first class doesn't apply to: the email
+   * (trimmed, lower case) they booked with. The form says they've trained here
+   * before and the class is paid, then sends again with `confirmPaid`.
+   */
+  returning?: string;
 }
 
 export const initialFormState: FormState = { status: "idle", message: "", errors: {} };

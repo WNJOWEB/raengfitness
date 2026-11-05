@@ -35,7 +35,7 @@ export const CLASS_BOOK_PATH = "/book/group-class";
 
 export type ClassCheckoutResult =
   | { ok: true; url: string; bookingId: string; confirmed: boolean; firstClassFree?: boolean }
-  | { ok: false; reason: "class_full" | "class_cancelled" | "class_started" | "already_booked" | "credit_invalid" | "unavailable" };
+  | { ok: false; reason: "class_full" | "class_cancelled" | "class_started" | "already_booked" | "credit_invalid" | "unavailable" | "returning" };
 
 const RULES = new Set(["class_full", "class_cancelled", "class_started", "already_booked", "credit_invalid"]);
 
@@ -55,7 +55,12 @@ export async function startClassCheckout(
   booker: { name: string; email: string; phone: string },
   cls: PublishedClass,
   date: DateKey,
-  options: { idempotencyKey: string; creditToken?: string | null; env?: Env; fetchImpl?: typeof fetch },
+  /**
+   * `confirmPaid`: the booker has seen that they've trained here before and the
+   * class is £12. Without it, someone the free class doesn't apply to gets
+   * `returning` (nothing is booked), so the form can say so before Stripe opens.
+   */
+  options: { idempotencyKey: string; creditToken?: string | null; confirmPaid?: boolean; env?: Env; fetchImpl?: typeof fetch },
 ): Promise<ClassCheckoutResult> {
   const price = publishable(getService("group-classes").prices)[0];
   if (!price) return { ok: false, reason: "unavailable" };
@@ -79,7 +84,9 @@ export async function startClassCheckout(
     }
     // The class itself can't be booked (full, started, already booked…): say so, as a paid booking would.
     if (!free.ok && free.error.kind === "rule" && free.error.rule && RULES.has(free.error.rule)) return { ok: false, reason: ruleReason(free.error) };
-    // Not new, or the offer isn't in the database yet (migration not applied): pay as usual.
+    // Not new: say so before opening Stripe (owner, 2026-11-05), then pay as usual once they continue.
+    if (free.ok && !free.data.eligible && !options.confirmPaid) return { ok: false, reason: "returning" };
+    // The offer isn't in the database yet (migration not applied), or they've continued: pay as usual.
   }
 
   const created = await rpc<{ booking_id: string; charge_id: string | null; status: string }>(db, "akb_create_class_booking", {

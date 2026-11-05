@@ -75,6 +75,19 @@ async function toDetails(page: Page, url: string, nth: number, name: string, ema
   await page.waitForTimeout(3100);
 }
 
+/**
+ * Continue as a returning customer (owner, 2026-11-05): the form first says
+ * they've trained here before and the class is £12, without opening Stripe;
+ * "Continue to payment" then opens it.
+ */
+async function continueToPay(page: Page) {
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "You've trained with RAENG before, so this class is £12." })).toBeVisible();
+  await expect(page).not.toHaveURL(new RegExp(`^${STRIPE}`));
+  await expect(page.getByText("or free if it's your first class")).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+}
+
 test.beforeAll(async ({ request }) => {
   await sql(request, "insert into akb_database_role (role) select 'test' where not exists (select 1 from akb_database_role)");
 });
@@ -141,7 +154,7 @@ test.describe("booking a group class and paying online", () => {
     // Owner's pick A (2026-11-03): the price is shown once as a total above the button, and the button says what happens next, not "Pay".
     await expect(page.getByText("Total", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Pay £/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await continueToPay(page);
 
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Group class, /);
@@ -252,14 +265,14 @@ test.describe("booking a group class and paying online", () => {
     // Ticked: the message goes and Continue opens Stripe.
     await tick.check();
     await expect(page.getByText("Tick the health and risk box above to continue.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await continueToPay(page);
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
   });
 
   test("leaving Stripe's page without paying books nothing, and the page says it's waiting", async ({ page, request }) => {
     const email = `class-leaver-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 3, "Not Paying", email);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await continueToPay(page);
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const [booking] = await sql(request, "select b.id from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email]);
     await page.goto(`${PAY}/book/done?booking=${booking.id}`);
@@ -271,7 +284,7 @@ test.describe("booking a group class and paying online", () => {
   test("Stripe's back arrow says the payment was cancelled (not 'waiting'), books nothing, and paying afterwards still works once", async ({ page, request }) => {
     const email = `class-backer-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 4, "Back Arrow", email);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await continueToPay(page);
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await page.getByRole("link", { name: "Back" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=.*cancelled=1`));
@@ -297,7 +310,7 @@ test.describe("booking a group class and paying online", () => {
   test("a payment page that has been closed can't be paid, and a refresh of the result changes nothing", async ({ page, request }) => {
     const email = `class-closer-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 5, "Closed Page", email);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await continueToPay(page);
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const session = page.url().split("/checkout/")[1];
     // Stripe closes it (as it does when the 30 minutes are up, or when the site replaces it).

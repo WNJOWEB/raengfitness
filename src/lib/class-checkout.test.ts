@@ -115,9 +115,10 @@ async function returning(email: string, name = "Returning") {
   await sql("insert into akb_class_attendance (class_session_id, client_id, status) values ($1, $2, 'attended')", [ses[0].id, id]);
 }
 
-const paidCheckout: typeof startClassCheckout = async (...args) => {
-  await returning(args[2].email, args[2].name);
-  return startClassCheckout(...args);
+/** A returning customer who has seen "You've trained with RAENG before" and continues to pay. */
+const paidCheckout: typeof startClassCheckout = async (db, stripe, booker, cls, date, options) => {
+  await returning(booker.email, booker.name);
+  return startClassCheckout(db, stripe, booker, cls, date, { ...options, confirmPaid: true });
 };
 
 beforeAll(async () => {
@@ -429,11 +430,16 @@ describe("first class free (Alex, 2026-11-05)", () => {
     expect(mine?.text).not.toContain("credit for another class within 4 weeks");
     expect(api.emails.find((m) => m.to.includes("alex@example.com") && m.subject.includes("New Starter"))?.text).toContain("(first class free)");
 
-    // Now they're not new: the next class (case-insensitive email) goes to Stripe.
     expect(await eligible(booker.email)).toBe(false);
-    const paid = await startClassCheckout(db, stripe, { ...booker, email: "NEW-STARTER@example.com" }, b.cls, b.date, { idempotencyKey: "first-free-key-2", env, fetchImpl: api.fetchImpl });
+    // Now they're not new (email case and spaces don't matter): the form is told first, nothing is booked, no Stripe page.
+    const again = { ...booker, email: "  NEW-STARTER@example.com " };
+    expect(await startClassCheckout(db, stripe, again, b.cls, b.date, { idempotencyKey: "first-free-key-2", env, fetchImpl: api.fetchImpl })).toEqual({ ok: false, reason: "returning" });
+    expect(api.linkCalls).toHaveLength(0);
+    // They continue: Stripe for £12.
+    const paid = await startClassCheckout(db, stripe, again, b.cls, b.date, { idempotencyKey: "first-free-key-2", confirmPaid: true, env, fetchImpl: api.fetchImpl });
     expect(paid).toMatchObject({ ok: true, confirmed: false });
     expect(api.linkCalls).toHaveLength(1);
+    expect(api.linkCalls[0].get("line_items[0][price_data][unit_amount]")).toBe("1200");
   });
 
   it("cancelled 24 hours or more before: no class credit, and the free class can be booked again", async () => {
@@ -467,22 +473,18 @@ describe("first class free (Alex, 2026-11-05)", () => {
     );
     expect(await cancelByToken(db, manage, env, api.fetchImpl)).toEqual({ ok: true, creditLink: null, refunded: false, firstClassFree: true, freeClassBack: false });
     expect(await eligible(booker.email)).toBe(false);
-    expect(await startClassCheckout(db, stripe, booker, b.cls, b.date, { idempotencyKey: "first-free-key-6", env, fetchImpl: api.fetchImpl })).toMatchObject({ ok: true, confirmed: false });
+    expect(await startClassCheckout(db, stripe, booker, b.cls, b.date, { idempotencyKey: "first-free-key-6", env, fetchImpl: api.fetchImpl })).toEqual({ ok: false, reason: "returning" });
   });
 
-  it("doesn't apply to returning customers or members, and an abandoned payment doesn't use it", async () => {
+  it("doesn't apply to someone with a past class, and an abandoned payment doesn't use it", async () => {
     const api = services();
     const [a, b] = classesFrom(8);
-    // A returning customer pays.
+    // A previous class place: told first, then pays £12.
     const back = { name: "Been Before", email: "been-before@example.com", phone: "" };
     await returning(back.email, back.name);
-    expect(await startClassCheckout(db, stripe, back, a.cls, a.date, { idempotencyKey: "first-free-key-7", env, fetchImpl: api.fetchImpl })).toMatchObject({ ok: true, confirmed: false });
-    // Someone with a membership (current or past) isn't new either.
-    const member = await sql("insert into akb_clients (full_name, email) values ('Member Person', 'member-person@example.com') returning id");
-    await sql("select akb_start_membership($1, 'regular', 'Regular', 6500, 8, akb_london_today())", [member[0].id]);
-    expect(await eligible("member-person@example.com")).toBe(false);
+    expect(await startClassCheckout(db, stripe, back, a.cls, a.date, { idempotencyKey: "first-free-key-7", env, fetchImpl: api.fetchImpl })).toEqual({ ok: false, reason: "returning" });
+    expect(await startClassCheckout(db, stripe, back, a.cls, a.date, { idempotencyKey: "first-free-key-7", confirmPaid: true, env, fetchImpl: api.fetchImpl })).toMatchObject({ ok: true, confirmed: false });
     // An unpaid hold that lapses leaves the offer in place.
-    await sql("update akb_class_attendance set hold_expires_at = now() - interval '1 minute' where client_id = (select id from akb_clients where email = 'been-before@example.com') and hold_expires_at is not null");
     const fresh = await sql("insert into akb_clients (full_name, email) values ('Hold Only', 'hold-only@example.com') returning id");
     const ses = (await sql("select class_session_id from akb_class_attendance limit 1"))[0].class_session_id;
     await sql("insert into akb_class_attendance (class_session_id, client_id, hold_expires_at) values ($1, $2, now() - interval '1 minute')", [ses, fresh[0].id]);
@@ -492,7 +494,73 @@ describe("first class free (Alex, 2026-11-05)", () => {
     const first = await startClassCheckout(db, stripe, twice, a.cls, a.date, { idempotencyKey: "first-free-key-8", env, fetchImpl: api.fetchImpl });
     const second = await startClassCheckout(db, stripe, twice, b.cls, b.date, { idempotencyKey: "first-free-key-9", env, fetchImpl: api.fetchImpl });
     expect(first).toMatchObject({ ok: true, firstClassFree: true });
-    expect(second).toMatchObject({ ok: true, confirmed: false });
+    expect(second).toEqual({ ok: false, reason: "returning" });
+  });
+});
+
+describe("first class free: who is new (owner, 2026-11-05)", () => {
+  const byEmail = async (email: string) => (await sql("select akb_first_class_free_eligible_email($1) as ok", [email]))[0].ok;
+  /** A membership started for this email; paid when `amountPence` is given (Alex records the payment against its first period). */
+  async function membership(email: string, amountPence?: number) {
+    const [c] = await sql("insert into akb_clients (full_name, email) values ('Member Test', lower($1)) returning id", [email]);
+    await sql("select akb_start_membership($1, 'regular', 'Regular', 6500, 8, akb_london_today())", [c.id]);
+    if (amountPence) {
+      const [p] = await sql("select p.charge_id from akb_membership_periods p join akb_memberships m on m.id = p.membership_id where m.client_id = $1", [c.id]);
+      await sql(
+        "select akb_record_payment($1, 'group', $2::int, akb_london_today(), 'card', '', '', $3, jsonb_build_array(jsonb_build_object('charge_id', $4::uuid, 'amount_pence', $2::int)))",
+        [c.id, amountPence, `member-pay-${email}`, p.charge_id],
+      );
+    }
+    return String(c.id);
+  }
+  const book = (email: string, key: string, at: { cls: PublishedClass; date: DateKey }, api: ReturnType<typeof services>, confirmPaid = false) =>
+    startClassCheckout(db, stripe, { name: "Who Is New", email, phone: "" }, at.cls, at.date, { idempotencyKey: key, confirmPaid, env, fetchImpl: api.fetchImpl });
+
+  it("a brand-new email gets the free class", async () => {
+    const api = services();
+    expect(await byEmail("Brand-New@Example.com ")).toBe(true);
+    expect(await book("brand-new@example.com", "who-new-1", classesFrom(15)[0], api)).toMatchObject({ ok: true, confirmed: true, firstClassFree: true });
+    expect(api.linkCalls).toHaveLength(0);
+  });
+
+  it("an email with an unpaid membership (started, or cancelled with no payment) still gets the free class", async () => {
+    const api = services();
+    await membership("unpaid-member@example.com");
+    expect(await byEmail("unpaid-member@example.com")).toBe(true);
+    const cancelled = await membership("unpaid-cancelled@example.com");
+    await sql("update akb_memberships set status = 'cancelled', cancelled_on = akb_london_today() where client_id = $1", [cancelled]);
+    expect(await byEmail("UNPAID-cancelled@example.com")).toBe(true);
+    expect(await book("unpaid-member@example.com", "who-new-2", classesFrom(15)[1], api)).toMatchObject({ ok: true, confirmed: true, firstClassFree: true });
+  });
+
+  it("an email with a paid membership pays £12 (refunded later or not)", async () => {
+    const api = services();
+    const id = await membership("paid-member@example.com", 6500);
+    expect(await byEmail("paid-member@example.com")).toBe(false);
+    expect(await book("paid-member@example.com", "who-new-3", classesFrom(15)[2], api)).toEqual({ ok: false, reason: "returning" });
+    expect(await book("paid-member@example.com", "who-new-3", classesFrom(15)[2], api, true)).toMatchObject({ ok: true, confirmed: false });
+    expect(api.linkCalls[0].get("line_items[0][price_data][unit_amount]")).toBe("1200");
+    // Still counts once cancelled.
+    await sql("update akb_memberships set status = 'cancelled', cancelled_on = akb_london_today() where client_id = $1", [id]);
+    expect(await byEmail("paid-member@example.com")).toBe(false);
+  });
+
+  it("an email with a previous class place pays £12", async () => {
+    const api = services();
+    await returning("past-class@example.com");
+    expect(await byEmail("past-class@example.com")).toBe(false);
+    expect(await book("past-class@example.com", "who-new-4", classesFrom(16)[0], api)).toEqual({ ok: false, reason: "returning" });
+    expect(await book("past-class@example.com", "who-new-4", classesFrom(16)[0], api, true)).toMatchObject({ ok: true, confirmed: false });
+  });
+
+  it("an email that already used the free class pays £12", async () => {
+    const api = services();
+    const [a, b] = classesFrom(17);
+    expect(await book("used-free@example.com", "who-new-5", a, api)).toMatchObject({ ok: true, firstClassFree: true });
+    expect(await byEmail("used-free@example.com")).toBe(false);
+    expect(await book("Used-Free@example.com", "who-new-6", b, api)).toEqual({ ok: false, reason: "returning" });
+    expect(await book("Used-Free@example.com", "who-new-6", b, api, true)).toMatchObject({ ok: true, confirmed: false });
+    expect(api.linkCalls).toHaveLength(1);
   });
 });
 

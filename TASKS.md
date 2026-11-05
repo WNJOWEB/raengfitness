@@ -23,6 +23,14 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] Alex confirmed the cancellation rule (2026-11-05: the general 24-hour rule)
 - [x] How to claim it said on the site: no code, book with your own email and it's free automatically; "Book your free class" link in Pay as you go
 
+## First class free: who is new (2026-11-05)
+
+### Done
+- [x] Only a paid membership blocks the offer (`20261125000000_akb_free_class_paid_membership.sql`); returning customers see "You've trained with RAENG before, so this class is £12." before Stripe opens; unit tests for brand-new, unpaid membership, paid membership, past class and free class already used; e2e
+
+### To do
+- [ ] **P0** Apply `20261125000000_akb_free_class_paid_membership.sql` to the live database (owner's approval), then deploy
+
 ## Cancelling with 24 hours' notice gives everything back (2026-11-05)
 
 ### Done

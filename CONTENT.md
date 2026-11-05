@@ -116,6 +116,7 @@ Contact
 | Date | Item | Approved by |
 |---|---|---|
 | 2026-11-02 | Refund policy (option B); records kept 6 years / 2 years / 12 months; class size 15 | Alex, via the owner |
+| 2026-11-05 | First class free: only a paid membership makes someone "not new"; returning customers told "You've trained with RAENG before, so this class is £12." before paying | Owner |
 | 2026-11-05 | 24 hours' notice is the rule for every cancellation: membership credit, payment (refunded in full) or free first class back; free-class cancellation rule confirmed | Alex, via the owner |
 
 ## Home page slots awaiting content (2026-10-22)
