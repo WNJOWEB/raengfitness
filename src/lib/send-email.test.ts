@@ -40,7 +40,8 @@ describe("customer emails", () => {
     const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
     await sendEmail(config, { ...email, to: "sam@example.com", text: "Your place is booked." }, fetchImpl as unknown as typeof fetch);
     const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
-    expect(body.text).toMatch(/^Your place is booked\.\n\nRAENG Fitness\n1A Dunnswood Road, Cumbernauld, G67 3EN\nhello@raengfitness\.co\.uk · Instagram @raeng\.fitness$/);
+    expect(body.text).toMatch(/^Your place is booked\.\n\nThanks,\nAlex\nRAENG Fitness\n\n1A Dunnswood Road, Cumbernauld, G67 3EN\nhello@raengfitness\.co\.uk · Instagram @raeng\.fitness$/);
+    expect(body.html).toContain("Thanks,<br><strong>Alex</strong><br>RAENG Fitness");
     expect(body.html).toContain("/brand/raeng-header-black.png");
     expect(body.html).toContain("Your place is booked.");
     expect(body.html).toContain("isn't a marketing email");

@@ -130,6 +130,13 @@ function footer(audience: EmailAudience, env: Env): string {
 <p style="margin:0;font-family:${FONT};font-size:12px;line-height:18px;color:${INK};">${escape(why)}</p>`;
 }
 
+/** "Thanks, Alex, RAENG Fitness" at the end of every customer email (owner, 2026-11-05). */
+export const SIGN_OFF = ["Thanks,", "Alex", `${site.name} ${site.descriptor}`] as const;
+
+function signOff(): string {
+  return `<p style="margin:8px 0 16px;font-family:${FONT};font-size:16px;line-height:24px;color:${INK};">${escape(SIGN_OFF[0])}<br><strong>${escape(SIGN_OFF[1])}</strong><br>${escape(SIGN_OFF[2])}</p>`;
+}
+
 /** The full HTML email. */
 export function renderEmailHtml(content: EmailContent, env: Env = process.env): string {
   const origin = siteUrl(env);
@@ -160,6 +167,7 @@ export function renderEmailHtml(content: EmailContent, env: Env = process.env): 
 <tr><td style="background:#ffffff;border-radius:20px;padding:32px 28px 16px;">
 ${content.code ? codeBox(content.code) : ""}
 ${body(content.text, content.code)}
+${content.audience === "customer" ? signOff() : ""}
 </td></tr>
 <tr><td style="padding:24px 8px 0;">
 ${footer(content.audience, env)}
@@ -176,7 +184,8 @@ export function textFooter(): string {
   const l = site.location;
   return [
     "",
-    `${site.name} ${site.descriptor}`,
+    ...SIGN_OFF,
+    "",
     `${l.street}, ${l.town}, ${l.postcode}`,
     [site.contact.email, `Instagram ${site.social.raeng.handle}`].filter(Boolean).join(" · "),
   ].join("\n");

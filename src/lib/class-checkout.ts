@@ -217,7 +217,8 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
             onlineClassBooking.cancel,
             "",
             // The booking is the account (2026-10-28): sign in with this email, no password.
-            `Your bookings and any class credits are also in your account: ${memberLinkOrigin(env)}${SIGN_IN_PATH} (sign in with this email address).`,
+            "Your bookings and any class credits are also in your account. Sign in with this email address, no password needed.",
+            `Go to your account: ${memberLinkOrigin(env)}${SIGN_IN_PATH}`,
           ].join("\n"),
         },
         fetchImpl,
