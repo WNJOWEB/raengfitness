@@ -1126,15 +1126,16 @@ test.describe("opening curtain", () => {
   });
 });
 
-test("header Book now is light, and goes dark the moment it is tapped (Alex, 2026-11-05)", async ({ page }) => {
+test("header Book now is light, eases to dark when tapped like the class cards, then opens the booking options (Alex, 2026-11-05)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/classes");
   const book = page.getByRole("banner").getByRole("link", { name: "Book now" });
   const bg = () => book.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(await bg()).toBe("rgb(255, 255, 255)");
-  const box = (await book.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
+  // A smooth fill, not an instant flash: 600 ms, like the timetable's cards.
+  expect(await book.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe("0.6s");
+  await book.click();
+  await expect(book).toHaveAttribute("data-pressed", "");
   await expect.poll(bg).toBe("rgb(23, 23, 23)");
-  await page.mouse.up();
+  await expect(page).toHaveURL(/\/book$/);
 });

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { getPrimaryCta } from "@/lib/booking";
-import { LinkPending } from "@/components/members/LinkPending";
+import { HeaderBook } from "./HeaderBook";
 import { Logo } from "./Logo";
 import { MobileNav } from "./NavLinks";
 
@@ -20,15 +19,7 @@ export function SiteHeader() {
         </div>
         <Logo priority />
         <div className="justify-self-end">
-          <Link
-            href={cta.href}
-            {...(cta.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            className="header-book inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-4 text-xs font-semibold uppercase tracking-[0.08em] focus-visible:outline-ink sm:px-6 sm:text-sm"
-          >
-            {cta.label}
-            <LinkPending />
-            {cta.external ? <span className="sr-only"> (opens in a new tab)</span> : null}
-          </Link>
+          <HeaderBook href={cta.href} label={cta.label} external={cta.external} />
         </div>
       </div>
     </header>

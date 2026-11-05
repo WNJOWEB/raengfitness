@@ -808,18 +808,6 @@
     transform: scale(0.97);
   }
 }
-/* The header's "Book now": light, and dark the moment it is tapped, until the next page arrives (Alex, 2026-11-05). */
-.header-book {
-  border: 1.5px solid var(--color-ink);
-  background: var(--color-white);
-  color: var(--color-ink);
-}
-.header-book:active,
-.header-book:has(.link-pending) {
-  background: var(--color-ink);
-  color: var(--color-paper);
-  transition: none;
-}
 .members-menu-item {
   display: flex;
   width: 100%;
