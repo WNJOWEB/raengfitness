@@ -30,7 +30,7 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
   // BOOKING_DEMO_PAY (previews only, with BOOKING_DEMO) shows the paying screens in the labelled demo, so they can be looked at before Stripe is on: nothing is charged, booked or sent.
   const showPay = (mode === "request" && onlineJoinEnabled()) || (mode === "demo" && process.env.BOOKING_DEMO_PAY === "true");
   // First class free (content/offers.ts): said before paying; the server decides who it applies to.
-  const offer = isPublishable(firstClassFree.status) ? firstClassFree.booking : undefined;
+  const offer = isPublishable(firstClassFree.status) ? firstClassFree.bookingShort : undefined;
   const pay = showPay && price ? { price: formatGbp(price.amountGbp), ...onlineClassBooking, ...(offer ? { offer } : {}) } : null;
 
   // The two 1:1 options with their published prices (services.ts), shown on the "when" step.

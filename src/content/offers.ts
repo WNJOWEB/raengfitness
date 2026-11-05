@@ -16,6 +16,8 @@ export const firstClassFree = {
   headline: "Your first class is free",
   /** One line under the headline. */
   line: "New to RAENG? Your first group class is on us. No card needed.",
+  /** In the booking form's price card, under the total (owner, 2026-11-05: clearer price and offer). */
+  bookingShort: "New customers book their first class with nothing to pay. We check your email when you continue, no card needed.",
   /** In the booking form, before paying. */
   booking: "New to RAENG? Your first class is free: if this is your first class with us, it's booked with nothing to pay. Otherwise you'll pay on Stripe's secure page.",
   /** Wherever the offer is shown: there's nothing to redeem, it applies by itself. */

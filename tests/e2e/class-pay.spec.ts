@@ -84,7 +84,7 @@ async function continueToPay(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "You've trained with RAENG before, so this class is £12." })).toBeVisible();
   await expect(page).not.toHaveURL(new RegExp(`^${STRIPE}`));
-  await expect(page.getByText("or free if it's your first class")).toHaveCount(0);
+  await expect(page.getByText("First class free.")).toHaveCount(0);
   await page.getByRole("button", { name: "Continue to payment" }).click();
 }
 
@@ -107,7 +107,8 @@ test.describe("booking a group class and paying online", () => {
     await page.getByRole("textbox", { name: "Email" }).fill(email);
     await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
     await page.getByLabel(/I've read and agree to the health and risk terms/).check();
-    await expect(page.getByText("£12, or free if it's your first class")).toBeVisible();
+    await expect(page.getByText("First class free.")).toBeVisible();
+    await expect(page.locator("#credit")).toContainText("Total£12");
     await page.waitForTimeout(3100);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     // Straight to the booked page: no Stripe.

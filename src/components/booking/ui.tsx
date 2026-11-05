@@ -55,7 +55,7 @@ interface ChoiceGroupProps {
   hint?: ReactNode;
   error?: string;
   /** "list": full-width rows. "chips": compact tiles that wrap. */
-  layout?: "list" | "chips";
+  layout?: "list" | "chips" | "segmented";
   optional?: boolean;
   /** Visually hidden legend when the step heading already says it. */
   hideLegend?: boolean;
@@ -90,7 +90,7 @@ export function ChoiceGroup({
       <div
         className={cn(
           !hideLegend || hint ? "mt-3" : undefined,
-          layout === "list" ? "grid grid-cols-1 gap-2" : "flex flex-wrap gap-2",
+          layout === "list" ? "grid grid-cols-1 gap-2" : layout === "segmented" ? "grid grid-cols-3 gap-2" : "flex flex-wrap gap-2",
         )}
       >
         {options.map((o, i) => (
@@ -99,7 +99,7 @@ export function ChoiceGroup({
             className={cn(
               "group/tile",
               tile,
-              layout === "list" ? "min-h-14 px-4 py-3" : "min-h-12 min-w-14 justify-center px-4 py-2",
+              layout === "list" ? "min-h-14 px-4 py-3" : layout === "segmented" ? "min-h-12 justify-center px-1.5 py-2 text-center text-sm" : "min-h-12 min-w-14 justify-center px-4 py-2",
             )}
           >
             <input
@@ -320,7 +320,7 @@ export function ActionBar({
   total?: string;
 }) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 mt-10 border-t border-line bg-paper px-4 py-3 sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-t-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
+    <div className="sticky bottom-0 z-10 -mx-4 mt-10 border-t border-line bg-paper px-4 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-t-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
       <div className="flex items-center justify-between gap-4">
         {onBack ? (
           <button
@@ -399,15 +399,18 @@ export function PrivacyLine({
   action,
   booking = false,
   what = "booking",
+  small = false,
 }: {
   action: string;
   /** Paid online, not an enquiry: the details confirm it rather than get a reply. */
   booking?: boolean;
   /** What was paid for: "booking" (a class) or "membership". */
   what?: "booking" | "membership";
+  /** Small print, under a price card. */
+  small?: boolean;
 }) {
   return (
-    <p className="text-sm text-muted">
+    <p className={cn(small ? "text-xs" : "text-sm", "text-muted")}>
       {booking ? `We use these details to confirm your ${what} and email you about it.` : `By ${action}, you agree to Alex using these details to reply.`} Read the{" "}
       <Link href="/privacy" className="underline underline-offset-4">
         privacy notice
@@ -507,36 +510,47 @@ export function CompactSummary({
  * The server checks the tick again and stores the wording's version and time.
  */
 export function WaiverField({ checked, error, onChange }: { checked: boolean; error?: string; onChange: (checked: boolean) => void }) {
+  // One card (owner, 2026-11-05: simpler on phones): the required tick first, the full terms a tap away inside it.
   return (
     <div>
-      <details className="card px-5 py-4 sm:px-6">
-        <summary className="cursor-pointer font-semibold">{classWaiver.title}</summary>
-        <p className="mt-3">{classWaiver.intro}</p>
-        <ol className="mt-3 space-y-3 text-sm">
-          {classWaiver.points.map((p, i) => (
-            <li key={p.title}>
-              <span className="font-semibold">
-                {i + 1}. {p.title}.
-              </span>{" "}
-              {p.body}
-            </li>
-          ))}
-        </ol>
-      </details>
-      <label className={cn("card mt-3 flex cursor-pointer items-start gap-4 px-5 py-4 sm:px-6", error && "outline-2 outline-ink")}>
-        <input
-          id="waiver"
-          type="checkbox"
-          name="waiver"
-          value="yes"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "waiver-error" : undefined}
-          className="mt-0.5 size-6 shrink-0 accent-ink"
-        />
-        <span>{classWaiver.tick}</span>
-      </label>
+      <div className={cn("card px-4 py-4 sm:px-5", error && "outline-2 outline-ink")}>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            id="waiver"
+            type="checkbox"
+            name="waiver"
+            value="yes"
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "waiver-error" : undefined}
+            className="mt-0.5 size-6 shrink-0 accent-ink"
+          />
+          <span>
+            <span className="block font-semibold">{classWaiver.title}</span>
+            <span className="mt-0.5 block text-sm">{classWaiver.tick}</span>
+          </span>
+        </label>
+        <details className="group/terms ml-9">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-semibold underline underline-offset-4 [&::-webkit-details-marker]:hidden">
+            <span className="group-open/terms:hidden">Read the terms</span>
+            <span className="hidden group-open/terms:inline">Hide the terms</span>
+          </summary>
+          <div className="pb-1 text-sm">
+            <p>{classWaiver.intro}</p>
+            <ol className="mt-3 space-y-2.5">
+              {classWaiver.points.map((p, i) => (
+                <li key={p.title}>
+                  <span className="font-semibold">
+                    {i + 1}. {p.title}.
+                  </span>{" "}
+                  {p.body}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </details>
+      </div>
       {error ? (
         <p id="waiver-error" className="mt-2 text-sm font-semibold">
           <span aria-hidden="true">✕ </span>

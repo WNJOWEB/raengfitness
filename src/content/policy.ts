@@ -165,6 +165,7 @@ export const classWaiver = {
       body: "RAENG will take reasonable care of me during classes and sessions. Nothing here limits or excludes RAENG's responsibility for death or personal injury caused by its negligence, for fraud, or for anything else the law does not allow to be limited. Otherwise, RAENG is not responsible for injury, loss or damage caused by my own actions, by my not following instructions, by a health condition I have not told the coach about, or by events outside RAENG's reasonable control.",
     },
   ],
-  tick: "I've read and agree to the health and risk terms (tap the title to read them), and I'm fit to take part.",
+  /** The tick's wording (the "Read the terms" link beside it opens the points above). */
+  tick: "I've read and agree to the health and risk terms, and I'm fit to take part.",
   error: "Please tick to confirm you have read and agree to the health and risk terms.",
 } as const;

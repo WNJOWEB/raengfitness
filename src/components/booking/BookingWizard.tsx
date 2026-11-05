@@ -631,7 +631,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                   const data = new FormData(e.currentTarget);
                   startTransition(() => formAction(data));
                 }}
-                className="mt-6 space-y-8"
+                className={cn("space-y-6", payNow || demoPay ? "mt-5" : "mt-6")}
               >
                 {demoPay ? (
                   <DemoNotice>Preview of paying online: nothing is charged, booked or sent. On the live site you&apos;d pay on Stripe&apos;s secure page.</DemoNotice>
@@ -654,14 +654,10 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                   value={details.experience}
                   onChange={(v) => update("experience")(v)}
                   error={errors.experience}
+                  layout="segmented"
                 />
-                {signedIn ? (
-                  <p className="text-sm">Filled in from your account.</p>
-                ) : payNow && !demo ? (
-                  // The booking makes the account (2026-10-28): say so, once, before they pay.
-                  <p className="text-sm">We&apos;ll use your email to sign you in to your account next time. No password.</p>
-                ) : null}
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {signedIn ? <p className="text-sm">Filled in from your account.</p> : null}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                   <TextField name="name" label="Name" autoComplete="name" maxLength={100} value={details.name} onChange={update("name")} error={errors.name} />
                   <TextField
                     name="email"
@@ -673,6 +669,8 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                     value={details.email}
                     onChange={update("email")}
                     error={errors.email}
+                    // The booking makes the account (2026-10-28): said once, where the email goes.
+                    hint={payNow && !demo && !signedIn ? "We'll use it to sign you in next time. No password." : undefined}
                   />
                 </div>
                 <TextField
@@ -719,7 +717,6 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <SubmissionMeta meta={meta} />
 
                 {/* The health and risk terms and their tick come before the total and the button (owner, 2026-11-04): on a phone the total and "Continue" are what people see last, and a tick they hadn't met yet stopped them. */}
-                <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : enquiry ? "sending this enquiry" : "sending this request"} booking={payNow || demoPay} />
                 <WaiverField
                   checked={waiver}
                   error={errors.waiver}
@@ -730,16 +727,17 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 />
 
                 {demoPay && pay ? (
-                  <div className="rule-list space-y-2 pt-4 text-sm">
+                  <div className="card px-4 py-4 text-sm sm:px-5">
                     <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
-                    <p className="text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
+                    <p className="mt-3 text-xs text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
                   </div>
                 ) : null}
+                {/* The price card (owner, 2026-11-05): the total first, then what applies to it, then the cancellation terms in small print. */}
                 {payNow && pay ? (
-                  <div id="credit" tabIndex={-1} className="rule-list space-y-2 pt-4 text-sm">
+                  <div id="credit" tabIndex={-1} className="card px-4 py-4 focus:outline-none sm:px-5">
                     {credit ? (
-                      <>
-                        <p className="font-semibold">Booking with your class credit: nothing to pay.</p>
+                      <div className="space-y-1 text-sm">
+                        <p className="text-base font-semibold">Booking with your class credit: nothing to pay.</p>
                         {errors.credit ? <p className="font-semibold">{errors.credit}</p> : null}
                         <button
                           type="button"
@@ -748,28 +746,31 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                         >
                           Pay {pay.price} instead
                         </button>
-                      </>
+                      </div>
                     ) : (
                       <>
-                        <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
-                          <span>Total</span>
-                          <span>{pay.offer && !returning ? `${pay.price}, or free if it's your first class` : pay.price}</span>
+                        <p className="flex items-baseline justify-between gap-4">
+                          <span className="font-semibold">Total</span>
+                          <span className="font-display text-2xl tabular-nums">{pay.price}</span>
                         </p>
                         {returning ? (
-                          <div role="status">
+                          <div role="status" className="mt-3 rounded-xl bg-white px-3 py-2.5 text-sm">
                             <p className="font-semibold">{returning}</p>
-                            <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                            <p className="mt-0.5">Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
                           </div>
                         ) : pay.offer ? (
-                          <p className="font-semibold">{pay.offer}</p>
+                          <p className="mt-3 rounded-xl bg-white px-3 py-2.5 text-sm">
+                            <span className="font-semibold">First class free.</span> {pay.offer}
+                          </p>
                         ) : (
-                          <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                          <p className="mt-1 text-sm">Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
                         )}
                       </>
                     )}
-                    <p className="text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
+                    <p className="mt-3 text-xs leading-relaxed text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
                   </div>
                 ) : null}
+                <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : enquiry ? "sending this enquiry" : "sending this request"} booking={payNow || demoPay} small={payNow || demoPay} />
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
@@ -798,16 +799,19 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
  * and phones (which have no side summary) see it. Details and the Pay button follow.
  */
 function PayCard({ info, name, date, when, minutes, price, hold }: { info: ClassInfo; name?: string; date: DateKey; when: string; minutes?: number; price: string; hold: string }) {
+  // Compact (owner, 2026-11-05): one line for the class and its price, one for the details.
   return (
-    <div className="card mt-6 p-5">
+    <div className="card mt-5 px-4 py-3.5 sm:px-5">
       <p className="eyebrow text-muted">Your class</p>
-      <p className="mt-2 font-display text-h3">
-        {name ?? info.name} · {formatLongDate(date)}, {when}
+      <p className="mt-1 flex items-baseline justify-between gap-3">
+        <span className="font-semibold">
+          {name ?? info.name} · {formatShortDate(date)}, {when}
+        </span>
+        <span className="shrink-0 font-semibold tabular-nums">{price}</span>
       </p>
-      <p className="mt-1 text-sm">
-        {[minutes ? (minutes === 60 ? "1 hr" : `${minutes} min`) : "", "with Alex"].filter(Boolean).join(" · ")} · <span className="font-semibold">{price}</span>
+      <p className="mt-0.5 text-sm text-muted">
+        {[minutes ? (minutes === 60 ? "1 hr" : `${minutes} min`) : "", "with Alex"].filter(Boolean).join(" · ")}. <span>{hold}</span>
       </p>
-      <p className="mt-3 text-sm">{hold}</p>
     </div>
   );
 }
