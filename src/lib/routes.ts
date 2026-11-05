@@ -5,6 +5,8 @@ export const publicRoutes = [
   "/memberships",
   "/memberships/join",
   "/coaching",
+  "/coaching/one-to-one",
+  "/coaching/small-group",
   "/contact",
   "/about",
   "/privacy",

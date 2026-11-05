@@ -564,9 +564,9 @@ test("homepage: one idea per section, in order, and no testimonial is invented",
   await expect(classes).toContainText("New to RAENG? Let us know when booking.");
   const more = page.locator("#ways");
   await expect(more.getByRole("link", { name: /Group classes/ })).toHaveAttribute("href", "/classes");
-  await expect(more.getByRole("link", { name: /1:1 coaching/ })).toHaveAttribute("href", "/coaching");
+  await expect(more.getByRole("link", { name: /1:1 coaching/ })).toHaveAttribute("href", "/coaching/one-to-one");
   // Online coaching is off the site for now; small group coaching is named, with no price (Alex, 2026-10-29).
-  await expect(more.getByRole("link", { name: /Small group coaching/ })).toHaveAttribute("href", "/coaching#small-group");
+  await expect(more.getByRole("link", { name: /Small group coaching/ })).toHaveAttribute("href", "/coaching/small-group");
   await expect(more).not.toContainText(/online/i);
   await expect(more).toContainText("£35 per session");
   await expect(page.locator("blockquote")).toHaveCount(0);
@@ -798,36 +798,53 @@ test("/online-coaching and its enquiry form are off the site for now and go to C
   await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("link", { name: /online/i })).toHaveCount(0);
 });
 
-test("/coaching: Alex's intro, 1:1 personal coaching, then small group coaching, each its own section (2026-11-05)", async ({ page }) => {
-  await page.goto("/coaching");
-  const order = await page.locator("main > section, main > .section-rules > section").evaluateAll((els) => els.map((e) => e.id || e.getAttribute("aria-labelledby")));
-  expect(order).toEqual(["one-to-one", "small-group", "cta-heading"]);
-  await expect(page.locator("main")).toContainText("Personalised, face-to-face kettlebell coaching designed around your goals, experience and ability.");
-  // No "how it works" steps and no group-classes link.
-  await expect(page.locator("#how-it-works")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "See group classes" })).toHaveCount(0);
+test("Coaching has its own page for 1:1 personal coaching and for small group coaching, each in the menu (Alex, 2026-11-05)", async ({ page }) => {
+  // The menu lists both under Coaching, on phone and desktop.
+  for (const [width, height] of [[390, 844], [1280, 800]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Menu" }).click();
+    const nav = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
+    const sub = nav.getByRole("list", { name: "Coaching pages" });
+    await expect(sub.getByRole("link")).toHaveText(["1:1 Personal Coaching", "Small Group Coaching"]);
+    await sub.getByRole("link", { name: "Small Group Coaching" }).click();
+    await expect(page).toHaveURL(/\/coaching\/small-group$/);
+    await page.getByRole("button", { name: "Menu" }).click();
+    await expect(nav.getByRole("link", { name: "Small Group Coaching" })).toHaveAttribute("aria-current", "page");
+    await nav.getByRole("link", { name: "1:1 Personal Coaching" }).click();
+    await expect(page).toHaveURL(/\/coaching\/one-to-one$/);
+  }
 
-  const one = page.locator("#one-to-one");
-  await expect(one.getByRole("heading", { level: 2 })).toHaveText("Attention That Stays on You.");
-  await expect(one).toContainText("Whether you’re new to kettlebells or looking to take your training further");
-  await expect(one.locator("li h3")).toHaveText(["Strength", "Technique", "Movement"]);
-  await expect(one.locator("#included h4")).toHaveText(["Personalised coaching", "Technique and development", "Structured progression"]);
-  const pricing = one.locator("#pricing");
-  await expect(pricing.locator("li h4")).toHaveText(["Single 1:1 session", "Monthly package"]);
+  // /coaching: Alex's intro and a way into each page.
+  await page.goto("/coaching");
+  await expect(page.locator("main")).toContainText("Personalised, face-to-face kettlebell coaching designed around your goals, experience and ability.");
+  await expect(page.locator("#choose").getByRole("link", { name: /1:1 Personal Coaching/ })).toHaveAttribute("href", "/coaching/one-to-one");
+  await expect(page.locator("#choose").getByRole("link", { name: /Small Group Coaching/ })).toHaveAttribute("href", "/coaching/small-group");
+
+  // 1:1 personal coaching: its own page.
+  await page.goto("/coaching/one-to-one");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Attention That Stays on You.");
+  await expect(page.locator("main")).toContainText("Whether you’re new to kettlebells or looking to take your training further");
+  await expect(page.locator("#focus li h3")).toHaveText(["Strength", "Technique", "Movement"]);
+  await expect(page.locator("#included h3")).toHaveText(["Personalised coaching", "Technique and development", "Structured progression"]);
+  const pricing = page.locator("#pricing");
+  await expect(pricing.locator("li h3")).toHaveText(["Single 1:1 session", "Monthly package"]);
   await expect(pricing).toContainText("£35");
   await expect(pricing).toContainText("£130");
   await expect(pricing).toContainText("per month, £32.50 a session");
   await expect(pricing).toContainText("Four personalised coaching sessions each month, providing consistency, structure and progression.");
+  await expect(page.locator("main")).not.toContainText("Train together");
 
-  // Small group coaching: its own intro, benefits, what's included and information; an enquiry, no invented price.
-  const small = page.locator("#small-group");
-  await expect(small.getByRole("heading", { level: 2 })).toHaveText("Train together. Progress individually.");
-  await expect(small).toContainText("Small group kettlebell coaching combining individual guidance");
-  for (const point of ["Small, focused training groups", "Coaching and technique feedback", "Structured strength and conditioning", "A supportive training environment"]) await expect(small).toContainText(point);
-  await expect(small.getByRole("heading", { name: "Benefits" })).toBeVisible();
-  await expect(small).not.toContainText("£");
-  await expect(small).toContainText("Submitting an enquiry does not guarantee a place.");
-  await expect(small.getByRole("link", { name: /Enquire about availability/ })).toHaveAttribute("href", "/book/small-group");
+  // Small group coaching: its own page, an enquiry, no invented price.
+  await page.goto("/coaching/small-group");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Train together. Progress individually.");
+  await expect(page.locator("main")).toContainText("Small group kettlebell coaching combining individual guidance");
+  for (const point of ["Small, focused training groups", "Coaching and technique feedback", "Structured strength and conditioning", "A supportive training environment"]) await expect(page.locator("#included")).toContainText(point);
+  await expect(page.locator("#benefits h3")).toHaveCount(3);
+  await expect(page.locator("main")).not.toContainText("£");
+  await expect(page.locator("#pricing")).toContainText("Submitting an enquiry does not guarantee a place.");
+  await expect(page.getByRole("link", { name: /Enquire about availability/ })).toHaveAttribute("href", "/book/small-group");
+  await expect(page.locator("main")).not.toContainText("Attention That Stays on You");
 });
 
 test("Alex's layout: each page carries the parts his layout image lists (2026-10-29)", async ({ page }) => {
@@ -840,8 +857,8 @@ test("Alex's layout: each page carries the parts his layout image lists (2026-10
   await expect(page.getByRole("heading", { level: 2, name: "Questions." })).toBeVisible();
   // Coaching: 1:1 coaching, small group coaching (where online was), who it's for, what's included, pricing or enquiry.
   await page.goto("/coaching");
-  await expect(page.locator("#one-to-one")).toBeVisible();
-  await expect(page.locator("#included").getByRole("heading", { name: "What's included" })).toBeVisible();
+  await page.goto("/coaching/one-to-one");
+  await expect(page.locator("#included").getByRole("heading", { level: 2, name: "What's included." })).toBeVisible();
   await expect(page.locator("#pricing")).toContainText("£35");
   // About: RAENG's philosophy and values (no section about Alex, 2026-11-05).
   await page.goto("/about");
@@ -1014,7 +1031,7 @@ test("footer groups collapse on phones and are open on desktop", async ({ page }
 });
 
 test("'Get in touch' only on Coaching's closing button (owner, 2026-10-29), and the header has Book now (Alex, 2026-11-05)", async ({ page }) => {
-  for (const route of ["/", "/classes", "/memberships", "/coaching", "/about", "/contact", "/privacy"]) {
+  for (const route of ["/", "/classes", "/memberships", "/coaching", "/coaching/one-to-one", "/coaching/small-group", "/about", "/contact", "/privacy"]) {
     await page.goto(route);
     if (route === "/coaching") {
       await expect(page.locator("body"), route).toContainText(/get in touch/i);

@@ -6,6 +6,9 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { coachLoginNav, mainNav, memberSignInNav, pageNav } from "@/content/site";
 import { cn } from "@/lib/cn";
 
+type MenuItem = { label: string; href: string; children?: readonly { label: string; href: string }[] };
+const menuItems: readonly MenuItem[] = [...mainNav, ...pageNav];
+
 /** "page" for the page you're on (a section's sub-pages count too); Home only matches exactly. */
 function currentFor(pathname: string, href: string): "page" | undefined {
   if (href === "/") return pathname === "/" ? "page" : undefined;
@@ -65,7 +68,7 @@ export function MobileNav() {
       >
         <nav aria-label="Main" className="px-4 sm:px-6">
           <ul>
-            {[...mainNav, ...pageNav].map((item, i) => {
+            {menuItems.map((item, i) => {
               const active = Boolean(currentFor(pathname, item.href));
               return (
                 <li key={item.href} className="menu-rise" style={{ "--i": i } as CSSProperties}>
@@ -80,6 +83,26 @@ export function MobileNav() {
                     {item.label}
                     {active ? <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-ink" /> : null}
                   </Link>
+                  {/* Sub-pages under their section (Coaching: 1:1 Personal Coaching and Small Group Coaching, Alex 2026-11-05). */}
+                  {item.children?.length ? (
+                    <ul aria-label={`${item.label} pages`} className="mb-2 ml-4 border-l border-line pl-4">
+                      {item.children.map((child) => {
+                        const childActive = pathname === child.href;
+                        return (
+                          <li key={child.href}>
+                            <Link
+                              href={child.href}
+                              onClick={() => setOpen(false)}
+                              aria-current={childActive ? "page" : undefined}
+                              className={cn("flex min-h-12 items-center text-lg font-semibold", childActive ? "underline decoration-2 underline-offset-8" : "hover:underline hover:underline-offset-8")}
+                            >
+                              {child.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
                 </li>
               );
             })}

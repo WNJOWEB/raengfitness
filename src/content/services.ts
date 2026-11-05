@@ -27,7 +27,7 @@ export const services: Service[] = [
     id: "one-to-one",
     name: "1:1 personal coaching",
     shortName: "1:1",
-    href: "/coaching",
+    href: "/coaching/one-to-one",
     summary:
       "Face-to-face kettlebell coaching, tailored to you as an individual.",
     points: [

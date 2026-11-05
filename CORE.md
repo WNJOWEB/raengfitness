@@ -23,6 +23,7 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 | Item | Status | Notes |
 |---|---|---|
 | "Book now" in the header, top right | C | Back at Alex's request (removed 2026-10-29); opens `/book`, the booking options |
+| Coaching pages | C | **Separate pages** (Alex, 2026-11-05): `/coaching/one-to-one` (1:1 Personal Coaching) and `/coaching/small-group` (Small Group Coaching), each listed under Coaching in the menu and the footer. `/coaching` is a short overview with a way into each, and keeps its "Get in touch" closing button (owner exception) |
 | Booking options | C | Three: Group classes, 1:1 personal coaching, Small group coaching enquiry (`/book/small-group`). Small group is an enquiry only |
 | 1:1 pricing | C | Single 1:1 session £35 and Monthly package £130 (4 sessions), as two options chosen when requesting 1:1 (stored with the request). The single session is no longer "from £35" |
 | Small group coaching | P | Copy from Alex. **No price, group size, times or duration supplied, so none is shown**; the page says they are shared on enquiry |

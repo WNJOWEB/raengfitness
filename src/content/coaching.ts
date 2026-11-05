@@ -47,3 +47,9 @@ export const oneToOne = {
 /** Wording for "when suits you?" on every request that picks days and times (Alex, 2026-11-05). */
 export const availabilityWording =
   "Select the days and times that work best for you. Once submitted, Alex will review your request and get back to you to confirm availability and discuss suitable dates and times. Please note that submitting a request does not guarantee a booking.";
+
+/** The two coaching pages: the entries under Coaching in the menu and the footer (Alex, 2026-11-05). */
+export const coachingPages = [
+  { label: "1:1 Personal Coaching", href: "/coaching/one-to-one" },
+  { label: "Small Group Coaching", href: "/coaching/small-group" },
+] as const;

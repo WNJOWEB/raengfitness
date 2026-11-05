@@ -21,8 +21,8 @@ export function MoreWays() {
   const classPrice = publishable(getService("group-classes").prices)[0];
   const ways = [
     { href: "/classes", title: "Group classes", body: "Coached kettlebell sessions, all levels.", price: classPrice ? `${formatGbp(classPrice.amountGbp)} a class` : null },
-    { href: "/coaching", title: "1:1 coaching", body: "Face-to-face coaching with Alex.", price: leadPrice("one-to-one") },
-    { href: "/coaching#small-group", title: smallGroupCoaching.name, body: smallGroupCoaching.summary, price: null },
+    { href: "/coaching/one-to-one", title: "1:1 coaching", body: "Face-to-face coaching with Alex.", price: leadPrice("one-to-one") },
+    { href: "/coaching/small-group", title: smallGroupCoaching.name, body: smallGroupCoaching.summary, price: null },
   ];
   return (
     <Section id="ways" labelledBy="ways-heading">

@@ -1,3 +1,5 @@
+import { coachingPages } from "./coaching";
+
 /**
  * Single source of truth for brand, location and contact details.
  * Only add values here once they are verified (see CORE.md).
@@ -78,13 +80,13 @@ export const site = {
  * live on Classes; Online Coaching is off the site for now (the page redirects
  * to Coaching).
  */
-export const mainNav = [
+export const mainNav: readonly { label: string; href: string; children?: readonly { label: string; href: string }[] }[] = [
   { label: "Home", href: "/" },
   { label: "Classes", href: "/classes" },
-  { label: "Coaching", href: "/coaching" },
+  { label: "Coaching", href: "/coaching", children: coachingPages },
   { label: "About", href: "/about" },
   { label: "FAQs & Contact", href: "/contact" },
-] as const;
+];
 
 /** Extra pages listed in the phone menu and footer, after mainNav (none now: Contact is in mainNav). */
 export const pageNav: readonly { label: string; href: string }[] = [];
@@ -97,7 +99,7 @@ export const coachLoginNav = { label: "Coach Portal", href: "/coach/login" } as 
 
 /** Footer links: every page except Home (the logo links home), plus the member and coach sign-ins. */
 export const footerNav = [
-  ...mainNav.filter((item) => item.href !== "/"),
+  ...mainNav.filter((item) => item.href !== "/").flatMap((item) => [{ label: item.label, href: item.href }, ...(item.children ?? [])]),
   ...pageNav,
   memberSignInNav,
   coachLoginNav,
