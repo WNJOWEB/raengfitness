@@ -6,6 +6,7 @@ import { DEFAULT_TITLE, baseOpenGraph } from "@/lib/metadata";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { OutsideMembersApp } from "@/components/layout/OutsideMembersApp";
+import { PageTransition } from "@/components/layout/PageTransition";
 import { JsonLd } from "@/components/sections/JsonLd";
 import { INTRO_SCRIPT, REVEAL_SCRIPT } from "@/lib/reveal";
 import { PLAN_SCRIPT } from "@/lib/plan-flag";
@@ -62,12 +63,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <OutsideMembersApp>
           <SiteHeader />
         </OutsideMembersApp>
-        <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-          {children}
-        </main>
-        <OutsideMembersApp>
-          <SiteFooter />
-        </OutsideMembersApp>
+        {/* Page changes fade (old out quickly, new in gently) instead of cutting; the header stays put. See globals.css → Page transitions. */}
+        <PageTransition>
+          <div className="flex flex-1 flex-col">
+            <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
+              {children}
+            </main>
+            <OutsideMembersApp>
+              <SiteFooter />
+            </OutsideMembersApp>
+          </div>
+        </PageTransition>
         <JsonLd />
       </body>
     </html>

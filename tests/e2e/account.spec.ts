@@ -532,6 +532,8 @@ test.describe("member accounts", () => {
       await page.goto(PROD + path);
       await expect(page, path).toHaveURL(/\/account$/);
     }
+    // The redirect can arrive as a page fade (view transition): check colours once every finite animation has finished.
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity));
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 

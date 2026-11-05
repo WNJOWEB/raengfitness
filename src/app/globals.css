@@ -1344,3 +1344,48 @@
     inset: 0 0 auto 0;
   }
 }
+
+/*
+ * Page transitions (owner, 2026-11-05: "smooth like this website"). React's
+ * <ViewTransition default="page"> (app/layout.tsx) wraps the page and footer;
+ * the header has its own name so it stays still, and the open menu inside it
+ * fades out as the new page arrives. The old page leaves quickly, the new one
+ * settles in gently from a few pixels below. Off for Reduce Motion, and
+ * browsers without view transitions simply change page as before.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(.page) {
+  animation: 160ms cubic-bezier(0.4, 0, 1, 1) both page-out;
+}
+::view-transition-new(.page) {
+  animation: 380ms cubic-bezier(0.16, 1, 0.3, 1) 90ms both page-in;
+}
+/* Leaving from the open menu: the menu covers the old page, so the old page goes at once and the menu fades straight into the new one. */
+html:active-view-transition-type(from-menu)::view-transition-old(.page) {
+  animation: none;
+  opacity: 0;
+}
+::view-transition-group(site-header) {
+  animation-duration: 220ms;
+}
+@keyframes page-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

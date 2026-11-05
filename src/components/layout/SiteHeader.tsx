@@ -12,7 +12,7 @@ import { MobileNav } from "./NavLinks";
 export function SiteHeader() {
   const cta = getPrimaryCta();
   return (
-    <header className="sticky top-0 z-40 bg-paper text-ink">
+    <header className="sticky top-0 z-40 bg-paper text-ink [view-transition-name:site-header]">
       <div className="container-page grid h-[84px] grid-cols-[1fr_auto_1fr] items-center gap-2 sm:h-28 sm:gap-6">
         <div className="justify-self-start">
           <MobileNav />

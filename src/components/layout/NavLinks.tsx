@@ -28,10 +28,18 @@ export function MobileNav() {
 
   // Close the menu whenever the route changes (e.g. back/forward). Links in the
   // panel also close it on click, which covers a link to the page you're on.
+  // The link just tapped, marked at once while the next page loads (then the menu fades with the page change).
+  const [tapped, setTapped] = useState<string | null>(null);
   if (pathname !== lastPath) {
     setLastPath(pathname);
     setOpen(false);
+    setTapped(null);
   }
+  /** A link to another page leaves the menu open, so it fades out with the page change; the page you're on just closes it. */
+  const go = (href: string) => {
+    if (href === pathname) setOpen(false);
+    else setTapped(href);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -74,9 +82,10 @@ export function MobileNav() {
                 <li key={item.href} className="menu-rise" style={{ "--i": i } as CSSProperties}>
                   <Link
                     href={item.href}
-                    onClick={() => setOpen(false)}
+                    transitionTypes={["from-menu"]}
+                    onClick={() => go(item.href)}
                     aria-current={active ? "page" : undefined}
-                    className={cn("relative flex min-h-14 items-center justify-between font-display text-2xl", active ? "underline decoration-2 underline-offset-8" : "hover:underline hover:underline-offset-8")}
+                    className={cn("relative flex min-h-14 items-center justify-between font-display text-2xl", active || tapped === item.href ? "underline decoration-2 underline-offset-8" : "hover:underline hover:underline-offset-8")}
                   >
                     {/* A bar in the gutter marks where you are. */}
                     {active ? <span aria-hidden="true" className="absolute inset-y-3 -left-4 w-1 bg-ink sm:-left-6 lg:-left-6" /> : null}
@@ -91,7 +100,8 @@ export function MobileNav() {
           <Link
             href={memberSignInNav.href}
             style={{ "--i": mainNav.length + pageNav.length } as CSSProperties}
-            onClick={() => setOpen(false)}
+            transitionTypes={["from-menu"]}
+                    onClick={() => go(memberSignInNav.href)}
             aria-current={currentFor(pathname, "/account")}
             className="menu-rise mt-6 flex min-h-12 items-center justify-center rounded-full border border-ink bg-ink px-6 text-base font-semibold text-white hover:bg-white hover:text-ink"
           >
@@ -100,7 +110,8 @@ export function MobileNav() {
           <Link
             href={coachLoginNav.href}
             style={{ "--i": mainNav.length + pageNav.length + 1 } as CSSProperties}
-            onClick={() => setOpen(false)}
+            transitionTypes={["from-menu"]}
+                    onClick={() => go(coachLoginNav.href)}
             aria-current={currentFor(pathname, coachLoginNav.href)}
             className="menu-rise mt-2 flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4 hover:no-underline"
           >
