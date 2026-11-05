@@ -73,7 +73,7 @@ export default function HomePage() {
         <PhilosophyTeaser />
         <Faq
           tone="plain"
-          ids={["beginners", "first-session", "bring", "length", "where"]}
+          ids={["beginners", "bring", "length", "where", "one-to-one-vs-small-group"]}
           footer={
             <Link
               href="/contact"

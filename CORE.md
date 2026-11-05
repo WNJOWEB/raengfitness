@@ -23,12 +23,13 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 | Item | Status | Notes |
 |---|---|---|
 | "Book now" in the header, top right | C | Back at Alex's request (removed 2026-10-29); opens `/book`, the booking options |
-| Coaching pages | C | **Separate pages** (Alex, 2026-11-05): `/coaching/one-to-one` (1:1 Personal Coaching) and `/coaching/small-group` (Small Group Coaching), each listed under Coaching in the menu and the footer. `/coaching` is a short overview with a way into each, and keeps its "Get in touch" closing button (owner exception) |
+| Coaching pages | C | **Separate pages** (Alex, 2026-11-05): `/coaching/one-to-one` (1:1 Personal Coaching) and `/coaching/small-group` (Small Group Coaching), each **its own entry in the menu** (Home, Classes, 1:1 Personal Coaching, Small Group Coaching, About, FAQs & Contact; not sub-items under Coaching) and in the footer. Each opens with Alex's coaching introduction. `/coaching` stays as a short overview (reached from the home page's "Explore coaching" and old links), not in the menu, and keeps its "Get in touch" closing button (owner exception) |
 | Booking options | C | Three: Group classes, 1:1 personal coaching, Small group coaching enquiry (`/book/small-group`). Small group is an enquiry only |
 | 1:1 pricing | C | Single 1:1 session £35 and Monthly package £130 (4 sessions), as two options chosen when requesting 1:1 (stored with the request). The single session is no longer "from £35" |
 | Small group coaching | P | Copy from Alex. **No price, group size, times or duration supplied, so none is shown**; the page says they are shared on enquiry |
 | Timetable names | C | KB HIIT (Mon 6:30 pm), Double KB (Wed 6:30 pm), KB Mix (Sat 9:00 am) with Alex's descriptions |
 | Spaces remaining | C | Shown on each class date as "10/15 spaces available" / "15/15 Full" (Alex's wording); capacity 15 unless set per date in the coach portal |
+| FAQ | C | Alex's questions only (five): experience, what to bring, session length, where coaching takes place, 1:1 vs small group. "Can I book with a friend?" needs Alex's answer before it can go up |
 | About | C | Alex's photograph and the section about him as the coach removed from `/about`; the page is about RAENG (philosophy and values). The home page still has its "Meet your coach" section: confirm whether that should go too |
 
 ## Master redesign brief (2026-10-22)

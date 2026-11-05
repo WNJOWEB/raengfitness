@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/metadata";
 import { getService } from "@/content/services";
-import { oneToOne } from "@/content/coaching";
+import { coachingIntro, oneToOne } from "@/content/coaching";
 import { images } from "@/content/images";
 import { getPrimaryCtaFor } from "@/lib/booking";
 import { StartTraining } from "@/components/ui/StartTraining";
@@ -22,7 +22,11 @@ export const metadata: Metadata = pageMetadata({
   path: "/coaching/one-to-one",
 });
 
-/** 1:1 Personal Coaching: its own page (Alex, 2026-11-05). Wording from his website changes. */
+/**
+ * 1:1 Personal Coaching: its own page and menu entry (Alex, 2026-11-05).
+ * His introduction, then "Attention That Stays on You" with his wording and
+ * the three cards, what's included, and the two prices.
+ */
 export default function OneToOnePage() {
   const service = getService("one-to-one");
   const booking = getPrimaryCtaFor("one-to-one");
@@ -32,16 +36,16 @@ export default function OneToOnePage() {
     <div className="section-rules">
       <PageHeader
         panel={<FocusFrame photo={images.coachHeader} />}
-        eyebrow="1:1 Personal Coaching"
-        title={`${oneToOne.heading}.`}
-        intro={<p>{oneToOne.intro}</p>}
+        eyebrow="Coaching"
+        title="1:1 Personal Coaching."
+        intro={<p>{coachingIntro}</p>}
       >
         <StartTraining href={booking.href} label={booking.label} srSuffix=" (1:1 personal coaching)" external={booking.external} className="w-full sm:w-[22rem]" />
       </PageHeader>
 
       <Section id="focus" labelledBy="focus-heading">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
-          <SectionHeading id="focus-heading" className="lg:col-span-5" eyebrow="What you'll work on" title="Strength, technique, movement." />
+          <SectionHeading id="focus-heading" className="lg:col-span-5" eyebrow="1:1 Personal Coaching" title={`${oneToOne.heading}.`} intro={oneToOne.intro} />
           <ul className="mt-8 flex flex-col gap-3 lg:col-span-7 lg:mt-0">
             {oneToOne.cards.map((f, i) => (
               <li key={f.title} data-reveal style={revealDelay(i)} className="grid grid-cols-1 gap-1 rounded-[1.25rem] bg-white px-5 py-5 min-[421px]:grid-cols-[7.5rem_1fr] min-[421px]:gap-4">

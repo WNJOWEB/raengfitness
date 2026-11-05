@@ -482,11 +482,12 @@ test("mobile menu opens, navigates, closes with Escape", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-expanded", "false");
 });
 
-// Primary navigation (Alex's layout, 2026-10-29): five real pages, on phone and desktop, marking the current page.
+// Primary navigation (Alex's layout, 2026-10-29; 1:1 and small group coaching their own entries, 2026-11-05): six real pages, on phone and desktop, marking the current page.
 const NAV: [string, string][] = [
   ["Home", "/"],
   ["Classes", "/classes"],
-  ["Coaching", "/coaching"],
+  ["1:1 Personal Coaching", "/coaching/one-to-one"],
+  ["Small Group Coaching", "/coaching/small-group"],
   ["About", "/about"],
   ["FAQs & Contact", "/contact"],
 ];
@@ -798,21 +799,16 @@ test("/online-coaching and its enquiry form are off the site for now and go to C
   await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("link", { name: /online/i })).toHaveCount(0);
 });
 
-test("Coaching has its own page for 1:1 personal coaching and for small group coaching, each in the menu (Alex, 2026-11-05)", async ({ page }) => {
-  // The menu lists both under Coaching, on phone and desktop.
+test("1:1 Personal Coaching and Small Group Coaching are each their own page and their own menu entry (Alex, 2026-11-05)", async ({ page }) => {
+  // Each is its own entry in the menu, not a sub-item under Coaching (Alex, 2026-11-05).
   for (const [width, height] of [[390, 844], [1280, 800]]) {
     await page.setViewportSize({ width, height });
     await page.goto("/");
     await page.getByRole("button", { name: "Menu" }).click();
     const nav = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
-    const sub = nav.getByRole("list", { name: "Coaching pages" });
-    await expect(sub.getByRole("link")).toHaveText(["1:1 Personal Coaching", "Small Group Coaching"]);
-    await sub.getByRole("link", { name: "Small Group Coaching" }).click();
-    await expect(page).toHaveURL(/\/coaching\/small-group$/);
-    await page.getByRole("button", { name: "Menu" }).click();
-    await expect(nav.getByRole("link", { name: "Small Group Coaching" })).toHaveAttribute("aria-current", "page");
-    await nav.getByRole("link", { name: "1:1 Personal Coaching" }).click();
-    await expect(page).toHaveURL(/\/coaching\/one-to-one$/);
+    await expect(nav.locator("> ul > li > a")).toHaveText(["Home", "Classes", "1:1 Personal Coaching", "Small Group Coaching", "About", "FAQs & Contact"]);
+    await expect(nav.getByRole("link", { name: "Coaching", exact: true })).toHaveCount(0);
+    await expect(nav.locator("ul ul")).toHaveCount(0);
   }
 
   // /coaching: Alex's intro and a way into each page.
@@ -823,7 +819,9 @@ test("Coaching has its own page for 1:1 personal coaching and for small group co
 
   // 1:1 personal coaching: its own page.
   await page.goto("/coaching/one-to-one");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Attention That Stays on You.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("1:1 Personal Coaching.");
+  await expect(page.locator("main")).toContainText("Personalised, face-to-face kettlebell coaching designed around your goals, experience and ability.");
+  await expect(page.locator("#focus").getByRole("heading", { level: 2 })).toHaveText("Attention That Stays on You.");
   await expect(page.locator("main")).toContainText("Whether you’re new to kettlebells or looking to take your training further");
   await expect(page.locator("#focus li h3")).toHaveText(["Strength", "Technique", "Movement"]);
   await expect(page.locator("#included h3")).toHaveText(["Personalised coaching", "Technique and development", "Structured progression"]);
@@ -837,7 +835,10 @@ test("Coaching has its own page for 1:1 personal coaching and for small group co
 
   // Small group coaching: its own page, an enquiry, no invented price.
   await page.goto("/coaching/small-group");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Train together. Progress individually.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Small Group Coaching.");
+  await expect(page.locator("main")).toContainText("Personalised, face-to-face kettlebell coaching designed around your goals, experience and ability.");
+  await expect(page.getByRole("heading", { level: 2, name: "Train together. Progress individually." })).toBeVisible();
+  await expect(page.locator("main")).not.toContainText("Just you and Alex");
   await expect(page.locator("main")).toContainText("Small group kettlebell coaching combining individual guidance");
   for (const point of ["Small, focused training groups", "Coaching and technique feedback", "Structured strength and conditioning", "A supportive training environment"]) await expect(page.locator("#included")).toContainText(point);
   await expect(page.locator("#benefits h3")).toHaveCount(3);
@@ -845,6 +846,7 @@ test("Coaching has its own page for 1:1 personal coaching and for small group co
   await expect(page.locator("#pricing")).toContainText("Submitting an enquiry does not guarantee a place.");
   await expect(page.getByRole("link", { name: /Enquire about availability/ })).toHaveAttribute("href", "/book/small-group");
   await expect(page.locator("main")).not.toContainText("Attention That Stays on You");
+  await expect(page.locator("main")).toContainText("Ready to start?");
 });
 
 test("Alex's layout: each page carries the parts his layout image lists (2026-10-29)", async ({ page }) => {

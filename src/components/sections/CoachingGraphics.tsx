@@ -13,7 +13,7 @@ const frame = "relative aspect-[4/3] w-full overflow-hidden rounded-3xl bg-ink l
 const sizes = "(min-width: 1248px) 480px, (min-width: 1024px) 38vw, 100vw";
 
 /** 1:1 coaching (option A): corner brackets close in on Alex, "Just you and Alex". */
-export function FocusFrame({ photo }: { photo: Photo }) {
+export function FocusFrame({ photo, tag = "Just you and Alex" }: { photo: Photo; tag?: string }) {
   return (
     <div className={frame}>
       <Image
@@ -34,7 +34,7 @@ export function FocusFrame({ photo }: { photo: Photo }) {
         </div>
       </div>
       <p aria-hidden="true" className="focus-tag eyebrow absolute bottom-5 left-5 text-white">
-        Just you and Alex
+        {tag}
       </p>
     </div>
   );

@@ -37,7 +37,7 @@ export default function CoachingPage() {
   return (
     <div className="section-rules">
       <PageHeader
-        panel={<FocusFrame photo={images.coachHeader} />}
+        panel={<FocusFrame photo={images.coachHeader} tag="Coaching with Alex" />}
         eyebrow="Coaching"
         title="Coaching built around you."
         intro={<p>{coachingIntro}</p>}

@@ -50,7 +50,9 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
         ? "Choose a class, then pay online to book your place."
         : mode === "request" && pay && !initialService
           ? "Choose a service, then when suits you. Group classes are booked and paid online; Alex confirms one-to-one sessions personally."
-          : mode === "request"
+          : mode === "request" && initialService === "small-group"
+            ? "Choose the days and times that suit you, and Alex will reply about availability."
+            : mode === "request"
             ? `${initialService ? "Choose when suits you." : "Choose a service, then when suits you."} Alex confirms every place personally.`
             : "Group classes, 1:1 personal coaching and small group coaching in Cumbernauld.";
 

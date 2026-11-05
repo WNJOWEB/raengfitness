@@ -81,7 +81,7 @@ export default function ClassesPage() {
 
       <CancellationPolicy title="Booking and cancellation policy" />
 
-      <Faq tone="plain" ids={["when", "where", "length", "beginners", "first-session", "bring"]} />
+      <Faq tone="plain" ids={["beginners", "bring", "length", "where"]} />
     </div>
   );
 }

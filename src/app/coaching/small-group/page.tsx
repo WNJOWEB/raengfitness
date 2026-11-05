@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/metadata";
 import { smallGroupCoaching as small } from "@/content/smallGroup";
+import { coachingIntro } from "@/content/coaching";
 import { images } from "@/content/images";
 import { getPrimaryCtaFor } from "@/lib/booking";
 import { StartTraining } from "@/components/ui/StartTraining";
@@ -28,10 +29,10 @@ export default function SmallGroupPage() {
   return (
     <div className="section-rules">
       <PageHeader
-        panel={<FocusFrame photo={images.coachHeader} />}
-        eyebrow="Small Group Coaching"
-        title={small.heading}
-        intro={<p>{small.summary}</p>}
+        panel={<FocusFrame photo={images.coachHeader} tag="Train together" />}
+        eyebrow="Coaching"
+        title="Small Group Coaching."
+        intro={<p>{coachingIntro}</p>}
       >
         <StartTraining
           href={enquiry.href}
@@ -42,14 +43,18 @@ export default function SmallGroupPage() {
         />
       </PageHeader>
 
-      <Section id="benefits" labelledBy="benefits-heading">
+      <Section id="about-small-group" labelledBy="small-group-heading">
+        <SectionHeading id="small-group-heading" eyebrow="Small Group Coaching" title={small.heading} intro={small.summary} />
+      </Section>
+
+      <Section tone="white" id="benefits" labelledBy="benefits-heading">
         <SectionHeading id="benefits-heading" eyebrow="Small group coaching" title="Benefits." />
         <div className="mt-8">
           <Boxes items={small.benefits} label="Benefits of small group coaching" />
         </div>
       </Section>
 
-      <Section tone="white" id="included" labelledBy="included-heading">
+      <Section id="included" labelledBy="included-heading">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
           <SectionHeading id="included-heading" className="lg:col-span-5" eyebrow="What to expect" title="What's included." />
           <ul className="lined mt-8 lg:col-span-7 lg:mt-0">
@@ -60,14 +65,14 @@ export default function SmallGroupPage() {
         </div>
       </Section>
 
-      <Section id="pricing" labelledBy="pricing-heading">
+      <Section tone="white" id="pricing" labelledBy="pricing-heading">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
           <SectionHeading id="pricing-heading" className="lg:col-span-5" eyebrow="Pricing" title="Pricing and availability." />
           <p className="mt-8 lg:col-span-7 lg:mt-0">{small.pricing}</p>
         </div>
       </Section>
 
-      <CtaBand tone="white" />
+      <CtaBand tone="plain" />
     </div>
   );
 }

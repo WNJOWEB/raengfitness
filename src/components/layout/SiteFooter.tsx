@@ -36,7 +36,7 @@ export function SiteFooter() {
         <div className="mb-8 lg:order-1 lg:col-span-5">
           <Logo variant="lockup" />
           <p className="mt-5 max-w-sm text-sm ">
-            Kettlebell classes in Cumbernauld, Glasgow, with flexible memberships, plus 1:1
+            Kettlebell classes in Cumbernauld, Glasgow, with flexible memberships, plus 1:1 and small group
             coaching.
           </p>
         </div>

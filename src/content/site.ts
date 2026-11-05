@@ -80,10 +80,11 @@ export const site = {
  * live on Classes; Online Coaching is off the site for now (the page redirects
  * to Coaching).
  */
-export const mainNav: readonly { label: string; href: string; children?: readonly { label: string; href: string }[] }[] = [
+export const mainNav: readonly { label: string; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "Classes", href: "/classes" },
-  { label: "Coaching", href: "/coaching", children: coachingPages },
+  // 1:1 and small group coaching are each their own page and their own menu entry (Alex, 2026-11-05), not sub-items under Coaching.
+  ...coachingPages,
   { label: "About", href: "/about" },
   { label: "FAQs & Contact", href: "/contact" },
 ];
@@ -99,7 +100,7 @@ export const coachLoginNav = { label: "Coach Portal", href: "/coach/login" } as 
 
 /** Footer links: every page except Home (the logo links home), plus the member and coach sign-ins. */
 export const footerNav = [
-  ...mainNav.filter((item) => item.href !== "/").flatMap((item) => [{ label: item.label, href: item.href }, ...(item.children ?? [])]),
+  ...mainNav.filter((item) => item.href !== "/"),
   ...pageNav,
   memberSignInNav,
   coachLoginNav,
