@@ -29,7 +29,8 @@ describe("content approval state", () => {
   });
 
   it("derives the timetable FAQ status from the timetable", () => {
-    expect(faq.find((f) => f.id === "when")?.status).toBe(timetable.status);
+    // The times question was removed (Alex, 2026-11-05); nothing in the FAQ depends on the timetable now.
+    expect(faq.every((f) => f.status === "confirmed")).toBe(true);
   });
 
   it("never publishes Alex's journey with placeholders or missing photos", () => {
