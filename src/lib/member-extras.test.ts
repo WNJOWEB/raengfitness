@@ -50,8 +50,8 @@ describe("the day-before reminder", () => {
 
   it("says tomorrow, not today", () => {
     const mail = reminderEmail({ attendance_id: "a", name: "Sam Extra", email: "s@example.com", starts_at: "2026-11-09T18:30:00Z", slot: "mon-evening" }, { SITE_URL: "https://raeng.example" }, true);
-    expect(mail.subject).toMatch(/ tomorrow at 18:30$/);
-    expect(mail.text).toContain("tomorrow at 18:30");
+    expect(mail.subject).toMatch(/ tomorrow at 6:30 pm$/);
+    expect(mail.text).toContain("tomorrow at 6:30 pm");
   });
 });
 

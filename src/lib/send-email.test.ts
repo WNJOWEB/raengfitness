@@ -13,13 +13,16 @@ describe("sendEmail", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer re_test");
     expect(headers["Idempotency-Key"]).toBe("k");
-    expect(JSON.parse(init.body as string)).toEqual({
+    const body = JSON.parse(init.body as string);
+    expect(body).toMatchObject({
       from: "bookings@example.com",
       to: ["alex@example.com"],
       reply_to: "sam@example.com",
       subject: "S",
       text: "T",
     });
+    // Alex's alerts keep their text as written; every email also goes as HTML in RAENG's layout.
+    expect(body.html).toContain("<!doctype html>");
   });
 
   it("reports provider errors and network failures as failures", async () => {
@@ -29,6 +32,18 @@ describe("sendEmail", () => {
       throw new TypeError("network");
     });
     expect(await sendEmail(config, email, offline as unknown as typeof fetch)).toEqual({ ok: false, status: null });
+  });
+});
+
+describe("customer emails", () => {
+  it("add RAENG's sign-off and contact details to the text, and send a branded HTML version", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    await sendEmail(config, { ...email, to: "sam@example.com", text: "Your place is booked." }, fetchImpl as unknown as typeof fetch);
+    const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.text).toMatch(/^Your place is booked\.\n\nRAENG Fitness\n1A Dunnswood Road, Cumbernauld, G67 3EN\nhello@raengfitness\.co\.uk · Instagram @raeng\.fitness$/);
+    expect(body.html).toContain("/brand/raeng-header-black.png");
+    expect(body.html).toContain("Your place is booked.");
+    expect(body.html).toContain("isn't a marketing email");
   });
 });
 

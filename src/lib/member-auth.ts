@@ -78,10 +78,10 @@ export function signInLink(token: string, env: Env = process.env): string {
 }
 
 /**
- * The sign-in email. Plain text. The code is in the subject too, so it shows in
+ * The sign-in email. The code is shown large in the HTML version (owner, 2026-11-05: it was too small to read) and is in the subject too, so it shows in
  * the phone's notification (and iPhone offers it above the keyboard).
  */
-export function signInEmail(link: string, code: string): { subject: string; text: string } {
+export function signInEmail(link: string, code: string): { subject: string; text: string; code: string } {
   const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
   return {
     subject: `Your RAENG sign-in code: ${spaced}`,
@@ -96,6 +96,7 @@ export function signInEmail(link: string, code: string): { subject: string; text
       "",
       "If you didn't ask for this, you can ignore this email: nobody can sign in without the code or the link.",
     ].join("\n"),
+    code,
   };
 }
 

@@ -1,5 +1,4 @@
 import { groupClass } from "@/content/classes";
-import { formatAddressLines, site } from "@/content/site";
 import { formatLongDate, type DateKey } from "./availability/dates";
 import { bookingDeliveryConfig } from "./booking-request";
 import { classWhen, CLASS_BOOK_PATH } from "./class-checkout";
@@ -132,8 +131,6 @@ export function waitlistJoinedEmail(a: { name: string; when: string; position: n
       "That class is full. If a place opens, we'll email you straight away. Places aren't held: they go to whoever books first, so book soon when you hear from us.",
       "",
       `Changed your mind? Leave the waitlist here: ${a.leaveLink}`,
-      "",
-      `${site.name}, ${formatAddressLines().join(", ")}`,
     ].join("\n"),
   };
 }
@@ -151,8 +148,6 @@ export function waitlistOfferEmail(a: { name: string; when: string; link: string
       "Places aren't held: they go to whoever books first, so book soon. If you don't book within a day, the place is offered to the next person on the waitlist.",
       "",
       "No longer need it? You can ignore this email.",
-      "",
-      `${site.name}, ${formatAddressLines().join(", ")}`,
     ].join("\n"),
   };
 }

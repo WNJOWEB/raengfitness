@@ -41,9 +41,9 @@ describe("the reminder email", () => {
   const email = reminderEmail({ attendance_id: "a", name: "Nitisat Sample", email: "n@example.com", starts_at: "2026-11-02T18:30:00.000Z", slot: "none" }, env);
 
   it("says which class, today, at the London time", () => {
-    expect(email.subject).toContain("today at 18:30");
+    expect(email.subject).toContain("today at 6:30 pm");
     expect(email.text).toContain("Hi Nitisat,");
-    expect(email.text).toContain("today at 18:30");
+    expect(email.text).toContain("today at 6:30 pm");
   });
 
   it("links to the account and to turning reminders off, on the site's own address", () => {

@@ -1,6 +1,8 @@
 import { groupClass } from "@/content/classes";
-import { formatAddressLines, site } from "@/content/site";
+import { formatAddressLines } from "@/content/site";
 import { publishedClasses } from "@/lib/class-sessions";
+import { formatTime } from "@/lib/schedule";
+import type { TimeOfDay } from "@/content/types";
 import { rpc, type Db, type DbResult } from "./coach/db";
 import { ACCOUNT_PATH, memberLinkOrigin } from "./member-auth";
 import type { Env } from "./env";
@@ -114,7 +116,8 @@ const londonTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London",
 
 /** The reminder email. Plain text: the class, where, and how to see or stop reminders. `dayBefore`: sent the day before ("tomorrow"). */
 export function reminderEmail(r: DueReminder, env: Env = process.env, dayBefore = false): { subject: string; text: string } {
-  const time = londonTime.format(new Date(r.starts_at));
+  // "6:30 pm", as the timetable writes it.
+  const time = formatTime(londonTime.format(new Date(r.starts_at)) as TimeOfDay);
   const slot = publishedClasses().find((c) => c.id === r.slot);
   const first = r.name.trim().split(/\s+/)[0] || "there";
   const origin = memberLinkOrigin(env);
@@ -125,7 +128,7 @@ export function reminderEmail(r: DueReminder, env: Env = process.env, dayBefore 
       "",
       `A reminder that you're booked on ${slot?.name ?? groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}${slot?.durationMinutes ? ` (${slot.durationMinutes} minutes)` : ""}.`,
       "",
-      `${site.name}, ${formatAddressLines().join(", ")}`,
+      `Where: ${formatAddressLines().join(", ")}`,
       "",
       `Your bookings: ${origin}${ACCOUNT_PATH}`,
       `Turn these reminders off any time: ${origin}${NOTIFICATIONS_PATH}`,
@@ -146,7 +149,7 @@ export const confirmEmailChange = (db: Db, clientId: string, codeHash: string) =
   rpc<{ old_email: string; new_email: string } | null>(db, "akb_member_email_change_confirm", { p_client: clientId, p_code_hash: codeHash });
 
 /** The code, to the new address. Plain text. */
-export function emailChangeCodeEmail(code: string): { subject: string; text: string } {
+export function emailChangeCodeEmail(code: string): { subject: string; text: string; code: string } {
   const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
   return {
     subject: `Your RAENG email change code: ${spaced}`,
@@ -157,6 +160,7 @@ export function emailChangeCodeEmail(code: string): { subject: string; text: str
       "",
       "If you didn't ask for this, you can ignore this email: nothing changes without the code.",
     ].join("\n"),
+    code,
   };
 }
 

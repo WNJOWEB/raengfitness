@@ -1,4 +1,5 @@
 import type { BookingDeliveryConfig } from "./booking-request";
+import { renderEmailHtml, textFooter } from "./email-layout";
 
 export interface OutgoingEmail {
   subject: string;
@@ -8,6 +9,8 @@ export interface OutgoingEmail {
   to?: string;
   /** Same key for a retried identical request, so it is only sent once. */
   idempotencyKey: string;
+  /** A one-time code (sign-in, email change), shown large in the HTML version. */
+  code?: string;
 }
 
 export type SendResult = { ok: true } | { ok: false; status: number | null };
@@ -15,12 +18,19 @@ export type SendResult = { ok: true } | { ok: false; status: number | null };
 /**
  * Sends an email through Resend's REST API (POST /emails). Plain fetch: no
  * SDK dependency. Success only when the provider accepts the message.
+ *
+ * Every email goes as HTML (RAENG's layout: lib/email-layout.ts) with the
+ * plain text alongside. Emails to anyone but Alex also get RAENG's sign-off
+ * and contact details in the text version.
  */
 export async function sendEmail(
   config: BookingDeliveryConfig,
   email: OutgoingEmail,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SendResult> {
+  const toCustomer = Boolean(email.to) && email.to!.trim().toLowerCase() !== config.to.trim().toLowerCase();
+  const text = toCustomer ? `${email.text}\n${textFooter()}` : email.text;
+  const html = renderEmailHtml({ subject: email.subject, text: email.text, code: email.code, audience: toCustomer ? "customer" : "alex" });
   try {
     const response = await fetchImpl(config.endpoint, {
       method: "POST",
@@ -34,7 +44,8 @@ export async function sendEmail(
         to: [email.to ?? config.to],
         reply_to: email.replyTo,
         subject: email.subject,
-        text: email.text,
+        text,
+        html,
       }),
       signal: AbortSignal.timeout(10_000),
     });
