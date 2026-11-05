@@ -29,7 +29,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] Paid classes cancelled 24 hours or more before are refunded in full through Stripe (no class credit); retries daily and emails Alex if Stripe refuses; Alex asked to refund payments recorded by hand. Policy, cancel pages (link and account), emails, booking form and booked email wording. Unit tests on the real migrations, e2e
 
 ### To do
-- [ ] **P0** Apply `20261124000000_akb_cancel_refund.sql` to the live database (owner's approval), **then** deploy. Deploying first would fail cancellations of paid classes (the site asks for functions that don't exist yet)
+- [x] Applied `20261124000000_akb_cancel_refund.sql` to the live database, then deployed to production (2026-11-05, owner's approval)
 
 ## Alex's website changes (2026-11-05)
 
