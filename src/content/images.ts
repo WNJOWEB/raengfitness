@@ -62,6 +62,17 @@ export const images = {
     position: "40% 22%",
   },
   /**
+   * Small group coaching page header (owner, 2026-11-05): Alex leading a class
+   * through kettlebell swings, the group training behind him.
+   */
+  smallGroupHeader: {
+    src: `${dir}/small-group-class-swing.jpg`,
+    width: 1000,
+    height: 1772,
+    alt: "Alex swinging a kettlebell at the front of a class, with the group training behind him in a dark studio",
+    position: "50% 38%",
+  },
+  /**
    * Online coaching page header (owner, 2026-10-27): a client on a video call
    * with his coach on a tablet, a RAENG Fitness banner and kettlebells behind.
    * Cut from an illustrative image the owner supplied, with all its writing

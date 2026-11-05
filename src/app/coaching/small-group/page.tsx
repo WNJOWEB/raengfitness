@@ -29,7 +29,7 @@ export default function SmallGroupPage() {
   return (
     <div className="section-rules">
       <PageHeader
-        panel={<FocusFrame photo={images.coachHeader} tag="Train together" />}
+        panel={<FocusFrame photo={images.smallGroupHeader} tag="Train together" />}
         eyebrow="Coaching"
         title="Small Group Coaching."
         intro={<p>{coachingIntro}</p>}
