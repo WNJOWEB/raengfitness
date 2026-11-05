@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPrimaryCta } from "@/lib/booking";
+import { LinkPending } from "@/components/members/LinkPending";
 import { Logo } from "./Logo";
 import { MobileNav } from "./NavLinks";
 
@@ -22,9 +23,10 @@ export function SiteHeader() {
           <Link
             href={cta.href}
             {...(cta.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full bg-ink px-4 text-xs font-semibold uppercase tracking-[0.08em] text-paper transition-colors duration-200 hover:opacity-85 focus-visible:outline-ink active:translate-y-px sm:px-6 sm:text-sm"
+            className="header-book inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-4 text-xs font-semibold uppercase tracking-[0.08em] focus-visible:outline-ink sm:px-6 sm:text-sm"
           >
             {cta.label}
+            <LinkPending />
             {cta.external ? <span className="sr-only"> (opens in a new tab)</span> : null}
           </Link>
         </div>
