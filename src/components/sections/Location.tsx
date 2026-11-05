@@ -16,7 +16,7 @@ export function Location({ headingId = "location-heading", tone = "white" }: { h
                 {site.location.town}.
               </>
             }
-            intro="Group classes and one-to-one sessions take place in Cumbernauld, just outside Glasgow."
+            intro="Group classes, 1:1 personal coaching and small group coaching take place in Cumbernauld, just outside Glasgow."
           />
         </div>
         <div className="lg:col-span-5">

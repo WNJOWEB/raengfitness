@@ -58,6 +58,11 @@ export const WAITLIST_MESSAGES: Record<WaitlistReason, string> = {
 };
 
 /** "Monday 9 November, 6:30 pm" for a timetable slot on a date. */
+/** The class's own name from the timetable (e.g. "KB HIIT"), else the general class name. */
+export function classNameFor(slot: string): string {
+  return publishedClasses().find((c) => c.id === slot)?.name ?? groupClass.name;
+}
+
 export function whenFor(slot: string, date: string): string {
   const cls = publishedClasses().find((c) => c.id === slot);
   return cls ? classWhen(date, cls) : formatLongDate(date as DateKey);
@@ -96,7 +101,7 @@ export async function joinWaitlistPublic(
   const mail = bookingDeliveryConfig(env);
   // Only the first time: asking again changes nothing and the first email's link still works.
   if (mail && joined.data.status === "joined") {
-    const message = waitlistJoinedEmail({ name: person.name, when: whenFor(slot, date), position: joined.data.position, leaveLink: `${memberLinkOrigin(env)}${WAITLIST_PATH}?leave=${token}` });
+    const message = waitlistJoinedEmail({ name: person.name, className: classNameFor(slot), when: whenFor(slot, date), position: joined.data.position, leaveLink: `${memberLinkOrigin(env)}${WAITLIST_PATH}?leave=${token}` });
     await sendEmail(mail, { idempotencyKey: `waitlist-joined/${joined.data.id}/${joined.data.position}`, to: person.email.trim().toLowerCase(), replyTo: mail.to, ...message }, fetchImpl).catch(() => undefined);
   }
   return { ok: true, data: joined.data };
@@ -116,13 +121,13 @@ const ordinal = (n: number) => {
 };
 
 /** The confirmation to someone who has joined (plain text). */
-export function waitlistJoinedEmail(a: { name: string; when: string; position: number; leaveLink: string }): { subject: string; text: string } {
+export function waitlistJoinedEmail(a: { name: string; when: string; position: number; leaveLink: string; className?: string }): { subject: string; text: string } {
   return {
     subject: `You're on the waitlist: ${a.when}`,
     text: [
       `Hi ${first(a.name)},`,
       "",
-      `You're on the waitlist for ${groupClass.name} on ${a.when}. You're ${ordinal(a.position)} in the queue.`,
+      `You're on the waitlist for ${a.className ?? groupClass.name} on ${a.when}. You're ${ordinal(a.position)} in the queue.`,
       "",
       "That class is full. If a place opens, we'll email you straight away. Places aren't held: they go to whoever books first, so book soon when you hear from us.",
       "",
@@ -134,13 +139,13 @@ export function waitlistJoinedEmail(a: { name: string; when: string; position: n
 }
 
 /** "A place has opened" (plain text). */
-export function waitlistOfferEmail(a: { name: string; when: string; link: string }): { subject: string; text: string } {
+export function waitlistOfferEmail(a: { name: string; when: string; link: string; className?: string }): { subject: string; text: string } {
   return {
     subject: `A place has opened: ${a.when}`,
     text: [
       `Hi ${first(a.name)},`,
       "",
-      `A place has opened up in ${groupClass.name} on ${a.when}. Book it here:`,
+      `A place has opened up in ${a.className ?? groupClass.name} on ${a.when}. Book it here:`,
       a.link,
       "",
       "Places aren't held: they go to whoever books first, so book soon. If you don't book within a day, the place is offered to the next person on the waitlist.",
@@ -176,7 +181,7 @@ export async function sendWaitlistOffers(db: Db, env: Env = process.env, fetchIm
   for (const o of due.data) {
     const origin = memberLinkOrigin(env);
     const link = o.can_sign_in ? `${origin}${ACCOUNT_PATH}/book` : `${origin}${CLASS_BOOK_PATH}`;
-    const message = waitlistOfferEmail({ name: o.name, when: whenFor(o.slot, o.class_date), link });
+    const message = waitlistOfferEmail({ name: o.name, className: classNameFor(o.slot), when: whenFor(o.slot, o.class_date), link });
     const result = await sendEmail(mail, { idempotencyKey: `waitlist-offer/${o.id}/${o.offered_at}`, to: o.email, replyTo: mail.to, ...message }, fetchImpl);
     if (!result.ok) continue;
     const marked = await rpc<null>(db, "akb_waitlist_notified", { p_id: o.id, p_offered_at: o.offered_at });

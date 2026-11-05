@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { failure, type ActionState } from "@/lib/coach/action-state";
 import { listAttendance, setAttendance, listPtSessions, setPtStatus } from "@/lib/coach/bookings";
-import { classChargeDescription, classDurationMinutes, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
+import { CLASS_NAME, classChargeDescription, classDurationMinutes, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
 import { getClient } from "@/lib/coach/clients";
 import { actionContext } from "@/lib/coach/context";
 import { dbMessage } from "@/lib/coach/errors";
@@ -99,9 +99,9 @@ export async function confirmRequestAction(_prev: ActionState, formData: FormDat
   const who = await getClient(db, result.data.client_id);
   const booked =
     booking.kind === "class" && findSlot(booking.slot)
-      ? `Kettlebell Training, ${formatDateTime(booking.starts_at)}`
+      ? `${findSlot(booking.slot)?.name ?? CLASS_NAME}, ${formatDateTime(booking.starts_at)}`
       : booking.kind === "pt"
-        ? `one-to-one session, ${formatDateTime(booking.starts_at)}`
+        ? `1:1 coaching session, ${formatDateTime(booking.starts_at)}`
         : undefined;
   if (who.ok && who.data && booked) {
     const message = decisionMessage({ name: request.data.name, status: "confirmed", summary: request.data.summary, service: request.data.service, decision_note: note }, booked);

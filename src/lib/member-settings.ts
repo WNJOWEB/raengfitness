@@ -119,11 +119,11 @@ export function reminderEmail(r: DueReminder, env: Env = process.env, dayBefore 
   const first = r.name.trim().split(/\s+/)[0] || "there";
   const origin = memberLinkOrigin(env);
   return {
-    subject: `Reminder: ${groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}`,
+    subject: `Reminder: ${slot?.name ?? groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}`,
     text: [
       `Hi ${first},`,
       "",
-      `A reminder that you're booked on ${groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}${slot?.durationMinutes ? ` (${slot.durationMinutes} minutes)` : ""}.`,
+      `A reminder that you're booked on ${slot?.name ?? groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}${slot?.durationMinutes ? ` (${slot.durationMinutes} minutes)` : ""}.`,
       "",
       `${site.name}, ${formatAddressLines().join(", ")}`,
       "",

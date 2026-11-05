@@ -10,6 +10,9 @@ export interface PublishedClass extends ClassSlot {
   /** e.g. "Monday 6:30 pm": the value a booking request carries. */
   label: string;
   durationMinutes?: number;
+  /** The class's own name and line from the timetable, e.g. "KB HIIT". */
+  name?: string;
+  description?: string;
 }
 
 /** Confirmed weekly classes. Empty until the timetable is publishable. */
@@ -21,6 +24,8 @@ export function publishedClasses(env: Env = process.env): PublishedClass[] {
     day: s.day,
     start: s.start,
     durationMinutes: s.durationMinutes,
+    ...(s.name ? { name: s.name } : {}),
+    ...(s.description ? { description: s.description } : {}),
   }));
 }
 

@@ -365,9 +365,9 @@ async function Tell({ request }: { request: BookingRequest }) {
         const rows = await classSessionsByIds(db, [place.class_session_id]);
         const row = rows.ok ? rows.data[0] : undefined;
         const slot = row ? findSlot(row.slot) : undefined;
-        if (row) booked = `${slot ? "Kettlebell Training" : "Class"}, ${formatDateTime(row.starts_at)}`;
+        if (row) booked = `${slot ? (slot.name ?? "Kettlebell Training") : "Class"}, ${formatDateTime(row.starts_at)}`;
       } else if (session) {
-        booked = `one-to-one session, ${formatDateTime(session.starts_at)}`;
+        booked = `1:1 coaching session, ${formatDateTime(session.starts_at)}`;
       }
     }
   }

@@ -72,7 +72,7 @@ export default function SmallGroupPage() {
         </div>
       </Section>
 
-      <CtaBand tone="plain" />
+      <CtaBand tone="plain" body="Book a class, request 1:1 coaching or enquire about small group coaching." />
     </div>
   );
 }

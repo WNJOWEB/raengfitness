@@ -595,7 +595,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <span id="step-heading">Your details</span>
               </StepHeading>
               {payNow && !demo && !credit && chosenClass && date && pay ? (
-                <PayCard info={classInfo} date={date} when={formatTime(chosenClass.start)} minutes={chosenClass.durationMinutes} price={pay.price} hold={pay.hold} />
+                <PayCard info={classInfo} name={chosenClass.name} date={date} when={formatTime(chosenClass.start)} minutes={chosenClass.durationMinutes} price={pay.price} hold={pay.hold} />
               ) : demoPay && date && chosenSlot && pay ? (
                 <PayCard info={classInfo} date={date} when={formatTime(chosenSlot.time)} minutes={groupClassMinutes} price={pay.price} hold={pay.hold} />
               ) : null}
@@ -772,12 +772,12 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
  * time, price) with how the place is held, so the price is never a surprise
  * and phones (which have no side summary) see it. Details and the Pay button follow.
  */
-function PayCard({ info, date, when, minutes, price, hold }: { info: ClassInfo; date: DateKey; when: string; minutes?: number; price: string; hold: string }) {
+function PayCard({ info, name, date, when, minutes, price, hold }: { info: ClassInfo; name?: string; date: DateKey; when: string; minutes?: number; price: string; hold: string }) {
   return (
     <div className="card mt-6 p-5">
       <p className="eyebrow text-muted">Your class</p>
       <p className="mt-2 font-display text-h3">
-        {info.name} · {formatLongDate(date)}, {when}
+        {name ?? info.name} · {formatLongDate(date)}, {when}
       </p>
       <p className="mt-1 text-sm">
         {[minutes ? (minutes === 60 ? "1 hr" : `${minutes} min`) : "", "with Alex"].filter(Boolean).join(" · ")} · <span className="font-semibold">{price}</span>
@@ -809,12 +809,12 @@ function ClassDetails({ info, date, session }: { info: ClassInfo; date: DateKey;
         {end}
       </p>
       <p className="mt-2 font-display text-h3">
-        {info.name} · {session.day} class
+        {session.name ?? info.name} · {session.day} class
       </p>
       <p className="mt-1 text-sm font-semibold">
         {[minutes ? `${minutes === 60 ? "1 hr" : `${minutes} min`}` : "", info.level, "with Alex"].filter(Boolean).join(" · ")}
       </p>
-      <p className="mt-3 max-w-xl text-muted">{info.description}</p>
+      <p className="mt-3 max-w-xl text-muted">{session.description ?? info.description}</p>
     </div>
   );
 }

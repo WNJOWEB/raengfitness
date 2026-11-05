@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { groupClass } from "@/content/classes";
+import { publishedClasses } from "@/lib/class-sessions";
 import { mapsUrl, site } from "@/content/site";
 import { formatLongDate, type DateKey } from "@/lib/availability/dates";
 import { formatClock, toLondon } from "@/lib/coach/time";
@@ -151,7 +152,7 @@ function NextClass({ place, now }: { place: MemberPlace; now: Date }) {
         {formatClock(time)}
       </p>
       <p className="text-[0.9375rem] opacity-80">
-        {groupClass.name} · {site.location.street}, {site.location.town}
+        {publishedClasses().find((c) => c.id === place.slot)?.name ?? groupClass.name} · {site.location.street}, {site.location.town}
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-grey pt-3.5">
         <span className="font-semibold tabular-nums">{countdown(place.starts_at, now)}</span>

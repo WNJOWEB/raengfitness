@@ -565,7 +565,7 @@ test("homepage: one idea per section, in order, and no testimonial is invented",
   await expect(classes).toContainText("New to RAENG? Let us know when booking.");
   const more = page.locator("#ways");
   await expect(more.getByRole("link", { name: /Group classes/ })).toHaveAttribute("href", "/classes");
-  await expect(more.getByRole("link", { name: /1:1 coaching/ })).toHaveAttribute("href", "/coaching/one-to-one");
+  await expect(more.getByRole("link", { name: /1:1 personal coaching/ })).toHaveAttribute("href", "/coaching/one-to-one");
   // Online coaching is off the site for now; small group coaching is named, with no price (Alex, 2026-10-29).
   await expect(more.getByRole("link", { name: /Small group coaching/ })).toHaveAttribute("href", "/coaching/small-group");
   await expect(more).not.toContainText(/online/i);

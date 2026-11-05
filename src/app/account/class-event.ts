@@ -10,7 +10,7 @@ export function classEventFor(place: MemberPlace): ClassEvent {
   const slot = publishedClasses().find((c) => c.id === place.slot);
   return {
     id: place.id,
-    title: `${groupClass.name}, ${site.name}`,
+    title: `${slot?.name ?? groupClass.name}, ${site.name}`,
     startsAt: place.starts_at,
     durationMinutes: slot?.durationMinutes ?? 60,
     location: formatAddressLines().join(", "),

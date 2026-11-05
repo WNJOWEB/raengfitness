@@ -123,13 +123,13 @@ test("confirming a class request creates the client, books the place, and paymen
   await expect(page.getByText("Confirmed", { exact: true }).first()).toBeVisible();
 
   // They're emailed at once, in the words the "Let them know" box suggests, and marked as told.
-  await expect(page.getByLabel("Message")).toHaveValue(/You're booked in: Kettlebell Training/);
+  await expect(page.getByLabel("Message")).toHaveValue(/You're booked in: (KB HIIT|Double KB|KB Mix)/);
   await expect(page.getByText(/^Told /)).toBeVisible();
   await expect
     .poll(async () => {
       const all = (await (await request.get(`http://localhost:${process.env.MOCK_EMAIL_PORT ?? 3299}/requests`)).json()) as { payload: { to: string[]; subject: string; text: string } }[];
       const mine = all.find((e) => e.payload.to.includes(person.email));
-      return mine ? `${mine.payload.subject} | ${mine.payload.text.includes("You're booked in: Kettlebell Training")}` : null;
+      return mine ? `${mine.payload.subject} | ${/You're booked in: (KB HIIT|Double KB|KB Mix)/.test(mine.payload.text)}` : null;
     })
     .toBe("Booked: Group class | true");
 

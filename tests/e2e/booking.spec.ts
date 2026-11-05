@@ -286,7 +286,7 @@ test.describe("production configuration", () => {
     await page.locator("#times label").first().click();
 
     // The class is described like Alex's own listing.
-    await expect(page.getByText("Kettlebell Training ·")).toBeVisible();
+    await expect(page.getByText(new RegExp(`^${timetable.sessions.find((s) => s.start === day.slots[0].time)?.name} · `)).first()).toBeVisible();
     await expect(page.getByText(/1 hr · All levels · with Alex/)).toBeVisible();
     await expect(page.getByText("Pay by bank transfer or cash.")).toHaveCount(0);
     await continueButton(page).click();

@@ -82,5 +82,5 @@ export function defaultPrices(): { classPence: number; ptPence: number; onlinePe
 
 /** Description used on a class place's charge. */
 export function classChargeDescription(date: DateKey, slot: ClassSession): string {
-  return `${CLASS_NAME}, ${formatDate(date)}, ${formatClock(slot.start)}`;
+  return `${slot.name ?? CLASS_NAME}, ${formatDate(date)}, ${formatClock(slot.start)}`;
 }

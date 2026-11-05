@@ -5,7 +5,7 @@ import { BookingPage } from "@/components/booking/BookingPage";
 export const metadata: Metadata = pageMetadata({
   title: "Small Group Coaching Enquiry",
   description:
-    "Enquire about small group kettlebell coaching at Media House, Cumbernauld. Submitting an enquiry does not guarantee a place.",
+    "Enquire about small group kettlebell coaching in Cumbernauld. Submitting an enquiry does not guarantee a place.",
   path: "/book/small-group",
 });
 
