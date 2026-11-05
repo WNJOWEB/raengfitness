@@ -7,8 +7,11 @@ import { buttonClasses } from "@/components/ui/ButtonLink";
 
 const initial: CancelState = { status: "idle", creditLink: null, message: "" };
 
-/** Cancel, then (24 hours or more before) the single-use credit link, which is also emailed. */
-export function CancelForm({ token, creditBack, refunded, firstClassFree = false, inTime = false }: { token: string; creditBack: boolean; refunded: boolean; firstClassFree?: boolean; inTime?: boolean }) {
+/**
+ * Cancel, then (24 hours or more before) the refund for a paid class, or the
+ * single-use credit link for a class paid with a credit (also emailed).
+ */
+export function CancelForm({ token, creditBack, refundBack = false, refunded, firstClassFree = false, inTime = false }: { token: string; creditBack: boolean; refundBack?: boolean; refunded: boolean; firstClassFree?: boolean; inTime?: boolean }) {
   const [state, action, pending] = useActionState(cancelClassBooking, initial);
   if (state.status === "cancelled") {
     return (
@@ -25,6 +28,8 @@ export function CancelForm({ token, creditBack, refunded, firstClassFree = false
           ) : (
             <p className="mt-3">It was less than 24 hours before the class, so your free first class has been used.</p>
           )
+        ) : state.refundMessage ? (
+          <p className="mt-3">{state.refundMessage}</p>
         ) : state.creditLink ? (
           <>
             <p className="mt-3">You have a credit for another class within 4 weeks. We&apos;ve emailed you this link too. It works once.</p>
@@ -33,9 +38,9 @@ export function CancelForm({ token, creditBack, refunded, firstClassFree = false
             </Link>
           </>
         ) : state.refunded ? (
-          <p className="mt-3">Your payment for this class was already refunded, so there&apos;s no credit as well.</p>
+          <p className="mt-3">Your payment for this class was already refunded, so there&apos;s nothing more to refund.</p>
         ) : (
-          <p className="mt-3">It was less than 24 hours before the class, so there&apos;s no credit back.</p>
+          <p className="mt-3">It was less than 24 hours before the class, so there&apos;s nothing back.</p>
         )}
       </div>
     );
@@ -49,10 +54,12 @@ export function CancelForm({ token, creditBack, refunded, firstClassFree = false
             ? "This is your free first class. It's 24 hours or more before, so if you cancel now you can book it for another date."
             : "This is your free first class. It's less than 24 hours before, so cancelling now uses it."
           : refunded
-          ? "Your payment for this class has already been refunded, so cancelling gives no credit."
+          ? "Your payment for this class has already been refunded, so cancelling gives nothing more back."
+          : refundBack
+          ? "It's 24 hours or more before the class, so if you cancel now your payment is refunded in full."
           : creditBack
-          ? "It's 24 hours or more before the class, so cancelling now gives you a credit for another class within 4 weeks."
-          : "It's less than 24 hours before the class, so cancelling now gives no credit back."}
+          ? "It's 24 hours or more before the class, so cancelling now gives you your class credit back, for another class within 4 weeks."
+          : "It's less than 24 hours before the class, so cancelling now gives nothing back."}
       </p>
       {state.status === "error" ? (
         <p role="alert" className="mt-4 font-semibold">

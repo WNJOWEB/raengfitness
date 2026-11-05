@@ -76,7 +76,7 @@ interface BookingWizardProps {
    * every booking is a request Alex confirms. One-to-one is always a request.
    */
   /** `offer`: the first-class-free line (content/offers.ts), when the offer is on. */
-  pay?: { price: string; hold: string; cancel: string; offer?: string } | null;
+  pay?: { price: string; hold: string; cancel: string; cancelCredit?: string; offer?: string } | null;
   /** The published 1:1 prices, e.g. { single: "£35 per session", monthly: "£130 per month · 4 sessions" }. */
   optionPrices?: Partial<Record<OneToOneOption, string>>;
 }
@@ -719,7 +719,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 {demoPay && pay ? (
                   <div className="rule-list space-y-2 pt-4 text-sm">
                     <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
-                    <p className="text-muted">{pay.cancel}</p>
+                    <p className="text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
                   </div>
                 ) : null}
                 {payNow && pay ? (
@@ -745,7 +745,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                         {pay.offer ? <p className="font-semibold">{pay.offer}</p> : <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>}
                       </>
                     )}
-                    <p className="text-muted">{pay.cancel}</p>
+                    <p className="text-muted">{credit && pay.cancelCredit ? pay.cancelCredit : pay.cancel}</p>
                   </div>
                 ) : null}
                 <ActionBar

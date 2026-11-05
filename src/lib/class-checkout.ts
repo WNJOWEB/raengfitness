@@ -13,7 +13,8 @@ import { formatTime } from "./schedule";
 import { sendNotice } from "./notices";
 import { referenceFor } from "./reference";
 import { sendEmail } from "./send-email";
-import type { StripeConfig } from "./stripe/config";
+import { stripeConfig, type StripeConfig } from "./stripe/config";
+import { refundCancelledClass, refundSentence, refundSentenceForAlex, type RefundOutcome } from "./class-refunds";
 import { createChargeLink } from "./stripe/sync";
 
 /**
@@ -22,8 +23,9 @@ import { createChargeLink } from "./stripe/sync";
  * (supabase/migrations/20261029000000_akb_instant_class_booking.sql): a place
  * is held for 15 minutes and confirmed only when a payment is recorded
  * against its charge, which happens only after Stripe's verified webhook.
- * Cancelling by the private link 24 hours or more before gives a single-use
- * class credit link (28 days). Online booking is on wherever online joining
+ * Cancelling by the private link 24 hours or more before refunds a paid class
+ * in full (lib/class-refunds.ts), and gives a class booked with a credit a
+ * new single-use credit link (28 days). Online booking is on wherever online joining
  * is (onlineJoinEnabled in lib/membership-checkout.ts).
  */
 
@@ -243,7 +245,9 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
             `${memberLinkOrigin(env)}${BOOK_MANAGE_PATH}?token=${token}`,
             row.first_class_free
               ? "Can't make it? Cancel at least 24 hours before and you can book your free class for another date. Cancelling later, or not turning up, uses it."
-              : onlineClassBooking.cancel,
+              : row.charge_id
+                ? onlineClassBooking.cancel
+                : onlineClassBooking.cancelCredit,
             "",
             // The booking is the account (2026-10-28): sign in with this email, no password.
             "Your bookings and any class credits are also in your account. Sign in with this email address, no password needed.",
@@ -275,7 +279,10 @@ export interface ManagedBooking {
   status: BookingRow["status"];
   when: string;
   canCancel: boolean;
+  /** Paid with a class credit and 24 hours or more before: cancelling gives the credit back. */
   creditBack: boolean;
+  /** Paid and 24 hours or more before: cancelling refunds the payment in full (Alex, 2026-11-05). */
+  refundBack: boolean;
   /** The payment was refunded in full (in Stripe), so cancelling gives nothing more back. */
   refunded: boolean;
   classCancelled: boolean;
@@ -288,7 +295,7 @@ export interface ManagedBooking {
 /** The booking behind a private manage link, or null. */
 export async function bookingByToken(db: Db, token: string, classes: PublishedClass[]): Promise<ManagedBooking | null> {
   if (!isToken(token)) return null;
-  const r = await rpc<{ status: BookingRow["status"]; slot: string; class_date: string; starts_at: string; can_cancel: boolean; credit_back_if_cancelled: boolean; refunded?: boolean; class_cancelled: boolean; first_class_free?: boolean } | null>(
+  const r = await rpc<{ status: BookingRow["status"]; slot: string; class_date: string; starts_at: string; can_cancel: boolean; credit_back_if_cancelled: boolean; refunded?: boolean; class_cancelled: boolean; first_class_free?: boolean; paid?: boolean } | null>(
     db,
     "akb_class_booking_by_token",
     { p_token_hash: await sha256Hex(token) },
@@ -300,7 +307,8 @@ export async function bookingByToken(db: Db, token: string, classes: PublishedCl
     status: r.data.status,
     when: cls ? classWhen(r.data.class_date, cls) : `${formatLongDate(date)}, ${formatClock(time)}`,
     canCancel: r.data.can_cancel,
-    creditBack: r.data.credit_back_if_cancelled,
+    creditBack: r.data.credit_back_if_cancelled && r.data.paid !== true,
+    refundBack: r.data.credit_back_if_cancelled && r.data.paid === true,
     refunded: r.data.refunded === true,
     classCancelled: r.data.class_cancelled,
     firstClassFree: r.data.first_class_free === true,
@@ -309,25 +317,32 @@ export async function bookingByToken(db: Db, token: string, classes: PublishedCl
 }
 
 /**
- * Cancels by the private link. With a credit (24 hours or more before), the
- * single-use credit link is returned and emailed; only its hash is stored.
+ * Cancels by the private link. 24 hours or more before: a paid class is
+ * refunded in full; one booked with a credit gets a single-use credit link,
+ * returned and emailed (only its hash is stored).
  */
 export async function cancelByToken(
   db: Db,
   token: string,
   env: Env = process.env,
   fetchImpl: typeof fetch = fetch,
-): Promise<{ ok: true; creditLink: string | null; refunded: boolean; freeClassBack?: boolean; firstClassFree?: boolean } | { ok: false; reason: "not_found" | "not_booked" | "class_started" | "failed" }> {
+  stripe: StripeConfig | null = stripeConfig(env),
+): Promise<
+  | { ok: true; creditLink: string | null; refunded: boolean; freeClassBack?: boolean; firstClassFree?: boolean; refund?: { outcome: RefundOutcome; amountPence: number } }
+  | { ok: false; reason: "not_found" | "not_booked" | "class_started" | "failed" }
+> {
   if (!isToken(token)) return { ok: false, reason: "not_found" };
   const creditToken = randomToken();
   const hash = await sha256Hex(token);
-  const r = await rpc<{ credit: boolean; refunded?: boolean; first_class_free?: boolean; free_class_back?: boolean }>(db, "akb_cancel_class_booking", { p_token_hash: hash, p_credit_token_hash: await sha256Hex(creditToken) });
+  const r = await rpc<{ credit: boolean; refunded?: boolean; first_class_free?: boolean; free_class_back?: boolean; refund_due?: boolean; booking_id?: string }>(db, "akb_cancel_class_booking", { p_token_hash: hash, p_credit_token_hash: await sha256Hex(creditToken) });
   if (!r.ok) {
     const rule = r.error.kind === "rule" ? r.error.rule : null;
     return { ok: false, reason: rule === "not_found" || rule === "not_booked" || rule === "class_started" ? rule : "failed" };
   }
   const refunded = r.data.refunded === true;
   const creditLink = r.data.credit ? `${memberLinkOrigin(env)}${CLASS_BOOK_PATH}?credit=${creditToken}` : null;
+  // Paid and cancelled 24 hours or more before: refunded in full (before the emails, so they say how).
+  const refund = r.data.refund_due && r.data.booking_id ? await refundCancelledClass(db, r.data.booking_id, stripe, env, fetchImpl) : null;
   // Tell the booker it's cancelled (with the credit link when one was given) and tell Alex, once each.
   // Best effort: the cancellation has already happened and the page shows the outcome.
   const rows = await select<{ id: string; client_id: string; attendance_id: string }>(db, "akb_class_bookings", [["select", "id,client_id,attendance_id"], ["manage_token_hash", `eq.${hash}`]]);
@@ -342,19 +357,21 @@ export async function cancelByToken(
         ? r.data.free_class_back
           ? `Your free first class is still yours: book it for another date here:\n${memberLinkOrigin(env)}${CLASS_BOOK_PATH}`
           : "It was less than 24 hours before the class, so your free first class has been used."
+        : refund
+        ? refundSentence(refund.outcome, refund.amountPence)
         : creditLink
         ? `Here's your credit for another group class within the next 4 weeks:\n${creditLink}\nIt works once. Nothing to pay when you book with it.`
         : refunded
-          ? "Your payment for this class was already refunded, so there's no credit as well."
-          : "It was less than 24 hours before the class, so there's no credit.";
+          ? "Your payment for this class was already refunded, so there's nothing more to refund."
+          : "It was less than 24 hours before the class, so there's nothing back.";
       await sendNotice(
         {
           label: "class-cancel",
           key: `class-cancel/${hash}`,
-          customer: { email: person.email, subject: creditLink ? "Your class credit" : `Cancelled: ${when}`, text: `Your booking for the group class on ${when} is cancelled.\n\n${outcome}` },
+          customer: { email: person.email, subject: creditLink ? "Your class credit" : refund ? `Cancelled and refunded: ${when}` : `Cancelled: ${when}`, text: `Your booking for the group class on ${when} is cancelled.\n\n${outcome}` },
           alex: {
             subject: `Class cancelled: ${person.full_name}, ${when}`,
-            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${free ? (r.data.free_class_back ? "It was their free first class, cancelled in time, so they can book it again." : "It was their free first class, cancelled less than 24 hours before, so it's used.") : creditLink ? "They were given a class credit for another class within 4 weeks." : refunded ? "Their payment had already been refunded, so no credit was given and the class fee is cancelled." : "It was less than 24 hours before the class, so no credit was given."}`,
+            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${free ? (r.data.free_class_back ? "It was their free first class, cancelled in time, so they can book it again." : "It was their free first class, cancelled less than 24 hours before, so it's used.") : refund ? refundSentenceForAlex(refund.outcome, refund.amountPence) : creditLink ? "They were given a class credit for another class within 4 weeks." : refunded ? "Their payment had already been refunded, so no credit was given and the class fee is cancelled." : "It was less than 24 hours before the class, so no credit was given."}`,
           },
         },
         env,
@@ -362,7 +379,7 @@ export async function cancelByToken(
       );
     }
   }
-  return { ok: true, creditLink, refunded, ...(r.data.first_class_free ? { firstClassFree: true, freeClassBack: r.data.free_class_back === true } : {}) };
+  return { ok: true, creditLink, refunded, ...(refund ? { refund } : {}), ...(r.data.first_class_free ? { firstClassFree: true, freeClassBack: r.data.free_class_back === true } : {}) };
 }
 
 /** Whether a credit link can still be used, and until when. */

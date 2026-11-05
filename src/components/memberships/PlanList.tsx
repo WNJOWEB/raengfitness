@@ -108,6 +108,7 @@ export function PlanList({ className, includePayg = true }: { className?: string
  * no membership. No button: the class rows and the hero open the calendar.
  */
 export function PayAsYouGo({ className }: { className?: string }) {
+  const book = getPrimaryCtaFor("group-class");
   return (
     <div className={cn("max-w-lg", className)}>
       <p className="text-2xl font-bold tabular-nums">
@@ -118,7 +119,13 @@ export function PayAsYouGo({ className }: { className?: string }) {
         <div className="mt-5 rounded-[1.25rem] bg-white px-5 py-4">
           <p className="font-bold">{firstClassFree.headline}.</p>
           <p className="mt-1">{firstClassFree.line}</p>
-          <p className="mt-2 text-sm">{firstClassFree.terms}</p>
+          <p className="mt-2">{firstClassFree.how}</p>
+          {book.kind === "booking" && !book.external ? (
+            <Link href={book.href} className="mt-1 inline-flex min-h-11 items-center font-semibold underline underline-offset-4 hover:no-underline">
+              Book your free class
+            </Link>
+          ) : null}
+          <p className="mt-1 text-sm">{firstClassFree.terms}</p>
         </div>
       ) : null}
     </div>

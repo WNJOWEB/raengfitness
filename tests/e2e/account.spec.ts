@@ -710,7 +710,7 @@ test.describe("member accounts", () => {
     expect(await emailsTo(request, email)).toHaveLength(0);
   });
 
-  test("pay as you go (2026-10-28): the paid booking is the account; cancel for a class credit, book with it, and the form fills in", async ({ page, request }) => {
+  test("pay as you go (2026-10-28): the paid booking is the account; cancel in time for a refund, book with a class credit, and the form fills in", async ({ page, request }) => {
     const email = `payg-${Date.now()}@example.com`;
     // A class booked and paid online 5 days from now (as Stripe's webhook would record it).
     const [booking] = await sql(
@@ -741,11 +741,22 @@ test.describe("member accounts", () => {
     const place = page.locator("#booked li").filter({ hasText: "Paid" });
     await expect(place).toHaveCount(1);
 
-    // Cancel in time: the sheet says a class credit comes back; then book another class with it, nothing to pay.
+    // Cancel in time (Alex, 2026-11-05): the sheet says the payment is refunded in full. It was recorded by hand,
+    // so Alex is asked to refund it, and no class credit is given.
     await place.getByRole("link", { name: /^Cancel/ }).click();
-    await expect(page.getByRole("dialog")).toContainText("You get a class credit for another class within 4 weeks.");
+    await expect(page.getByRole("dialog")).toContainText("It's 24 hours or more before, so your payment is refunded in full.");
     await page.getByRole("dialog").getByRole("button", { name: "Cancel booking" }).click();
-    await expect(page.getByRole("status")).toHaveText("Cancelled. You have a class credit for another class within 4 weeks.");
+    await expect(page.getByRole("status")).toHaveText("Cancelled. Your payment will be refunded: Alex will let you know when it's done.");
+    await expect(page.getByRole("heading", { name: /^Class credits:/ })).toHaveCount(0);
+    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject === "Refund to make: £12.00")).toBe(true);
+
+    // A class credit they still hold from before (credits were given until 2026-11-05) books a class with nothing to pay.
+    await sql(
+      request,
+      "insert into akb_class_credits (client_id, source_booking_id, expires_on, token_hash) select client_id, id, akb_london_today() + 28, encode(sha256(convert_to(id::text, 'UTF8')), 'hex') from akb_class_bookings where charge_id = $1",
+      [chargeId],
+    );
+    await page.reload();
     await expect(page.getByRole("heading", { name: /^Class credits: 1 class/ })).toBeVisible();
     await page.getByRole("navigation", { name: "Members" }).getByRole("link", { name: "Book" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "1 class credit to use." })).toBeVisible();

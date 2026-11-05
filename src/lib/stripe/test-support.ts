@@ -33,6 +33,7 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
   const intentByKey = new Map<string, string>();
   const methods = new Map<string, Record<string, unknown>>(); // payment method id -> payment method
   let intentStatus = 0; // when set, creating a payment intent is refused with this status
+  let refuseRefunds = 0; // when set, creating a refund is refused with this status
   const calls: StripeCall[] = [];
   let down = false;
   const created = () => Math.floor(Date.parse("2026-10-20T10:00:00Z") / 1000);
@@ -132,6 +133,20 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
       const pi = form.get("payment_intent");
       return Response.json({ data: [...sessions.values()].filter((s) => s.payment_intent === pi) });
     }
+    if (init.method === "POST" && path === "/v1/refunds") {
+      if (refuseRefunds) return Response.json({ error: { type: "invalid_request_error" } }, { status: refuseRefunds });
+      const key = headers["Idempotency-Key"];
+      if (!key || !byKey.has(`r:${key}`)) {
+        const pi = form.get("payment_intent") ?? "";
+        const intent = intents.get(pi);
+        if (!intent) return Response.json({ error: { type: "invalid_request_error" } }, { status: 404 });
+        const id = `re_test_${++ids}`;
+        refunds.set(id, { id, object: "refund", status: "succeeded", payment_intent: pi, amount: Number(form.get("amount") ?? intent.amount), currency: "gbp", created: created() + 3_600 });
+        if (key) byKey.set(`r:${key}`, id);
+        else return Response.json(refunds.get(id));
+      }
+      return Response.json(refunds.get(byKey.get(`r:${key}`)!));
+    }
     const oneRefund = path.match(/^\/v1\/refunds\/([\w-]+)$/);
     if (oneRefund) return refunds.has(oneRefund[1]) ? Response.json(refunds.get(oneRefund[1])) : Response.json({ error: {} }, { status: 404 });
     if (path === "/v1/refunds") {
@@ -184,6 +199,8 @@ export function stripeStandIn(fallback: (url: string, init?: RequestInit) => Pro
     },
     /** Stripe refuses to create payment intents from now on (0 = accepts again). */
     refuseIntents: (status: number) => (intentStatus = status),
+    /** Stripe refuses to create refunds from now on (0 = accepts again). */
+    refuseRefunds: (status: number) => (refuseRefunds = status),
     refund(paymentIntent: string, amountPence: number, status = "succeeded") {
       const id = `re_test_${++ids}`;
       refunds.set(id, { id, object: "refund", status, payment_intent: paymentIntent, amount: amountPence, currency: "gbp", created: created() + 86_400 });

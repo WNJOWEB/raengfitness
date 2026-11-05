@@ -1,5 +1,7 @@
 import { type Env, siteUrl } from "./env";
 import { rpc, type Db, type DbResult } from "./coach/db";
+import { refundCancelledClass, type RefundOutcome } from "./class-refunds";
+import type { StripeConfig } from "./stripe/config";
 
 /**
  * Member accounts (owner, 2026-10-26; docs/MEMBER_ACCOUNTS_DRAFT.md): our own
@@ -195,19 +197,35 @@ export function cancelPlace(db: Db, clientId: string, attendanceId: string): Pro
 
 /**
  * Cancels one of the customer's own paid bookings (by its place). 24 hours or
- * more before: a class credit for 28 days (it shows in the account; only the
- * hash of its link is stored), unless the payment was already refunded in
- * full. Returns whether a credit was given and whether it had been refunded.
+ * more before: a paid booking is refunded in full (Alex, 2026-11-05;
+ * lib/class-refunds.ts), one paid with a class credit gets a class credit for
+ * 28 days (only the hash of its link is stored), and nothing more if the
+ * payment was already refunded in full. Returns what was given back.
  */
-export async function cancelPaidPlace(db: Db, clientId: string, attendanceId: string): Promise<DbResult<{ credit: boolean; refunded: boolean; firstClassFree?: boolean; freeClassBack?: boolean }>> {
-  const r = await rpc<{ credit: boolean; refunded?: boolean; first_class_free?: boolean; free_class_back?: boolean }>(db, "akb_member_cancel_booking", {
+export async function cancelPaidPlace(
+  db: Db,
+  clientId: string,
+  attendanceId: string,
+  stripe: StripeConfig | null = null,
+  env: Env = process.env,
+  fetchImpl: typeof fetch = fetch,
+): Promise<DbResult<{ credit: boolean; refunded: boolean; firstClassFree?: boolean; freeClassBack?: boolean; refund?: { outcome: RefundOutcome; amountPence: number } }>> {
+  const r = await rpc<{ credit: boolean; refunded?: boolean; first_class_free?: boolean; free_class_back?: boolean; refund_due?: boolean; booking_id?: string }>(db, "akb_member_cancel_booking", {
     p_client: clientId,
     p_attendance: attendanceId,
     p_credit_token_hash: await sha256Hex(randomToken()),
   });
-  return r.ok
-    ? { ok: true, data: { credit: r.data.credit, refunded: r.data.refunded === true, ...(r.data.first_class_free ? { firstClassFree: true, freeClassBack: r.data.free_class_back === true } : {}) } }
-    : r;
+  if (!r.ok) return r;
+  const refund = r.data.refund_due && r.data.booking_id ? await refundCancelledClass(db, r.data.booking_id, stripe, env, fetchImpl) : null;
+  return {
+    ok: true,
+    data: {
+      credit: r.data.credit,
+      refunded: r.data.refunded === true,
+      ...(refund ? { refund } : {}),
+      ...(r.data.first_class_free ? { firstClassFree: true, freeClassBack: r.data.free_class_back === true } : {}),
+    },
+  };
 }
 
 /** Books a class with one of the customer's own class credits: confirmed at once, nothing to pay. */

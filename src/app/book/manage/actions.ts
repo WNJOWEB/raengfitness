@@ -2,17 +2,20 @@
 
 import { after } from "next/server";
 import { cancelByToken } from "@/lib/class-checkout";
+import { refundSentence } from "@/lib/class-refunds";
 import { afterPlacesChange } from "@/lib/waitlist";
 import { coachDb } from "@/lib/coach/db";
 
 export interface CancelState {
   status: "idle" | "cancelled" | "error";
   creditLink: string | null;
-  /** The payment had already been refunded, so no credit was given. */
+  /** The payment had already been refunded, so nothing more was given back. */
   refunded?: boolean;
   /** It was their free first class: cancelled in time, it can be booked again; late, it's used. */
   firstClassFree?: boolean;
   freeClassBack?: boolean;
+  /** Paid and cancelled 24 hours or more before: what happens to the refund. */
+  refundMessage?: string;
   message: string;
 }
 
@@ -25,7 +28,7 @@ export async function cancelClassBooking(_previous: CancelState, formData: FormD
   if (result.ok) {
     // The place they gave up may be offered to the waitlist.
     after(() => afterPlacesChange(db));
-    return { status: "cancelled", creditLink: result.creditLink, refunded: result.refunded, firstClassFree: result.firstClassFree, freeClassBack: result.freeClassBack, message: "" };
+    return { status: "cancelled", creditLink: result.creditLink, refunded: result.refunded, firstClassFree: result.firstClassFree, freeClassBack: result.freeClassBack, ...(result.refund ? { refundMessage: refundSentence(result.refund.outcome, result.refund.amountPence) } : {}), message: "" };
   }
   const message =
     result.reason === "class_started"

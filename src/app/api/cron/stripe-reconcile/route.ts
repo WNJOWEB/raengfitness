@@ -7,6 +7,7 @@ import { closeCancelledLinks, reconcileOpenLinks } from "@/lib/stripe/sync";
 import { publishedClasses } from "@/lib/class-sessions";
 import { notifyNewMembers } from "@/lib/membership-checkout";
 import { notifyClassBookings } from "@/lib/class-checkout";
+import { retryClassRefunds } from "@/lib/class-refunds";
 import { notifyDirectDebitFailures, notifyRenewalPayments } from "@/lib/stripe/direct-debit";
 
 /** Daily safety net for missed Stripe webhooks (vercel.json "crons"). Same CRON_SECRET check as request alerts. */
@@ -27,5 +28,7 @@ export async function GET(request: Request) {
   const failures = await notifyDirectDebitFailures(db).catch(() => 0);
   // Stripe pages of cancelled charges still open (anything not closed straight away).
   const pagesClosed = await closeCancelledLinks(db, stripe).catch(() => 0);
-  return NextResponse.json({ ...summary, welcomed, classBookings, receipts, renewed, failures, pagesClosed }, { status: summary.ok ? 200 : 503, headers: noStore });
+  // Refunds for classes cancelled in time that Stripe didn't accept straight away.
+  const classRefunds = await retryClassRefunds(db, stripe).catch(() => 0);
+  return NextResponse.json({ ...summary, welcomed, classBookings, receipts, renewed, failures, pagesClosed, classRefunds }, { status: summary.ok ? 200 : 503, headers: noStore });
 }

@@ -23,9 +23,20 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 | Item | Status | Notes |
 |---|---|---|
 | First group class free for new customers | C | Requested by Alex. Booked online like any class: nothing to pay, no card, confirmed at once. One per person by email address. "New" = never had a place on a class (booked, attended or no-show; a lapsed unpaid hold doesn't count), never had a membership, not used the offer before. Decided in the database (`20261123000000_akb_first_class_free.sql`), so two quick submissions can't both be free |
-| Cancelling the free class | P | Our rule, matching the paid class policy: 24 hours or more before, it can be booked again for another date (no class credit); later, or not turning up, uses it. **Alex to confirm** |
-| Where it shows | C | Booking form (before paying: "£12, or free if it's your first class"), the home and Classes timetable ("Your first class is free for new customers."), Pay as you go with the terms, emails, the booked page and the member account ("Free first class"). Switch off with `status` in `content/offers.ts` |
+| Cancelling the free class | C | 24 hours or more before, it can be booked again for another date (no class credit); later, or not turning up, uses it. **Confirmed by Alex 2026-11-05** as part of the general 24-hour rule below |
+| Where it shows | C | Booking form (before paying: "£12, or free if it's your first class"), the home and Classes timetable ("Your first class is free for new customers: just book any class and it's free automatically."), Pay as you go with how to claim it (no code: book with your own email and it applies by itself), a "Book your free class" link and the terms, emails, the booked page and the member account ("Free first class"). Switch off with `status` in `content/offers.ts` |
 | Not covered | C | Membership sign-up's first class, 1:1 and small group coaching. Someone can use a second email address: Alex sees every free booking in the coach area (no charge, "first class free" on the booking's history) |
+
+## Cancellation: the 24-hour rule for everyone (Alex, 2026-11-05)
+
+| Item | Status | Notes |
+|---|---|---|
+| General rule | C | Alex: "24 hours and more notice will be the general rule for all cancellations. Anyone who cancels with at least 24 hours notice will get their credit, refund and free introduction class back." Later than 24 hours, or not turning up: nothing back (unchanged) |
+| Membership credit | C | Comes back (unchanged) |
+| Pay-as-you-go class paid by card | C | **Changed:** refunded in full to the card, automatically (Stripe, one refund per booking), instead of a class credit. The class fee is cancelled once Stripe's refund is recorded. If Stripe refuses, the daily job retries (up to 5 times) and Alex is emailed once. A payment Alex recorded by hand (cash, transfer) can't be refunded by the site: Alex is emailed to refund it. Migration `20261124000000_akb_cancel_refund.sql` |
+| Class booked with a class credit | C | The credit comes back (unchanged). Class credits already given before this change keep working until they run out |
+| Free first class | C | Can be booked again for another date (as built, now confirmed) |
+| Refund timing | C | Customers are told it "can take a few working days to show, depending on your bank". Stripe's processing fee on a refunded payment is not returned to Alex (Stripe's standard terms) |
 
 ## Alex's website changes (2026-11-05)
 
@@ -88,7 +99,7 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Class times Mon 18:30, Wed 18:30, Sat 10:15, each 60 minutes | C | Mon/Wed confirmed 2026-10-15; Saturday moved to 10:15–11:15 and the 60-minute length confirmed by the project owner 2026-10-17 (from Alex's own class listing). Shown across the site and as real dates in the booking calendar |
 | Group class: "Kettlebell Training", £10 per person, description from Alex's listing | C | Confirmed by the project owner 2026-10-17; shown on the homepage and /classes |
 | Class duration, capacity, equipment, booking requirement | U | Do not publish |
-| Cancellation / refund rules | C | Published (content/policy.ts; refunds option B, 2026-11-02) |
+| Cancellation / refund rules | C | Published (content/policy.ts; refunds option B, 2026-11-02; 24-hour rule for every cancellation, paid classes refunded in full, 2026-11-05) |
 | One-to-one from £35/session; 4 sessions £130/month | C | Confirmed by the project owner 2026-10-15 (figures from the original brief); shown on the site |
 | Online coaching £79/month | C | Confirmed by the project owner 2026-10-15; shown on the site |
 | Alex's journey (story, before/after photos) | C | Published 2026-10-15 at the owner's request: before/after photos replaced 2026-10-17 with photos supplied by the project owner as Alex's own (`assets/journey/`, cut by `scripts/supplied_photos.py`; no dates, timeframe or figures given, so none are shown), short text written from his reel motto ("1% everyday") and bio. Swap in Alex's own story when supplied |
@@ -105,7 +116,7 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Hero footage | C | Alex's own Instagram reel (supplied 2026-10-15), used for the homepage hero loop. Filmed at several gyms, some visibly not Media House (e.g. "APEX" signage), and shows other people training. Confirm Alex is happy for it to represent his coaching and that people shown are fine appearing on the website |
 | RAENG quote (why it exists) | C | "Be part of something bigger than just a workout.", Alex's own words from his launch post (Instagram @alex.kbells, 26 Oct 2026), on /about. "The studio" in the post is where he trains now (his own studio is "a few years" off, WhatsApp 22 Oct); venue unchanged |
 | Bio, qualifications, history, testimonials | U | Do not invent |
-| Bookings | C | Live on production from 2026-10-18 at the owner's request: "Book now" opens /book. Group classes: real dates from the timetable; one-to-one: preferred days. Each is a **request** stored in Supabase (`akb_booking_requests`) and listed in the coach area; Alex confirms. Payment: bank transfer or cash (Alex's listing, 2026-10-17); no online payment. **Changed 2026-10-27 (owner): group classes are booked and paid online with nothing for Alex to confirm** (place held 15 minutes while paying; cancel 24 h or more before → a credit for another class within 4 weeks; later or a no-show → nothing back); 1:1 stays a request. Built, **not live** until online joining is (DEPLOYMENT.md → Booking a group class and paying online). Alex to confirm the credit wording |
+| Bookings | C | Live on production from 2026-10-18 at the owner's request: "Book now" opens /book. Group classes: real dates from the timetable; one-to-one: preferred days. Each is a **request** stored in Supabase (`akb_booking_requests`) and listed in the coach area; Alex confirms. Payment: bank transfer or cash (Alex's listing, 2026-10-17); no online payment. **Changed 2026-10-27 (owner): group classes are booked and paid online with nothing for Alex to confirm** (place held 15 minutes while paying; cancel 24 h or more before → a credit for another class within 4 weeks, **refunded in full from 2026-11-05**; later or a no-show → nothing back); 1:1 stays a request. Built, **not live** until online joining is (DEPLOYMENT.md → Booking a group class and paying online). Alex to confirm the credit wording |
 | Live availability: capacity, one-to-one slots | U | Class dates come from the confirmed timetable. When Alex sets a capacity on a class date in the portal and it fills, the booking calendar shows that date as unavailable and the server refuses it (`lib/class-capacity.ts`). Every class holds 12 unless Alex changes the class size in the portal (owner, 2026-10-29), so a class with 12 booked shows "Fully booked" and visitors are sent to the next class. Nothing invented |
 | Booking-request inbox / Resend account | U | Needed to switch on `/book`; must be Alex's own |
 | Privacy notice | C | `/privacy` reviewed (owner, 2026-11-03) |

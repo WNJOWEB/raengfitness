@@ -41,16 +41,19 @@ export const groupClass = {
 
 /**
  * Booking a group class and paying online (owner's decisions, 2026-10-27):
- * the place is held for 15 minutes while paying; cancelling 24 hours or more
- * before gives a credit for another class within 4 weeks; later, or not
- * turning up, the class is used. The same numbers are in the database
- * (supabase/migrations/20261029000000_akb_instant_class_booking.sql), which
- * enforces them. Shown only where online payment is on.
+ * the place is held for 15 minutes while paying. Cancelling 24 hours or more
+ * before refunds the payment in full (Alex, 2026-11-05; it was a credit for
+ * another class before then); later, or not turning up, the class is used.
+ * The database enforces the same rule (migrations 20261029000000 and
+ * 20261124000000). Shown only where online payment is on.
  */
 export const onlineClassBooking = {
   payment: "Pay online when you book.",
   paymentMethods: ["Pay online when you book"],
   hold: "Your place is held for 15 minutes while you pay.",
   cancel:
-    "Cancel at least 24 hours before and you'll get a credit for another class within 4 weeks. Later than that, or if you don't turn up, there's no credit.",
+    "Cancel at least 24 hours before and you'll get your money back in full. Later than that, or if you don't turn up, there's no refund.",
+  /** For a class booked with a class credit. */
+  cancelCredit:
+    "Cancel at least 24 hours before and you'll get your class credit back. Later than that, or if you don't turn up, the credit is used.",
 } as const;

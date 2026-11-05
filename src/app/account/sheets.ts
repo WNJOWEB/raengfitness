@@ -87,11 +87,13 @@ export function cancelSheet(p: MemberPlace, back: MembersView): SheetPayload {
       ? "This is your free first class. Cancel now and you can book it for another date."
       : "This is your free first class. It's less than 24 hours before, so cancelling uses it."
     : p.refunded
-    ? "Your payment for this class has already been refunded, so cancelling gives no credit."
+    ? "Your payment for this class has already been refunded, so cancelling gives nothing more back."
     : p.credit_back_if_cancelled
     ? membershipCredit
       ? "Your credit comes back, and your place goes to someone else."
-      : "You get a class credit for another class within 4 weeks."
+      : p.how === "paid"
+        ? "It's 24 hours or more before, so your payment is refunded in full."
+        : "Your class credit comes back, for another class within 4 weeks."
     : membershipCredit
       ? "It's less than 24 hours before the class, so the credit will be used."
       : "It's less than 24 hours before the class, so there's nothing back.";

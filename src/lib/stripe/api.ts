@@ -212,6 +212,27 @@ export function getRefund(config: StripeConfig, id: string, fetchImpl: typeof fe
   return call(config, "GET", `/v1/refunds/${encodeURIComponent(id)}`, undefined, readRefund, fetchImpl);
 }
 
+/**
+ * Refunds a card payment (all of `amountPence`, which the caller works out
+ * from what is still unrefunded). The idempotency key makes a retried call
+ * return the same refund, so a booking can never be refunded twice.
+ */
+export function createRefund(
+  config: StripeConfig,
+  args: { paymentIntentId: string; amountPence: number; idempotencyKey: string; metadata?: Record<string, string> },
+  fetchImpl: typeof fetch = fetch,
+): Promise<StripeResult<StripeRefund>> {
+  return call(
+    config,
+    "POST",
+    "/v1/refunds",
+    { payment_intent: args.paymentIntentId, amount: args.amountPence, reason: "requested_by_customer", metadata: args.metadata ?? {} },
+    readRefund,
+    fetchImpl,
+    args.idempotencyKey,
+  );
+}
+
 export function listRefundsForPaymentIntent(config: StripeConfig, paymentIntentId: string, fetchImpl: typeof fetch = fetch): Promise<StripeResult<StripeRefund[]>> {
   return call(config, "GET", "/v1/refunds", { payment_intent: paymentIntentId, limit: 20 }, (json) => {
     const data = obj(json)?.data;

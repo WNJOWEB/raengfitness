@@ -1,9 +1,11 @@
+import { createHash, randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { bookingByToken, cancelByToken, classBookingStatus, creditStatus, notifyClassBookings, startClassCheckout } from "./class-checkout";
 import { publishedClasses, type PublishedClass } from "./class-sessions";
 import { rpc, type Db } from "./coach/db";
 import { addDays, londonToday, type DateKey } from "./coach/time";
 import { testDb } from "./coach/test-support";
+import { refundCancelledClass, retryClassRefunds } from "./class-refunds";
 import { cancelPaidPlace } from "./member-auth";
 import { deliverStripeEvent, stripeStandIn, testStripe } from "./stripe/test-support";
 
@@ -12,7 +14,8 @@ import { deliverStripeEvent, stripeStandIn, testStripe } from "./stripe/test-sup
  * migrations: the booking holds a place and opens Stripe's page; a signed
  * webhook (re-read from the Stripe stand-in) records the payment; the database
  * confirms the place; the booker gets a private link to cancel, which (24
- * hours or more before) gives a credit link that books another class free.
+ * hours or more before) refunds the payment in full through Stripe (Alex,
+ * 2026-11-05), or for a class booked with a class credit, gives the credit back.
  */
 
 const stripe = testStripe;
@@ -71,6 +74,30 @@ const orderFor = async (bookingId: string) =>
   String((await sql("select l.square_order_id from akb_square_payment_links l join akb_class_bookings b on b.charge_id = l.charge_id where b.id = $1", [bookingId]))[0].square_order_id);
 
 const tokenFrom = (text: string, path: string) => new RegExp(`${path}\\?(?:token|credit)=([A-Za-z0-9_-]{43})`).exec(text)?.[1] ?? "";
+
+/** What is owed on a charge, and whether it was cancelled. */
+const owed = async (charge: string) =>
+  (await sql("select outstanding_pence, voided_at is not null as voided from akb_charge_balances where id = $1", [charge]))[0];
+const chargeOf = async (bookingId: string) => String((await sql("select charge_id from akb_class_bookings where id = $1", [bookingId]))[0].charge_id);
+const refundCalls = (api: ReturnType<typeof services>) => api.stripeApi.calls.filter((c) => c.method === "POST" && c.path === "/v1/refunds");
+
+/**
+ * A booking cancelled the way it was before 2026-11-05 (a class credit for 28
+ * days instead of a refund), for the credits customers still hold. Returns the
+ * credit link's token.
+ */
+async function cancelledWithCredit(bookingId: string): Promise<string> {
+  const token = randomBytes(32).toString("base64url");
+  const [k] = await sql("select client_id, attendance_id from akb_class_bookings where id = $1", [bookingId]);
+  await sql("update akb_class_attendance set status = 'cancelled' where id = $1", [k.attendance_id]);
+  await sql("update akb_class_bookings set status = 'cancelled' where id = $1", [bookingId]);
+  await sql("insert into akb_class_credits (client_id, source_booking_id, expires_on, token_hash) values ($1, $2, akb_london_today() + 28, $3)", [
+    k.client_id,
+    bookingId,
+    createHash("sha256").update(token).digest("hex"),
+  ]);
+  return token;
+}
 
 /**
  * A returning customer (one past class attended), so the first-class-free
@@ -134,28 +161,56 @@ describe("booking a group class and paying online", () => {
     const manage = tokenFrom(mine?.text ?? "", "https://raeng.example/book/manage");
     expect(manage).toHaveLength(43);
 
-    // Cancelling in time gives a credit link (also emailed), which books another class with nothing to pay.
-    expect(await bookingByToken(db, manage, publishedClasses())).toMatchObject({ status: "confirmed", canCancel: true, creditBack: true });
-    const cancelled = await cancelByToken(db, manage, env, api.fetchImpl);
-    expect(cancelled.ok).toBe(true);
-    if (!cancelled.ok || !cancelled.creditLink) throw new Error("expected a credit");
-    expect(cancelled.creditLink).toMatch(/^https:\/\/raeng\.example\/book\/group-class\?credit=/);
-    expect(api.emails.find((m) => m.subject === "Your class credit")?.text).toContain(cancelled.creditLink);
+    // Cancelling in time refunds the payment in full (Alex, 2026-11-05): no class credit, and the fee is cancelled once Stripe's refund is recorded.
+    expect(await bookingByToken(db, manage, publishedClasses())).toMatchObject({ status: "confirmed", canCancel: true, refundBack: true, creditBack: false });
+    const cancelled = await cancelByToken(db, manage, env, api.fetchImpl, stripe);
+    expect(cancelled).toEqual({ ok: true, creditLink: null, refunded: false, refund: { outcome: "requested", amountPence: 1200 } });
+    const calls = refundCalls(api);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].form.get("amount")).toBe("1200");
+    expect(calls[0].headers["Idempotency-Key"]).toBe(`class-cancel-refund:${out.bookingId}`);
+    expect(await sql("select id from akb_class_credits where source_booking_id = $1", [out.bookingId])).toHaveLength(0);
+    expect(await owed(await chargeOf(out.bookingId))).toEqual({ outstanding_pence: 0, voided: true });
+    const toThem = api.emails.find((m) => m.to.includes(booker.email) && m.subject.startsWith("Cancelled and refunded: "));
+    expect(toThem?.text).toContain("We're refunding your £12.00 to the card you paid with");
+    expect(api.emails.find((m) => m.to.includes("alex@example.com") && m.subject.startsWith("Class cancelled: Class Payer"))?.text).toContain("refunded automatically");
     expect((await bookingByToken(db, manage, publishedClasses()))?.status).toBe("cancelled");
-    expect(await cancelByToken(db, manage, env, api.fetchImpl)).toEqual({ ok: false, reason: "not_booked" });
+    expect(await cancelByToken(db, manage, env, api.fetchImpl, stripe)).toEqual({ ok: false, reason: "not_booked" });
+    // Trying the refund again (the daily job, a double tap) does nothing more.
+    expect(await refundCancelledClass(db, out.bookingId, stripe, env, api.fetchImpl)).toMatchObject({ outcome: "none" });
+    expect(await retryClassRefunds(db, stripe, env, api.fetchImpl)).toBe(0);
+    expect(refundCalls(api)).toHaveLength(1);
+  });
 
-    const credit = tokenFrom(cancelled.creditLink, "https://raeng.example/book/group-class");
+  it("a class credit still held books a class with nothing to pay; cancelled in time, the credit comes back", async () => {
+    const api = services();
+    const [a, b, c] = classesFrom(4);
+    const booker = { name: "Credit Holder", email: "credit-holder@example.com", phone: "" };
+    const out = await paidCheckout(db, stripe, booker, a.cls, a.date, { idempotencyKey: "class-credit-key-1", env, fetchImpl: api.fetchImpl });
+    if (!out.ok) throw new Error("booking failed");
+    const credit = await cancelledWithCredit(out.bookingId);
     expect(await creditStatus(db, credit)).toEqual({ usable: true, expiresOn: addDays(londonToday(), 28) });
-    const next = classesFrom(4)[1];
-    const free = await paidCheckout(db, stripe, booker, next.cls, next.date, { idempotencyKey: "class-key-3", creditToken: credit, env, fetchImpl: api.fetchImpl });
-    expect(free).toMatchObject({ ok: true, confirmed: true });
-    if (free.ok) expect(free.url).toBe(`https://raeng.example/book/done?booking=${free.bookingId}`);
-    // No Stripe page for a credit booking (the same submission earlier reused its open link).
+    const withCredit = await paidCheckout(db, stripe, booker, b.cls, b.date, { idempotencyKey: "class-credit-key-2", creditToken: credit, env, fetchImpl: api.fetchImpl });
+    expect(withCredit).toMatchObject({ ok: true, confirmed: true });
+    if (!withCredit.ok) return;
+    expect(withCredit.url).toBe(`https://raeng.example/book/done?booking=${withCredit.bookingId}`);
+    // No new Stripe page for the credit booking.
     expect(api.linkCalls).toHaveLength(1);
     expect((await creditStatus(db, credit))?.usable).toBe(false);
     // A used credit can't be used again.
-    const later = classesFrom(4)[2];
-    expect(await paidCheckout(db, stripe, booker, later.cls, later.date, { idempotencyKey: "class-key-4", creditToken: credit, env, fetchImpl: api.fetchImpl })).toEqual({ ok: false, reason: "credit_invalid" });
+    expect(await paidCheckout(db, stripe, booker, c.cls, c.date, { idempotencyKey: "class-credit-key-3", creditToken: credit, env, fetchImpl: api.fetchImpl })).toEqual({ ok: false, reason: "credit_invalid" });
+
+    // Its booking email says the credit comes back; cancelling in time gives a new credit link (no refund: nothing was paid).
+    await notifyClassBookings(db, publishedClasses(), env, api.fetchImpl);
+    const mine = api.emails.find((m) => m.to.includes(booker.email) && m.subject.startsWith("You're booked"));
+    expect(mine?.text).toContain("you'll get your class credit back");
+    const manage = tokenFrom(mine?.text ?? "", "https://raeng.example/book/manage");
+    expect(await bookingByToken(db, manage, publishedClasses())).toMatchObject({ creditBack: true, refundBack: false });
+    const cancelled = await cancelByToken(db, manage, env, api.fetchImpl, stripe);
+    expect(cancelled).toMatchObject({ ok: true, refunded: false });
+    expect(cancelled.ok && cancelled.creditLink).toMatch(/^https:\/\/raeng\.example\/book\/group-class\?credit=/);
+    expect(cancelled.ok && "refund" in cancelled).toBe(false);
+    expect(refundCalls(api)).toHaveLength(0);
   });
 
   it("an unknown or malformed link finds nothing", async () => {
@@ -171,8 +226,8 @@ describe("booking a group class and paying online", () => {
   });
 });
 
-describe("a Stripe refund of a class already cancelled", () => {
-  /** Books, pays and cancels in time (with a credit). Returns what the refund needs. */
+describe("a Stripe refund of a class cancelled before 2026-11-05 (with a class credit)", () => {
+  /** Books, pays and cancels the old way (with a credit). Returns what the refund needs. */
   async function paidThenCancelled(api: ReturnType<typeof services>, email: string, key: string, at: { cls: PublishedClass; date: DateKey }) {
     const booker = { name: "Refund Test", email, phone: "" };
     const out = await paidCheckout(db, stripe, booker, at.cls, at.date, { idempotencyKey: key, env, fetchImpl: api.fetchImpl });
@@ -180,14 +235,9 @@ describe("a Stripe refund of a class already cancelled", () => {
     const intent = api.stripeApi.pay(await orderFor(out.bookingId), 1200);
     expect((await deliver(api, await orderFor(out.bookingId))).status).toBe(200);
     await notifyClassBookings(db, publishedClasses(), env, api.fetchImpl);
-    const mine = api.emails.filter((m) => m.to.includes(email) && m.subject.startsWith("You're booked")).at(-1);
-    const cancelled = await cancelByToken(db, tokenFrom(mine?.text ?? "", "https://raeng.example/book/manage"), env, api.fetchImpl);
-    if (!cancelled.ok || !cancelled.creditLink) throw new Error("expected a credit");
-    const charge = String((await sql("select charge_id from akb_class_bookings where id = $1", [out.bookingId]))[0].charge_id);
-    return { booker, bookingId: out.bookingId, intent, charge, credit: tokenFrom(cancelled.creditLink, "https://raeng.example/book/group-class") };
+    const credit = await cancelledWithCredit(out.bookingId);
+    return { booker, bookingId: out.bookingId, intent, charge: await chargeOf(out.bookingId), credit };
   }
-  const owed = async (charge: string) =>
-    (await sql("select outstanding_pence, voided_at is not null as voided from akb_charge_balances where id = $1", [charge]))[0];
   const refund = async (api: ReturnType<typeof services>, intent: string, amount: number) =>
     (await deliverStripeEvent(db, api.stripeApi, "refund.updated", { id: api.stripeApi.refund(intent, amount) })).body;
 
@@ -237,11 +287,11 @@ describe("a Stripe refund of a class already cancelled", () => {
   it("refunded first, then cancelled by the private link: no credit, the fee is cancelled, and the page and emails say why", async () => {
     const api = services();
     const t = await paid(api, "refund-first@example.com", "refund-key-4", classesFrom(8)[0]);
-    expect(await bookingByToken(db, t.manage, publishedClasses())).toMatchObject({ refunded: false, creditBack: true });
+    expect(await bookingByToken(db, t.manage, publishedClasses())).toMatchObject({ refunded: false, refundBack: true });
     expect(await refund(api, t.intent, 1200)).toEqual({ outcome: "recorded" });
     // Still booked: the refund alone leaves the place and the fee for the coach to decide.
     expect(await owed(t.charge)).toEqual({ outstanding_pence: 1200, voided: false });
-    expect(await bookingByToken(db, t.manage, publishedClasses())).toMatchObject({ status: "confirmed", canCancel: true, refunded: true, creditBack: false });
+    expect(await bookingByToken(db, t.manage, publishedClasses())).toMatchObject({ status: "confirmed", canCancel: true, refunded: true, creditBack: false, refundBack: false });
     expect(await cancelByToken(db, t.manage, env, api.fetchImpl)).toEqual({ ok: true, creditLink: null, refunded: true });
     expect(await sql("select id from akb_class_credits where source_booking_id = $1", [t.bookingId])).toHaveLength(0);
     expect(await owed(t.charge)).toEqual({ outstanding_pence: 0, voided: true });
@@ -250,14 +300,15 @@ describe("a Stripe refund of a class already cancelled", () => {
     expect(api.emails.find((m) => m.to.includes("alex@example.com") && m.subject.startsWith("Class cancelled: Refund First"))?.text).toContain("class fee is cancelled");
   });
 
-  it("refunded in part, then cancelled: the credit is given as usual", async () => {
+  it("refunded in part, then cancelled in time: the rest is refunded and the fee is cancelled", async () => {
     const api = services();
     const t = await paid(api, "refund-part-first@example.com", "refund-key-5", classesFrom(9)[0]);
     expect(await refund(api, t.intent, 500)).toEqual({ outcome: "recorded" });
-    expect(await bookingByToken(db, t.manage, publishedClasses())).toMatchObject({ refunded: false, creditBack: true });
-    const out = await cancelByToken(db, t.manage, env, api.fetchImpl);
-    expect(out).toMatchObject({ ok: true, refunded: false });
-    expect(out.ok && out.creditLink).toMatch(/credit=/);
+    expect(await bookingByToken(db, t.manage, publishedClasses())).toMatchObject({ refunded: false, refundBack: true });
+    const out = await cancelByToken(db, t.manage, env, api.fetchImpl, stripe);
+    expect(out).toEqual({ ok: true, creditLink: null, refunded: false, refund: { outcome: "requested", amountPence: 700 } });
+    expect(refundCalls(api)[0].form.get("amount")).toBe("700");
+    expect(await owed(t.charge)).toEqual({ outstanding_pence: 0, voided: true });
   });
 
   it("refunded first, then cancelled from the account: the same", async () => {
@@ -271,17 +322,85 @@ describe("a Stripe refund of a class already cancelled", () => {
     expect(await owed(t.charge)).toEqual({ outstanding_pence: 0, voided: true });
   });
 
-  it("not refunded, cancelled from the account in time: a credit, and the fee stays paid", async () => {
+  it("not refunded, cancelled from the account in time: refunded in full, no credit, and the fee is cancelled", async () => {
     const api = services();
     const t = await paid(api, "no-refund-account@example.com", "refund-key-7", classesFrom(11)[0]);
-    expect(await cancelPaidPlace(db, t.clientId, t.place)).toEqual({ ok: true, data: { credit: true, refunded: false } });
-    expect(await sql("select id from akb_class_credits where source_booking_id = $1", [t.bookingId])).toHaveLength(1);
-    expect(await owed(t.charge)).toEqual({ outstanding_pence: 0, voided: false });
+    const overview = await rpc<{ places: { id: string; how: string; credit_back_if_cancelled: boolean }[] }>(db, "akb_member_overview", { p_client: t.clientId });
+    expect(overview.ok && overview.data.places.find((p) => p.id === t.place)).toMatchObject({ how: "paid", credit_back_if_cancelled: true });
+    expect(await cancelPaidPlace(db, t.clientId, t.place, stripe, env, api.fetchImpl)).toEqual({
+      ok: true,
+      data: { credit: false, refunded: false, refund: { outcome: "requested", amountPence: 1200 } },
+    });
+    expect(await sql("select id from akb_class_credits where source_booking_id = $1", [t.bookingId])).toHaveLength(0);
+    expect(await owed(t.charge)).toEqual({ outstanding_pence: 0, voided: true });
   });
 
   it("the hold release still runs", async () => {
     const r = await rpc<number>(db, "akb_release_class_holds", {});
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("refunds for paid classes cancelled in time (Alex, 2026-11-05)", () => {
+  async function paidBooking(api: ReturnType<typeof services>, email: string, key: string, at: { cls: PublishedClass; date: DateKey }) {
+    const out = await paidCheckout(db, stripe, { name: "Refund Rule", email, phone: "" }, at.cls, at.date, { idempotencyKey: key, env, fetchImpl: api.fetchImpl });
+    if (!out.ok) throw new Error("booking failed");
+    api.stripeApi.pay(await orderFor(out.bookingId), 1200);
+    expect((await deliver(api, await orderFor(out.bookingId))).status).toBe(200);
+    const [row] = await sql("select client_id, attendance_id from akb_class_bookings where id = $1", [out.bookingId]);
+    return { bookingId: out.bookingId, clientId: String(row.client_id), place: String(row.attendance_id) };
+  }
+  const due = async () => {
+    const r = await rpc<string[]>(db, "akb_class_refunds_due", {});
+    return r.ok ? r.data : [];
+  };
+
+  it("Stripe refuses at first: Alex is told once, the daily job retries with the same key, and it's refunded once", async () => {
+    const api = services();
+    const t = await paidBooking(api, "refund-retry@example.com", "refund-rule-1", classesFrom(12)[0]);
+    api.stripeApi.refuseRefunds(500);
+    expect(await cancelPaidPlace(db, t.clientId, t.place, stripe, env, api.fetchImpl)).toEqual({
+      ok: true,
+      data: { credit: false, refunded: false, refund: { outcome: "retry", amountPence: 1200 } },
+    });
+    expect(await due()).toContain(t.bookingId);
+    expect(await retryClassRefunds(db, stripe, env, api.fetchImpl)).toBe(0);
+    const alerts = api.emails.filter((m) => m.to.includes("alex@example.com") && m.subject.startsWith("Refund not made yet"));
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].text).toContain("Refund Rule (refund-retry@example.com)");
+    expect(await owed(await chargeOf(t.bookingId))).toEqual({ outstanding_pence: 0, voided: false });
+
+    api.stripeApi.refuseRefunds(0);
+    expect(await retryClassRefunds(db, stripe, env, api.fetchImpl)).toBe(1);
+    expect(await retryClassRefunds(db, stripe, env, api.fetchImpl)).toBe(0);
+    expect(await due()).not.toContain(t.bookingId);
+    const keys = new Set(refundCalls(api).map((c) => c.headers["Idempotency-Key"]));
+    expect(keys).toEqual(new Set([`class-cancel-refund:${t.bookingId}`]));
+    expect(await owed(await chargeOf(t.bookingId))).toEqual({ outstanding_pence: 0, voided: true });
+    expect((await sql("select sum(r.amount_pence)::int as n from akb_refunds r join akb_payments p on p.id = r.payment_id where p.client_id = $1", [t.clientId]))[0].n).toBe(1200);
+  });
+
+  it("a payment the site can't refund (no Stripe here): Alex is asked to refund it, once, and it isn't retried", async () => {
+    const api = services();
+    const t = await paidBooking(api, "refund-manual@example.com", "refund-rule-2", classesFrom(13)[0]);
+    expect(await cancelPaidPlace(db, t.clientId, t.place, null, env, api.fetchImpl)).toEqual({
+      ok: true,
+      data: { credit: false, refunded: false, refund: { outcome: "manual", amountPence: 1200 } },
+    });
+    expect(api.emails.filter((m) => m.subject === "Refund to make: £12.00")).toHaveLength(1);
+    expect(await refundCancelledClass(db, t.bookingId, null, env, api.fetchImpl)).toEqual({ outcome: "manual", amountPence: 1200 });
+    expect(api.emails.filter((m) => m.subject === "Refund to make: £12.00")).toHaveLength(1);
+    expect(refundCalls(api)).toHaveLength(0);
+  });
+
+  it("cancelled less than 24 hours before: nothing back, no refund", async () => {
+    const api = services();
+    const t = await paidBooking(api, "refund-late@example.com", "refund-rule-3", classesFrom(14)[0]);
+    await sql("update akb_class_sessions set starts_at = now() + interval '5 hours' where id = (select class_session_id from akb_class_attendance where id = $1)", [t.place]);
+    expect(await cancelPaidPlace(db, t.clientId, t.place, stripe, env, api.fetchImpl)).toEqual({ ok: true, data: { credit: false, refunded: false } });
+    expect(refundCalls(api)).toHaveLength(0);
+    expect(await due()).not.toContain(t.bookingId);
+    expect(await owed(await chargeOf(t.bookingId))).toEqual({ outstanding_pence: 0, voided: false });
   });
 });
 

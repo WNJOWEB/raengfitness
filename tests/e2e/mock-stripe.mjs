@@ -1,4 +1,4 @@
-// Stand-in for Stripe during e2e tests: Checkout Sessions and a hosted
+// Stand-in for Stripe during e2e tests: Checkout Sessions, refunds and a hosted
 // "checkout" page. Paying on the page does what Stripe does: marks the session
 // complete and paid, sends a signed checkout.session.completed webhook to the
 // site, then sends the buyer to the session's success_url. Never used in builds
@@ -17,6 +17,8 @@ const setupIntents = new Map(); // setup intent id -> setup intent
 const intents = new Map(); // payment intent id -> payment intent
 const methods = new Map(); // payment method id -> payment method
 const customers = new Map(); // idempotency key -> customer id
+const refunds = new Map(); // refund id -> refund
+const refundByKey = new Map(); // idempotency key -> refund id
 
 const json = (res, status, body) => {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -101,7 +103,22 @@ createServer(async (req, res) => {
   const one = url.pathname.match(/^\/v1\/checkout\/sessions\/([\w-]+)$/);
   if (req.method === "GET" && one) return sessions.has(one[1]) ? json(res, 200, sessions.get(one[1])) : json(res, 404, { error: {} });
   if (req.method === "GET" && url.pathname === "/v1/checkout/sessions") return json(res, 200, { data: [...sessions.values()].filter((s) => s.payment_intent === url.searchParams.get("payment_intent")) });
-  if (req.method === "GET" && url.pathname === "/v1/refunds") return json(res, 200, { data: [] });
+  // Refunds: created at once as succeeded; a repeated Idempotency-Key returns the same refund, as in Stripe.
+  if (req.method === "POST" && url.pathname === "/v1/refunds") {
+    const form = new URLSearchParams(await read(req));
+    const key = String(req.headers["idempotency-key"] ?? `refund-${++n}`);
+    const intent = intents.get(form.get("payment_intent") ?? "");
+    if (!intent) return json(res, 404, { error: { type: "invalid_request_error" } });
+    if (!refundByKey.has(key)) {
+      const id = `re_test_e2e_${++n}`;
+      refunds.set(id, { id, object: "refund", status: "succeeded", payment_intent: intent.id, amount: Number(form.get("amount") ?? intent.amount), currency: "gbp", created: Math.floor(Date.now() / 1000) });
+      refundByKey.set(key, id);
+    }
+    return json(res, 200, refunds.get(refundByKey.get(key)));
+  }
+  const oneRefund = url.pathname.match(/^\/v1\/refunds\/([\w-]+)$/);
+  if (req.method === "GET" && oneRefund) return refunds.has(oneRefund[1]) ? json(res, 200, refunds.get(oneRefund[1])) : json(res, 404, { error: {} });
+  if (req.method === "GET" && url.pathname === "/v1/refunds") return json(res, 200, { data: [...refunds.values()].filter((r) => r.payment_intent === url.searchParams.get("payment_intent")) });
 
   // Stripe's back arrow: the buyer goes to the session's cancel_url without paying.
   const back = url.pathname.match(/^\/checkout\/([\w-]+)\/cancel$/);

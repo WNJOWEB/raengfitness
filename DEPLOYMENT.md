@@ -165,6 +165,15 @@ Owner's decisions (2026-10-27): group classes are booked and paid instantly (1:1
 
 How it behaves: the last step says "Pay £12" (price from `content/services.ts` on the server) and opens Stripe's page; the place counts towards the class's capacity for 15 minutes. Paid in time → confirmed, Alex is emailed ("nothing to confirm") and the booker gets the private link. A payment that arrives after the hold ran out confirms the place if there's still room; otherwise the payment is recorded, the booking is marked `needs_attention` and Alex is emailed to sort it out (refunds stay with Alex). A charge still unpaid a day after its hold is cancelled by the daily renewal job (`akb_release_class_holds`). Booking with a membership plan chosen on the plan list stays a request.
 
+### Refunds when a paid class is cancelled in time (2026-11-05, built; not live)
+
+Alex's rule (2026-11-05): 24 hours' notice is the rule for every cancellation, and a paid class cancelled in time is refunded in full (it used to give a class credit).
+
+1. Apply **`20261124000000_akb_cancel_refund.sql`** after `20261123…` (five columns with defaults on `akb_class_bookings`, one partial index, three new functions, three replaced; no rows changed; safe to run again), **then** deploy. Check: `select has_function_privilege('anon','public.akb_class_refund_info(uuid)','execute')` is false.
+2. No new settings: it uses the live Stripe key already on Production. Stripe needs no change; the refund events it already sends to the webhook are mirrored as before.
+
+How it behaves: cancelling in time refunds the payment through Stripe straight away, and the customer is told the refund is on its way; Alex's cancellation email says it was refunded automatically. If Stripe refuses, the daily job tries again and Alex is emailed once. If the payment was recorded by hand, Alex is emailed "Refund to make" and refunds it himself, then records it in the coach area. Stripe keeps its processing fee on a refunded payment.
+
 ### Accounts for everyone who has paid (2026-10-28, built; not live)
 
 Owner's decision (2026-10-28, "the standard gym flow"): the first paid booking makes the account; no passwords and no separate sign-up. Anyone who has paid (a class booked online, a membership, or a payment Alex recorded) signs in at `/account/sign-in` with the same emailed link members use, and sees their classes, class credits and, for members, the plan and credits. Former members can still sign in.

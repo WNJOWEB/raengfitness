@@ -19,9 +19,17 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 ### Done
 - [x] Offer content (`content/offers.ts`), database rule and booking (`20261123000000_akb_first_class_free.sql`), booking form, timetable and Pay as you go wording, emails, booked page, cancel pages (link and account), unit tests on the real migrations, e2e
 
+- [x] Applied to the live database and deployed (2026-11-05)
+- [x] Alex confirmed the cancellation rule (2026-11-05: the general 24-hour rule)
+- [x] How to claim it said on the site: no code, book with your own email and it's free automatically; "Book your free class" link in Pay as you go
+
+## Cancelling with 24 hours' notice gives everything back (2026-11-05)
+
+### Done
+- [x] Paid classes cancelled 24 hours or more before are refunded in full through Stripe (no class credit); retries daily and emails Alex if Stripe refuses; Alex asked to refund payments recorded by hand. Policy, cancel pages (link and account), emails, booking form and booked email wording. Unit tests on the real migrations, e2e
+
 ### To do
-- [ ] **P0** Apply `20261123000000_akb_first_class_free.sql` to the live database (owner's approval), **then** deploy: until it's applied the site would advertise the offer but charge (it falls back to paying)
-- [ ] **P1** Alex to confirm the cancellation rule for the free class
+- [ ] **P0** Apply `20261124000000_akb_cancel_refund.sql` to the live database (owner's approval), **then** deploy. Deploying first would fail cancellations of paid classes (the site asks for functions that don't exist yet)
 
 ## Alex's website changes (2026-11-05)
 

@@ -2,8 +2,9 @@ import { getService } from "./services";
 
 /**
  * Membership terms and the class cancellation policy, supplied by the owner
- * on 2026-10-21 and published as written. Change the wording here only on
- * the owner's say-so.
+ * on 2026-10-21 and published as written; the 24-hour rule widened to paid
+ * classes and the free first class on 2026-11-05 (Alex). Change the wording
+ * here only on the owner's say-so.
  */
 export const membershipTerms = [
   "Class credits can be used across any available Monday, Wednesday or Saturday class.",
@@ -20,21 +21,25 @@ export const cancellationPolicy = {
     {
       when: "24 hours or more before class",
       outcome:
-        "Your class credit will be returned to your account, allowing you to book another session within your current membership period.",
+        "Your class credit will be returned to your account, allowing you to book another session within your current membership period. If you paid for the class, your payment will be refunded in full. A free first class can be booked again for another date.",
     },
-    { when: "Less than 24 hours before class", outcome: "Your class credit will be forfeited." },
+    { when: "Less than 24 hours before class", outcome: "Your class credit, payment or free first class will be forfeited." },
     {
       when: "No-shows",
-      outcome: "Failure to attend a booked class without cancelling will result in the credit being forfeited.",
+      outcome: "Failure to attend a booked class without cancelling will result in the credit, payment or free first class being forfeited.",
     },
   ],
   credits:
     "Returned credits must be used within your current four-week membership period. Unused credits expire at the end of the membership period and cannot be carried over.",
   coachCancellations:
     "If a class is cancelled by the coach, your credit will be returned to your account or an alternative session will be offered. If you paid for that class by card and can't make another date, we'll refund your payment to your card.",
-  /** Refunds (Alex's choice B, via the owner, 2026-11-02): no cash refunds, except these. */
+  /**
+   * Refunds (Alex's choice B, via the owner, 2026-11-02), plus the general
+   * 24-hour rule (Alex, 2026-11-05): a class paid for and cancelled 24 hours
+   * or more before is refunded in full.
+   */
   refunds:
-    "We don't give cash refunds for late cancellations, missed classes or a membership period that has started. If we cancel a class you paid for and you can't make another date, we refund it to your card, and a payment taken in error is always refunded.",
+    "Cancel a class you paid for 24 hours or more before and we refund it in full to the card you paid with. We don't give refunds for late cancellations, missed classes or a membership period that has started. If we cancel a class you paid for and you can't make another date, we refund it to your card, and a payment taken in error is always refunded.",
   agreement: "By booking a class, you agree to these cancellation terms.",
   thanks: "Thank you for your understanding and cooperation.",
 } as const;

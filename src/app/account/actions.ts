@@ -39,6 +39,7 @@ import {
 import { deviceLabel, labelSession } from "@/lib/member-settings";
 import { requireMember } from "@/lib/member-session";
 import { sendNotice } from "@/lib/notices";
+import { refundSentence, refundSentenceForAlex } from "@/lib/class-refunds";
 import { pauseErrorCode, pauseOwnMembership, undoOwnPause } from "@/lib/membership-pause";
 import { afterPlacesChange, joinWaitlistAsMember, leaveWaitlistAsMember, waitlistReason } from "@/lib/waitlist";
 import { DONE } from "./data";
@@ -210,24 +211,27 @@ export async function bookClass(formData: FormData): Promise<void> {
 
 /**
  * Cancels one of the customer's own places. Late cancellations are confirmed
- * on the page first. A membership-credit place gets its credit back (24 hours
- * or more before); a paid place gets a class credit (same rule).
+ * on the page first. 24 hours or more before, everything comes back (Alex,
+ * 2026-11-05): a membership credit, a card payment (refunded in full), a
+ * class credit, or the free first class.
  */
 export async function cancelClass(formData: FormData): Promise<void> {
   const member = await requireMember();
   const id = text(formData, "place");
   if (!isUuid(id)) redirect(`${back(formData)}?error=not_found`);
   const paid = text(formData, "paid") === "yes";
-  const result = paid ? await cancelPaidPlace(member.db, member.clientId, id) : await cancelPlace(member.db, member.clientId, id);
+  const result = paid ? await cancelPaidPlace(member.db, member.clientId, id, stripeConfig()) : await cancelPlace(member.db, member.clientId, id);
   if (!result.ok) redirect(`${back(formData)}?error=${errorFor(result)}`);
-  // For a paid place: whether a class credit was given, or the payment had been refunded. For a membership place: whether it was late (credit used).
+  // For a paid place: refunded, a class credit given, or already refunded. For a membership place: whether it was late (credit used).
   const outcome =
     result.data === true ? "cancelled_late"
     : result.data === false ? "cancelled"
     : result.data.firstClassFree ? (result.data.freeClassBack ? "cancelled_free_back" : "cancelled_free_used")
+    : result.data.refund ? (result.data.refund.outcome === "manual" ? "cancelled_refund_manual" : "cancelled_refund")
     : result.data.credit ? "cancelled_credit"
     : result.data.refunded ? "cancelled_paid_refunded"
     : "cancelled_paid_late";
+  const refund = typeof result.data === "object" ? result.data.refund : undefined;
   // The emails go after the reply (the lookups for them too), and a freed place is offered to the waitlist.
   after(async () => {
     await afterPlacesChange(member.db);
@@ -235,12 +239,13 @@ export async function cancelClass(formData: FormData): Promise<void> {
     const who = await whoIs(member);
     if (who) {
       const when = (await placeWhen(member.db, id, publishedClasses())) ?? "your class";
-      const effect = DONE[outcome] ?? "Cancelled.";
+      const effect = refund ? `Cancelled. ${refundSentence(refund.outcome, refund.amountPence)}` : (DONE[outcome] ?? "Cancelled.");
+      const forAlex = refund ? refundSentenceForAlex(refund.outcome, refund.amountPence) : effect;
       await sendNotice({
         label: "member-cancel",
         key: `member-cancel/${id}/${minute()}`,
         customer: { email: who.email, subject: `Cancelled: ${when}`, text: `Your place on the group class on ${when} is cancelled.\n\n${effect}` },
-        alex: { subject: `Class cancelled: ${who.name}, ${when}`, text: `${who.name} (${who.email}) cancelled their place on the group class on ${when}.\n\n${effect}` },
+        alex: { subject: `Class cancelled: ${who.name}, ${when}`, text: `${who.name} (${who.email}) cancelled their place on the group class on ${when}.\n\n${forAlex}` },
       });
     }
     } catch {

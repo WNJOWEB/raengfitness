@@ -45,7 +45,7 @@ export function ClassPicker({ className, location = true, button = true }: { cla
         external={cta.external}
         classHrefBase={bookable ? `${cta.href}?class=` : null}
         showBook={button}
-        beginners={isPublishable(firstClassFree.status) ? `${firstClassFree.headline} for new customers.` : beginners && isPublishable(beginners.status) ? firstClassSteps.beginners : null}
+        beginners={isPublishable(firstClassFree.status) ? firstClassFree.short : beginners && isPublishable(beginners.status) ? firstClassSteps.beginners : null}
       />
       {location ? <StudioLocation /> : null}
     </div>

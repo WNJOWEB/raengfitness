@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { timetable } from "../../src/content/classes";
@@ -110,7 +111,7 @@ test.describe("booking a group class and paying online", () => {
     const payg = page.locator("#pay-as-you-go");
     await expect(payg).toContainText("Your first class is free.");
     await expect(payg).toContainText("New customers only: one free group class per person");
-    await expect(page.locator("#timetable")).toContainText("Your first class is free for new customers.");
+    await expect(page.locator("#timetable")).toContainText("Your first class is free for new customers: just book any class and it's free automatically.");
   });
 
   test("the class screen shows the price and what a membership would save before you continue", async ({ page }) => {
@@ -180,21 +181,39 @@ test.describe("booking a group class and paying online", () => {
     // Opening the link changes nothing; pressing Cancel does.
     await page.goto(`${PAY}${manage}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
-    await expect(page.getByText(/cancelling now gives you a credit/)).toBeVisible();
+    await expect(page.getByText("It's 24 hours or more before the class, so if you cancel now your payment is refunded in full.")).toBeVisible();
     // Contrast is measured on the finished page, not mid fade-in.
     await page.addStyleTag({ content: "*,*::before,*::after{transition:none!important;animation:none!important}[data-reveal]{opacity:1!important;transform:none!important}" });
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await page.getByRole("button", { name: "Cancel my place" }).click();
     await expect(page.getByText("Your place is cancelled.")).toBeVisible();
-    const credit = page.getByRole("link", { name: "Book with your credit" });
-    const href = await credit.getAttribute("href");
-    expect(href).toMatch(/\/book\/group-class\?credit=[A-Za-z0-9_-]{43}$/);
-    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject === "Your class credit")).toBe(true);
-    await expect.poll(async () => (await emailsTo(request, "alex-e2e@example.com")).some((e) => e.payload.subject.startsWith("Class cancelled: Class Payer"))).toBe(true);
+    // Cancelled in time (Alex, 2026-11-05): refunded in full through Stripe, no class credit, and the fee is cancelled.
+    await expect(page.getByText("We're refunding your £12.00 to the card you paid with.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Book with your credit" })).toHaveCount(0);
+    await expect.poll(async () => (await emailsTo(request, email)).some((e) => e.payload.subject.startsWith("Cancelled and refunded: "))).toBe(true);
+    await expect
+      .poll(async () => (await emailsTo(request, "alex-e2e@example.com")).find((e) => e.payload.subject.startsWith("Class cancelled: Class Payer"))?.payload.text ?? "")
+      .toContain("refunded automatically");
+    expect(await sql(request, "select count(*)::int as n from akb_class_credits c join akb_clients p on p.id = c.client_id where p.email = $1", [email])).toEqual([{ n: 0 }]);
+    expect(
+      await sql(
+        request,
+        "select r.amount_pence, (select voided_at is not null from akb_charges where id = b.charge_id) as voided from akb_refunds r join akb_payments p on p.id = r.payment_id join akb_clients c on c.id = p.client_id join akb_class_bookings b on b.client_id = c.id where c.email = $1",
+        [email],
+      ),
+    ).toEqual([{ amount_pence: 1200, voided: true }]);
 
-    // The credit link: nothing to pay, booked straight away, with no Stripe page.
-    await toDetails(page, href!, 1, "Class Payer", `other-${email}`);
+    // A class credit link they still hold (credits were given until 2026-11-05): nothing to pay, booked straight away, no Stripe page.
+    const creditToken = randomBytes(32).toString("base64url");
+    await sql(
+      request,
+      "insert into akb_class_credits (client_id, source_booking_id, expires_on, token_hash) select b.client_id, b.id, akb_london_today() + 28, encode(sha256(convert_to($2, 'UTF8')), 'hex') from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1",
+      [email, creditToken],
+    );
+    const href = `${PAY}/book/group-class?credit=${creditToken}`;
+    await toDetails(page, href, 1, "Class Payer", `other-${email}`);
     await expect(page.getByText("Booking with your class credit: nothing to pay.")).toBeVisible();
+    await expect(page.getByText("you'll get your class credit back", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Book with your credit" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
@@ -207,7 +226,7 @@ test.describe("booking a group class and paying online", () => {
     ]);
 
     // A used credit can't be used again: the form says so and offers to pay instead.
-    await toDetails(page, href!, 2, "Class Payer", email);
+    await toDetails(page, href, 2, "Class Payer", email);
     await page.getByRole("button", { name: "Book with your credit" }).click();
     await expect(page.getByText("This class credit has been used or has expired.").first()).toBeVisible();
     await page.getByRole("button", { name: "Pay £12 instead" }).click();
