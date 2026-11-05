@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { submitBookingRequest } from "@/app/book/actions";
 import {
   BOOKABLE_SERVICES,
@@ -621,7 +621,15 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                     });
                     return;
                   }
-                  if (demo) setDemoDone(true);
+                  if (demo) {
+                    setDemoDone(true);
+                    return;
+                  }
+                  // Sent by hand, not by React's form action, so the form isn't reset afterwards: when the server
+                  // answers "you've trained here before" the tick and choices must still be there for Continue to payment.
+                  e.preventDefault();
+                  const data = new FormData(e.currentTarget);
+                  startTransition(() => formAction(data));
                 }}
                 className="mt-6 space-y-8"
               >
