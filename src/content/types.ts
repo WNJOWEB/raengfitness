@@ -24,6 +24,10 @@ export interface ClassSession {
   start: TimeOfDay;
   /** Leave undefined until the client confirms class length. */
   durationMinutes?: number;
+  /** The class's own name, e.g. "KB HIIT". Falls back to the generic group class name. */
+  name?: string;
+  /** One line on what the class is. */
+  description?: string;
 }
 
 export interface Timetable {
@@ -40,6 +44,8 @@ export interface Price {
   /** Shown after the amount, e.g. "per session". */
   unit: string;
   label: string;
+  /** A line under the price explaining what it covers. */
+  description?: string;
 }
 
 export interface Service {

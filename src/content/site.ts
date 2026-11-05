@@ -104,16 +104,13 @@ export const site = {
     contact: { src: "/images/training/bell-hold.jpg", width: 720, height: 900, alt: "Holding a kettlebell at chest height in a gym" },
   } as Record<"classes" | "coaching" | "contact", Photo | null>,
 
-  /** Genuine photos of Alex / his coaching only. Empty until supplied. */
+  /**
+   * Genuine photos of Alex / his coaching only. Empty until supplied. The
+   * personal portrait that was used in the About section was removed on
+   * 2026-11-05 at Alex's request (the About section is now about the brand).
+   */
   photos: {
     hero: null as Photo | null,
-    // Supplied by the project owner 2026-10-17; cut by scripts/supplied_photos.py.
-    about: {
-      src: "/images/alex/about.jpg",
-      width: 720,
-      height: 900,
-      alt: "Alex standing in the gym among kettlebells",
-    } as Photo | null,
   },
 } as const;
 
@@ -125,14 +122,14 @@ export const site = {
 export const mainNav = [
   { label: "Why kettlebells", href: "/#why-kettlebells" },
   { label: "Ways to train", href: "/#ways-to-train" },
-  { label: "About Alex", href: "/#about" },
+  { label: "About RAENG", href: "/#about" },
   { label: "How to book", href: "/#how-to-book" },
 ] as const;
 
 /** Extra pages listed in the phone menu and footer, after mainNav. */
 export const pageNav = [
   { label: "Group classes", href: "/classes" },
-  { label: "One-to-one & online", href: "/coaching" },
+  { label: "1:1 & small group", href: "/coaching" },
   { label: "Online coaching", href: "/online-coaching" },
   { label: "Contact", href: "/contact" },
 ] as const;

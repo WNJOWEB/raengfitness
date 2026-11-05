@@ -3,11 +3,12 @@ import { pageMetadata } from "@/lib/metadata";
 import { BookingPage } from "@/components/booking/BookingPage";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Book a One-to-One Session",
-  description: "Book an individual kettlebell coaching session with Alex at Media House, Cumbernauld.",
+  title: "Book 1:1 Personal Coaching",
+  description:
+    "Request a single 1:1 session or the monthly package with Alex at Media House, Cumbernauld. Alex confirms every booking personally.",
   path: "/book/one-to-one",
 });
 
 export default function BookOneToOnePage() {
-  return <BookingPage title="Book a one-to-one" initialService="one-to-one" />;
+  return <BookingPage title="Book 1:1 personal coaching" initialService="one-to-one" />;
 }

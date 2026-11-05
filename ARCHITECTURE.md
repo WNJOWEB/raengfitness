@@ -100,8 +100,9 @@ the development container.
 `scripts/supplied_photos.py` (Python + Pillow, run manually) crops the
 photos in `assets/journey/` to 4:5 (the before/after pair with matching
 framing), resizes them to 720×900 and applies the hero video's black-and-white
-grade, writing `public/journey/before.jpg`, `after.jpg` and
-`public/images/alex/about.jpg` (committed).
+grade, writing `public/journey/before.jpg` and `after.jpg` (committed). It still lists the
+About portrait (`public/images/alex/about.jpg`), which was removed from the
+site 2026-11-05.
 
 ### Hero video
 

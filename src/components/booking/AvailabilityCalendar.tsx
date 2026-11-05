@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { formatLongDate, formatMonth, fromDateKey, monthGrid, monthKey, type DateKey } from "@/lib/availability/dates";
 import { dayStatus, type AvailabilityWindow, type DayStatus } from "@/lib/availability/types";
+import { formatSpaces } from "@/lib/class-spaces";
 import { formatTime } from "@/lib/schedule";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -127,12 +128,12 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
           {date ? formatLongDate(date) : "Times"}
         </legend>
         {chosenDay ? (
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-1">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
             {chosenDay.slots.map((slot) => (
               <label
                 key={slot.id}
                 className={cn(
-                  "flex min-h-12 items-center justify-between gap-2 border px-4 text-sm font-semibold transition-colors duration-150",
+                  "flex min-h-12 items-center justify-between gap-2 border px-4 py-2 text-sm font-semibold transition-colors duration-150",
                   slot.available
                     ? "cursor-pointer border-muted bg-white hover:border-ink has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-paper"
                     : "cursor-not-allowed border-line text-muted",
@@ -148,8 +149,14 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                   onChange={() => onSlot(slot.id)}
                   className="sr-only"
                 />
-                <span>{formatTime(slot.time)}</span>
-                {!slot.available ? <span className="text-xs font-normal">Full</span> : null}
+                <span className="min-w-0">
+                  <span className="block">{formatTime(slot.time)}</span>
+                  {slot.name ? <span className="block text-xs font-normal">{slot.name}</span> : null}
+                  {slot.places ? (
+                    <span className="mt-0.5 block text-xs font-normal">{formatSpaces(slot.places)}</span>
+                  ) : null}
+                </span>
+                {!slot.available && !slot.places ? <span className="text-xs font-normal">Full</span> : null}
               </label>
             ))}
           </div>

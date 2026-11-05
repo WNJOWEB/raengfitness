@@ -1,5 +1,6 @@
 import type { TimeOfDay } from "@/content/types";
 import type { BookableService } from "@/lib/booking-options";
+import type { ClassPlaces } from "../class-spaces";
 import type { DateKey } from "./dates";
 
 /**
@@ -12,6 +13,10 @@ export interface Slot {
   id: string;
   time: TimeOfDay;
   available: boolean;
+  /** Group classes: the class's own name, e.g. "KB HIIT". */
+  name?: string;
+  /** Group classes: places left, when known. */
+  places?: ClassPlaces;
 }
 
 /** Days with no sessions at all are omitted. */

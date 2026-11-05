@@ -35,13 +35,15 @@ export const ONLINE_COACHING_HREF = "/online-coaching";
 const LABELS: Record<BookableService | "any", string> = {
   any: "Book your session",
   "group-class": "Book your class",
-  "one-to-one": "Book a one-to-one",
+  "one-to-one": "Book now",
+  "small-group": "Enquire about small group coaching",
 };
 
 const PATHS: Record<BookableService | "any", string> = {
   any: BOOK_PAGE_HREF,
   "group-class": "/book/group-class",
   "one-to-one": "/book/one-to-one",
+  "small-group": "/book/small-group",
 };
 
 /**

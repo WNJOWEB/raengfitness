@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClassSession, listAttendance } from "@/lib/coach/bookings";
-import { CLASS_NAME, classDurationMinutes, defaultPrices, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
+import { CLASS_NAME, classCapacity, classDurationMinutes, defaultPrices, findSlot, isTimetableClass, occurrence } from "@/lib/coach/classes";
 import { listClients } from "@/lib/coach/clients";
 import { portalContext } from "@/lib/coach/context";
 import { collect } from "@/lib/coach/db";
@@ -63,7 +63,7 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
   const onList = new Set(places.data.map((p) => p.client_id));
   const addable = clients.filter((c) => !onList.has(c.id) && c.status !== "former").sort((a, b) => a.full_name.localeCompare(b.full_name));
   const booked = places.data.filter((p) => p.status === "booked" || p.status === "attended").length;
-  const full = row?.capacity ? booked >= row.capacity : false;
+  const full = booked >= classCapacity(row);
   const classValue = `${date}|${slot.id}`;
 
   return (
@@ -77,7 +77,7 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
           </span>
           <span className="tabular-nums">
             · {booked}
-            {row?.capacity ? ` of ${row.capacity}` : ""} booked
+            {` of ${classCapacity(row)}`} booked
           </span>
           {full ? <Badge tone="strong">Full</Badge> : null}
           {date < today ? <Badge tone="muted">Past</Badge> : null}
@@ -161,7 +161,7 @@ async function ClassView({ params }: { params: PageProps<"/coach/classes/[date]/
           <Panel title="Class settings" id="settings-heading">
             <ActionForm action={updateClassAction} label="Class settings">
               <input type="hidden" name="class" value={classValue} />
-              <Field name="capacity" label="Capacity" type="number" inputMode="numeric" min={1} max={200} defaultValue={row?.capacity ?? ""} hint="Leave empty for no limit." />
+              <Field name="capacity" label="Capacity" type="number" inputMode="numeric" min={1} max={200} defaultValue={row?.capacity ?? ""} hint="Leave empty to use the usual capacity (15)." />
               <TextArea name="notes" label="Admin notes" defaultValue={row?.notes ?? ""} rows={3} maxLength={1000} />
               <div>
                 <SubmitButton variant="secondary">Save</SubmitButton>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { site } from "@/content/site";
-import type { Photo } from "@/content/types";
 import { pageMetadata } from "@/lib/metadata";
 import { getPrimaryCta } from "@/lib/booking";
 import { cn } from "@/lib/cn";
@@ -122,9 +121,21 @@ function Benefits() {
 }
 
 
+/**
+ * About RAENG: the brand, its identity and values: not the coach. Alex's
+ * portrait and coach biography were removed 2026-11-05 at his request. The
+ * values restate what the site already says about how the coaching works
+ * (personal, technique-led, structured, supportive); Alex to review the wording.
+ */
+const values = [
+  { title: "Personal", body: "Coaching shaped around your goals, experience and ability." },
+  { title: "Technique first", body: "Learn the key movements properly, with guidance and feedback." },
+  { title: "Progressive", body: "Structured training that builds strength, fitness and confidence." },
+  { title: "Supportive", body: "A welcoming environment, whatever your level." },
+];
+
 function About() {
-  // Alex's portrait leads the row; it stays three photos either way.
-  const stills = [site.photos.about, ...site.trainingStills].filter((p): p is Photo => p !== null).slice(0, 3);
+  const stills = site.trainingStills.slice(0, 3);
   const { instagram } = site.social;
   return (
     <Section id="about" labelledBy="about-heading">
@@ -132,17 +143,25 @@ function About() {
         <div className="lg:col-span-5">
           <SectionHeading
             id="about-heading"
-            eyebrow="About Alex"
-            title="Coached by Alex"
+            eyebrow="About RAENG"
+            title="Strength, technique, confidence"
             intro={
               <p>
-                Alex Robertson is a kettlebell coach based in Cumbernauld, running group classes and
-                one-to-one sessions at {site.location.venue}, and coaching people further afield
-                online.
+                RAENG is kettlebell coaching in {site.location.town}, built around personal attention, good technique
+                and steady progression. In a group, a small group or one to one, the aim is the same: help you get
+                stronger, move better and feel more confident.
               </p>
             }
           />
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <dl className="mt-8 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+            {values.map((v) => (
+              <div key={v.title} className="border-t border-line py-4">
+                <dt className="font-display text-base">{v.title}</dt>
+                <dd className="mt-1 text-sm text-muted">{v.body}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
             <ButtonLink href={instagram.url} external variant="secondary">
               Follow {instagram.handle}
             </ButtonLink>

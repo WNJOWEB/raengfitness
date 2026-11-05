@@ -37,9 +37,9 @@ describe("class dates", () => {
   it("lists classes in time order from the one timetable", () => {
     const week = classOccurrences("2026-10-19", "2026-10-25");
     expect(week.map((c) => `${c.date} ${c.slot.id}`)).toEqual(["2026-10-19 mon-evening", "2026-10-21 wed-evening", "2026-10-24 sat-morning"]);
-    // 10:15 UK time is 09:15 UTC in October (BST) and 10:15 UTC in November (GMT).
-    expect(week[2].startsAt).toBe("2026-10-24T09:15:00.000Z");
-    expect(classOccurrences("2026-11-07", "2026-11-07")[0].startsAt).toBe("2026-11-07T10:15:00.000Z");
+    // 09:00 UK time is 08:00 UTC in October (BST) and 09:00 UTC in November (GMT).
+    expect(week[2].startsAt).toBe("2026-10-24T08:00:00.000Z");
+    expect(classOccurrences("2026-11-07", "2026-11-07")[0].startsAt).toBe("2026-11-07T09:00:00.000Z");
   });
 });
 

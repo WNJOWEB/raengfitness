@@ -68,7 +68,7 @@ Coach portal (`/coach/*`, signed in, never indexed): Dashboard, Requests, Client
 | Vector (SVG) logo | Not available — the JPG is the only version | Don't request again; derived PNGs are the master web assets |
 | Hero video (9 clips, 8.3 s, B&W, silent, 4:5; opens on the group class) | Generated 2026-10-15 from Alex's reel | `public/media/hero.webm`, `hero.mp4`, `hero-poster.jpg`; configured as `site.heroVideo`. Regenerate with `scripts/hero_video.py` (source reel not committed — 30 MB) |
 | Hero photo of Alex coaching | Not needed while the video is set | `public/images/`, set `site.photos.hero` |
-| About photo | Supplied 2026-10-17 | `public/images/alex/about.jpg` (`site.photos.about`), first in the About row |
+| About photo | Removed 2026-11-05 at Alex's request | The About section is about the brand and shows the training stills only |
 
 Regenerate all derived logo files with `python3 scripts/brand_assets.py` (needs Pillow) if the source changes.
 

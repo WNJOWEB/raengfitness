@@ -1,9 +1,13 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
 import { formatAddressLines, mapsUrl, site } from "@/content/site";
 import { bookingMode, parseBookingUrl } from "@/lib/booking";
 import type { BookableService } from "@/lib/booking-options";
 import { groupClass } from "@/content/classes";
 import { getService } from "@/content/services";
 import { publishedClasses } from "@/lib/class-sessions";
+import { bookingSpacesWindow, loadClassSpaces } from "@/lib/class-spaces-server";
+import type { OneToOneOption } from "@/lib/booking-options";
 import { publishable } from "@/lib/publish";
 import { formatGbp } from "@/lib/schedule";
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -23,6 +27,17 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
   const price = publishable(getService("group-classes").prices)[0];
   const classInfo: ClassInfo = { ...groupClass, price: price ? `${formatGbp(price.amountGbp)} ${price.unit}` : "" };
 
+  // 1:1 options with their published prices.
+  const oneToOnePrices = publishable(getService("one-to-one").prices);
+  const priceText = (i: number) => {
+    const p = oneToOnePrices[i];
+    return p ? `${formatGbp(p.amountGbp)} ${p.unit}` : undefined;
+  };
+  const optionPrices: Partial<Record<OneToOneOption, string>> = {
+    ...(priceText(0) ? { single: priceText(0) } : {}),
+    ...(priceText(1) ? { monthly: priceText(1) } : {}),
+  };
+
   const intro =
     mode === "demo"
       ? initialService
@@ -30,7 +45,7 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
         : "Choose a service, then a date and time."
       : mode === "request"
         ? `${initialService ? "Choose when suits you." : "Choose a service, then when suits you."} Alex confirms every place personally.`
-        : "Group classes and one-to-one coaching at Media House, Cumbernauld.";
+        : "Group classes, 1:1 personal coaching and small group coaching at Media House, Cumbernauld.";
 
   return (
     <section aria-labelledby="book-heading" className="bg-paper">
@@ -67,13 +82,26 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
                   Booking needs JavaScript. You can also message Alex on Instagram ({site.social.instagram.handle}).
                 </p>
               </noscript>
-              <BookingWizard mode={mode} initialService={initialService} classes={publishedClasses()} classInfo={classInfo} />
+              {mode === "request" ? (
+                // Places left per class date are read per request, so the wizard waits for them.
+                <Suspense fallback={<p className="text-muted" role="status">Loading…</p>}>
+                  <WizardWithSpaces initialService={initialService} classInfo={classInfo} optionPrices={optionPrices} />
+                </Suspense>
+              ) : (
+                <BookingWizard
+                  mode={mode}
+                  initialService={initialService}
+                  classes={publishedClasses()}
+                  classInfo={classInfo}
+                  optionPrices={optionPrices}
+                />
+              )}
             </>
           ) : (
             <div className="max-w-2xl">
               <InstagramFallback>
-                Online booking isn&apos;t open yet. To book a class or a one-to-one session, send Alex a message on
-                Instagram.
+                Online booking isn&apos;t open yet. To book a class, ask about 1:1 or small group coaching, send Alex a
+                message on Instagram.
               </InstagramFallback>
             </div>
           )}
@@ -87,5 +115,34 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
         </p>
       </div>
     </section>
+  );
+}
+
+/**
+ * The request-mode wizard with the places left on each class date (counts
+ * only), so a full class can't be chosen. When places can't be read, no counts
+ * are shown and no date is blocked.
+ */
+async function WizardWithSpaces({
+  initialService,
+  classInfo,
+  optionPrices,
+}: {
+  initialService?: BookableService;
+  classInfo: ClassInfo;
+  optionPrices: Partial<Record<OneToOneOption, string>>;
+}) {
+  await connection();
+  const { from, to } = bookingSpacesWindow();
+  const spaces = await loadClassSpaces(from, to);
+  return (
+    <BookingWizard
+      mode="request"
+      initialService={initialService}
+      classes={publishedClasses()}
+      classInfo={classInfo}
+      spaces={spaces}
+      optionPrices={optionPrices}
+    />
   );
 }

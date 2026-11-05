@@ -8,15 +8,20 @@ import { submitBookingRequest } from "@/app/book/actions";
 import {
   BOOKABLE_SERVICES,
   BOOKING_EXPERIENCE,
+  ONE_TO_ONE_OPTIONS,
   PREFERRED_DAYS,
   PREFERRED_TIMES,
   labelFor,
   type BookableService,
+  type OneToOneOption,
 } from "@/lib/booking-options";
+import { availabilityWording } from "@/content/coaching";
+import { classSpacesKey, formatSpaces, type ClassSpaces } from "@/lib/class-spaces";
 import { describePreferences, initialFormState, type BookingField, type FieldErrors, type FormState } from "@/lib/booking-request";
 import { emailError, messageError, nameError, phoneError } from "@/lib/form-validation";
 import { formatLongDate, formatShortDate, fromDateKey, toDateKey, weekdayIndex, type DateKey } from "@/lib/availability/dates";
 import { classAvailability } from "@/lib/availability/timetable";
+import type { ClassPlaces } from "@/lib/class-spaces";
 import type { AvailabilityWindow } from "@/lib/availability/types";
 import type { PublishedClass } from "@/lib/class-sessions";
 import { addMinutes, formatTime } from "@/lib/schedule";
@@ -59,6 +64,10 @@ interface BookingWizardProps {
   classes: PublishedClass[];
   /** Shown once a class date is chosen, like Alex's own class listing. */
   classInfo: ClassInfo;
+  /** Places left per class date; null when they can't be read (no counts are shown then). */
+  spaces?: ClassSpaces | null;
+  /** The published 1:1 prices, e.g. { single: "£35 per session", monthly: "£130 per month · 4 sessions" }. Empty when none can be published. */
+  optionPrices?: Partial<Record<OneToOneOption, string>>;
 }
 
 export interface ClassInfo {
@@ -81,7 +90,7 @@ const subscribe = () => () => {};
 const getToday = () => toDateKey(new Date());
 const getServerToday = () => null;
 
-export function BookingWizard({ mode, initialService, classes, classInfo }: BookingWizardProps) {
+export function BookingWizard({ mode, initialService, classes, classInfo, spaces = null, optionPrices = {} }: BookingWizardProps) {
   const demo = mode === "demo";
   const initialStep = initialService ? 1 : 0;
   const [step, setStepState] = useState(initialStep);
@@ -129,6 +138,8 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
   // Request preferences
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
+  // 1:1 coaching: a single session or the monthly package
+  const [option, setOption] = useState<OneToOneOption | "">("");
   // Details
   const [details, setDetails] = useState<Details>({ experience: BOOKING_EXPERIENCE[0].value, name: "", email: "", phone: "", message: "" });
   const [clientErrors, setClientErrors] = useState<FieldErrors>({});
@@ -149,7 +160,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
       ? loaded.window
       : null
     : usesSessions && today
-      ? classAvailability(classes, today)
+      ? classAvailability(classes, today, spaces)
       : null;
   const chosenSlot = avail?.days.find((d) => d.date === date)?.slots.find((s) => s.id === slotId && s.available) ?? null;
   const chosenClass =
@@ -209,8 +220,15 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
 
   const serviceLabel = service ? labelFor(BOOKABLE_SERVICES, service) : "";
   const noun = service === "group-class" ? "class" : "session";
+  const optionLabel = option ? labelFor(ONE_TO_ONE_OPTIONS, option) : "";
+  const enquiry = service === "small-group";
 
-  const whenComplete = demo ? chosenSlot !== null : usesSessions ? chosenClass !== null : days.length > 0;
+  const needsOption = !demo && service === "one-to-one";
+  const whenComplete = demo
+    ? chosenSlot !== null
+    : usesSessions
+      ? chosenClass !== null
+      : days.length > 0 && (!needsOption || option !== "");
   const whenText = calendar
     ? chosenSlot && date
       ? `${formatShortDate(date)} · ${formatTime(chosenSlot.time)}`
@@ -227,6 +245,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
 
   const chooseService = (value: string) => {
     void loadCalendar();
+    if (value !== service) setOption("");
     setService(value as BookableService);
     setDate(null);
     setSlotId(null);
@@ -270,6 +289,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
         when={whenText}
         longWhen={calendar && date && chosenSlot ? `${formatLongDate(date)} at ${formatTime(chosenSlot.time)}` : whenText}
         email={demo ? details.email.trim() : serverState.message}
+        enquiry={enquiry}
         onRestart={reset}
       />
     );
@@ -283,6 +303,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
       demo={demo}
       rows={[
         { label: "Service", value: serviceLabel, step: 0 },
+        ...(needsOption ? [{ label: "Option", value: optionLabel, step: 1 }] : []),
         { label: calendar ? "Date & time" : "When", value: whenText, step: 1 },
       ]}
       currentStep={step}
@@ -301,6 +322,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
               demo={demo}
               items={[
                 { label: "Service", value: serviceLabel, step: 0 },
+                ...(step > 1 && needsOption ? [{ label: "Option", value: optionLabel, step: 1 }] : []),
                 ...(step > 1 ? [{ label: calendar ? "Date & time" : "When", value: whenText, step: 1 }] : []),
               ]}
               onEdit={setStep}
@@ -351,7 +373,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
                     ? undefined
                     : usesSessions
                       ? "Pick a date. Alex confirms every place personally."
-                      : "Tell Alex when suits you and he'll reply with a confirmed time."
+                      : availabilityWording
                 }
               >
                 <span id="step-heading">
@@ -385,10 +407,32 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
                         Loading {demo ? "availability" : "class dates"}…
                       </p>
                     )}
-                    {chosenClass && date ? <ClassDetails info={classInfo} date={date} session={chosenClass} /> : null}
+                    {chosenClass && date ? (
+                      <ClassDetails
+                        info={classInfo}
+                        date={date}
+                        session={chosenClass}
+                        places={spaces?.[classSpacesKey(date, chosenClass.id)]}
+                      />
+                    ) : null}
                   </>
                 ) : (
                   <>
+                    {needsOption ? (
+                      <ChoiceGroup
+                        type="radio"
+                        name="option"
+                        legend="Which option are you interested in?"
+                        options={ONE_TO_ONE_OPTIONS.map((o) => ({
+                          value: o.value,
+                          label: o.label,
+                          ...(optionPrices[o.value] ? { detail: optionPrices[o.value] } : {}),
+                        }))}
+                        value={option}
+                        onChange={(v) => setOption(v as OneToOneOption)}
+                        error={errors.option}
+                      />
+                    ) : null}
                     <ChoiceGroup
                       type="checkbox"
                       name="days"
@@ -423,7 +467,9 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
                       ? date
                         ? "Choose a time to continue."
                         : "Choose a date to continue."
-                      : "Choose at least one day to continue."
+                      : needsOption && !option
+                        ? "Choose an option to continue."
+                        : "Choose at least one day to continue."
                 }
               />
             </section>
@@ -515,6 +561,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
 
                 {/* The visitor's choices from earlier steps travel with the details. */}
                 <input type="hidden" name="service" value={service} />
+                {needsOption && option ? <input type="hidden" name="option" value={option} /> : null}
                 {chosenClass && date ? (
                   <>
                     <input type="hidden" name="session" value={chosenClass.label} />
@@ -525,10 +572,10 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
                 {!demo && !usesSessions ? times.map((t) => <input key={t} type="hidden" name="times" value={t} />) : null}
                 <SubmissionMeta meta={meta} />
 
-                <PrivacyLine action={demo ? "continuing" : "sending this request"} />
+                <PrivacyLine action={demo ? "continuing" : enquiry ? "sending this enquiry" : "sending this request"} />
                 <ActionBar
                   onBack={() => setStep(1)}
-                  next={{ label: demo ? "Finish demo" : "LET'S GET TO WORK", type: "submit", pending }}
+                  next={{ label: demo ? "Finish demo" : enquiry ? "Send enquiry" : "LET'S GET TO WORK", type: "submit", pending }}
                 />
               </form>
             </section>
@@ -544,7 +591,17 @@ export function BookingWizard({ mode, initialService, classes, classInfo }: Book
 }
 
 /** The chosen class, set out like Alex's own class listing. */
-function ClassDetails({ info, date, session }: { info: ClassInfo; date: DateKey; session: PublishedClass }) {
+function ClassDetails({
+  info,
+  date,
+  session,
+  places,
+}: {
+  info: ClassInfo;
+  date: DateKey;
+  session: PublishedClass;
+  places?: ClassPlaces;
+}) {
   const minutes = session.durationMinutes;
   const end = minutes ? `–${formatTime(addMinutes(session.start, minutes))}` : "";
   const year = fromDateKey(date).getFullYear();
@@ -555,12 +612,14 @@ function ClassDetails({ info, date, session }: { info: ClassInfo; date: DateKey;
         {end}
       </p>
       <p className="mt-2 font-display text-h3">
-        {info.name} · {session.day} class
+        {session.name ?? info.name} · {session.day} class
       </p>
       <p className="mt-1 text-sm font-semibold">
-        {[minutes ? `${minutes === 60 ? "1 hr" : `${minutes} min`}` : "", info.price, "with Alex"].filter(Boolean).join(" · ")}
+        {[minutes ? `${minutes === 60 ? "1 hr" : `${minutes} min`}` : "", info.price, "with Alex", places ? formatSpaces(places) : ""]
+          .filter(Boolean)
+          .join(" · ")}
       </p>
-      <p className="mt-3 max-w-xl text-muted">{info.description}</p>
+      <p className="mt-3 max-w-xl text-muted">{session.description ?? info.description}</p>
     </div>
   );
 }
@@ -646,6 +705,7 @@ function Outcome({
   when,
   longWhen,
   email,
+  enquiry,
   onRestart,
 }: {
   demo: boolean;
@@ -654,19 +714,22 @@ function Outcome({
   when: string;
   longWhen: string;
   email: string;
+  enquiry: boolean;
   onRestart: () => void;
 }) {
   return (
     <div className="animate-step-in" role="status">
       <div className="bg-ink p-8 text-paper sm:p-12">
-        <p className="eyebrow text-muted-inverse">{demo ? "Demonstration complete" : "Request sent"}</p>
+        <p className="eyebrow text-muted-inverse">{demo ? "Demonstration complete" : enquiry ? "Enquiry sent" : "Request sent"}</p>
         <h2 ref={headingRef} tabIndex={-1} className="mt-4 font-display text-h2 text-balance focus:outline-none">
           {demo ? "No booking has been made" : "Thanks — Alex will be in touch"}
         </h2>
         <p className="mt-5 max-w-xl text-lede text-muted-inverse">
           {demo
             ? `This was sample availability, so nothing was booked or sent. Once real availability is connected, this screen would confirm ${service.toLowerCase()} on ${longWhen}.`
-            : `Your request is with Alex. He'll reply to ${email} to confirm a time. Your place is booked once he confirms.`}
+            : enquiry
+              ? `Your enquiry is with Alex. He'll reply to ${email} to confirm availability. Sending an enquiry does not guarantee a place.`
+              : `Your request is with Alex. He'll reply to ${email} to confirm a time. Your place is booked once he confirms.`}
         </p>
         <dl className="mt-8 grid max-w-xl grid-cols-1 border-t border-line-inverse sm:grid-cols-2">
           <div className="border-b border-line-inverse py-4 sm:border-b-0">

@@ -142,3 +142,23 @@ See Coach portal below.
 - [ ] **P2** Delete a cancelled charge's payment link at Square automatically (today: Dashboard)
 - [ ] **P2** Emails to clients from the site (needs a verified sending domain); today Alex sends the prepared message himself
 
+
+## RAENG website changes (2026-11-05)
+
+### Done
+- [x] "Book now" in the top-right of the header on every screen size (compact on phones, full button from md), opening `/book`
+- [x] `/coaching`: new intro; separate **1:1 Personal Coaching** ("Attention That Stays on You": three cards, three "What's included" boxes, prices with descriptions) and **Small group coaching** sections (own intro, benefits, what to expect, pricing/availability note); online coaching moved to 03
+- [x] `/book` offers three options: Group classes, 1:1 personal coaching, Small group coaching enquiry (`/book/small-group`, an enquiry that never claims a booking)
+- [x] 1:1 requests must choose Single 1:1 session (£35) or Monthly package (£130, 4 sessions); stored with the request and shown in Alex's email and the coach portal
+- [x] "When suits you?" wording replaced with Alex's text for 1:1 and small group
+- [x] Timetable: KB HIIT (Mon 18:30), Double KB (Wed 18:30), KB Mix (Sat 09:00) with descriptions, everywhere the timetable shows
+- [x] Spaces remaining on each class date ("10/15 spaces available" / "15/15 Full"); full classes can't be chosen, and the server re-checks on submit
+- [x] About: Alex's portrait and coach section removed; "About RAENG" focused on the brand
+- [x] FAQ: 1:1 vs small group; 1:1 answer updated
+
+### To do
+- [ ] **P1** Alex to confirm: capacity of 15, class length (60 min) for the new classes, the Saturday move to 09:00, and the new About / small group wording
+- [ ] **P1** Small group pricing, group size, days and times (none supplied, none shown)
+- [ ] **P1** Confirm whether the whole site is renamed from "Alex K Bells" to RAENG (only the About section and its menu link say RAENG today)
+- [ ] **P2** Enforce the default capacity of 15 in the database (today it blocks only a capacity set on a class date); needs a migration and approval
+- [ ] **P2** "Can I book with a friend?" FAQ: needs Alex's answer; not published

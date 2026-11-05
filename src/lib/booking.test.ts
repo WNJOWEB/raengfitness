@@ -112,7 +112,7 @@ describe("getBookingAction", () => {
   it("points each service at its own step of the on-site flow", () => {
     expect(getBookingAction("any", formEnv)).toMatchObject({ kind: "booking", label: "Book your session", href: "/book", external: false });
     expect(getBookingAction("group-class", formEnv)).toMatchObject({ label: "Book your class", href: "/book/group-class" });
-    expect(getBookingAction("one-to-one", formEnv)).toMatchObject({ label: "Book a one-to-one", href: "/book/one-to-one" });
+    expect(getBookingAction("one-to-one", formEnv)).toMatchObject({ label: "Book now", href: "/book/one-to-one" });
   });
 
   it("prefers an external booking page when one is set", () => {

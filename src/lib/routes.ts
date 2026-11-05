@@ -9,6 +9,7 @@ export const publicRoutes = [
   "/book",
   "/book/group-class",
   "/book/one-to-one",
+  "/book/small-group",
 ] as const;
 
 /** Coach sign-in: linked from the footer, but never in the sitemap or indexed. */

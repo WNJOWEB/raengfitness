@@ -60,9 +60,16 @@ export const faq: FaqItem[] = [
   },
   {
     id: "one-to-one",
-    question: "Do you offer one-to-one sessions?",
+    question: "Do you offer 1:1 personal coaching?",
     answer:
-      "Yes. One-to-one coaching is face to face and tailored to you as an individual. Get in touch to discuss what you're looking for.",
+      "Yes. 1:1 coaching is face to face and tailored to you as an individual. When you request it you choose between a single session and a monthly package of four sessions. Alex then confirms availability with you.",
+    status: "confirmed",
+  },
+  {
+    id: "one-to-one-vs-small-group",
+    question: "What's the difference between 1:1 and small group coaching?",
+    answer:
+      "1:1 coaching is individual, face-to-face coaching focused entirely on your goals, technique and progression. Small group coaching combines individual guidance with the motivation and energy of training alongside others. You can enquire about small group coaching on the booking page.",
     status: "confirmed",
   },
   {

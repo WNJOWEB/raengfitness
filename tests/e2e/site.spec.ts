@@ -200,7 +200,7 @@ test("mobile menu opens, navigates, closes with Escape", async ({ page }) => {
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.click();
   await expect(page.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "About Alex" }).focus();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "About RAENG" }).focus();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
@@ -228,13 +228,13 @@ test("every primary button says Book now and opens the booking flow", async ({ p
   await expect(page.getByRole("link", { name: "Book now" }).first()).toHaveAttribute("href", "/book");
   // Each offer has its own labelled button: in-person services go straight to their booking request.
   await expect(page.locator("#ways-to-train").getByRole("link", { name: "Request a class (group classes)" })).toHaveAttribute("href", "/book/group-class");
-  await expect(page.locator("#ways-to-train").getByRole("link", { name: "Request a session (one-to-one coaching)" })).toHaveAttribute("href", "/book/one-to-one");
+  await expect(page.locator("#ways-to-train").getByRole("link", { name: "Request a session (1:1 personal coaching)" })).toHaveAttribute("href", "/book/one-to-one");
   // Online coaching has its own enquiry form (it can send on this server).
   await expect(page.locator("#ways-to-train").getByRole("link", { name: "Enquire about online coaching" })).toHaveAttribute("href", "/online-coaching");
   await page.goto("/classes");
   await expect(page.locator("main").getByRole("link", { name: "Book now" }).first()).toHaveAttribute("href", "/book/group-class");
   await page.goto("/coaching");
-  await expect(page.getByRole("link", { name: "Book now (one-to-one coaching)" })).toHaveAttribute("href", "/book/one-to-one");
+  await expect(page.getByRole("link", { name: "Book now (1:1 personal coaching)" })).toHaveAttribute("href", "/book/one-to-one");
   // Online coaching is an enquiry, never worded as signing up or starting.
   await expect(page.getByRole("link", { name: "Enquire about online coaching" })).toHaveAttribute("href", "/online-coaching");
   await expect(page.getByRole("link", { name: "Book now (online coaching)" })).toHaveCount(0);
@@ -285,7 +285,7 @@ test("the phone menu closes after any link, including same-page section links", 
   for (const [from, label, url] of [
     ["/", "Ways to train", /\/#ways-to-train$/],
     ["/", "Why kettlebells", /\/#why-kettlebells$/],
-    ["/", "About Alex", /\/#about$/],
+    ["/", "About RAENG", /\/#about$/],
     ["/", "How to book", /\/#how-to-book$/],
     ["/contact", "Contact", /\/contact$/],
   ] as const) {
@@ -309,7 +309,7 @@ test("the menu answers Alex's four questions, each one tap away", async ({ page 
   for (const [label, id, heading] of [
     ["Ways to train", "ways-to-train", /choose how you train/i],
     ["Why kettlebells", "why-kettlebells", /stronger, fitter/i],
-    ["About Alex", "about", /coached by alex/i],
+    ["About RAENG", "about", /strength, technique, confidence/i],
     ["How to book", "how-to-book", /where and how to book/i],
   ] as const) {
     await nav.getByRole("link", { name: label }).click();
@@ -692,7 +692,7 @@ test("the menu shows which homepage section you're in", async ({ page }) => {
 test("the desktop header marks the section you're in", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/#about");
-  await expect(page.getByRole("banner").getByRole("link", { name: "About Alex" })).toHaveAttribute("aria-current", "location");
+  await expect(page.getByRole("banner").getByRole("link", { name: "About RAENG" })).toHaveAttribute("aria-current", "location");
   await expect(page.getByRole("banner").locator('[aria-current="location"]:visible')).toHaveCount(1);
 });
 
@@ -722,7 +722,7 @@ test.describe("scroll reveal", () => {
   });
 });
 
-test("Facebook is linked next to Instagram in the footer and About Alex, opening safely in a new tab", async ({ page }) => {
+test("Facebook is linked next to Instagram in the footer and About RAENG, opening safely in a new tab", async ({ page }) => {
   await page.goto("/");
   for (const scope of [page.getByRole("contentinfo"), page.locator("#about")]) {
     const fb = scope.getByRole("link", { name: /Facebook/ });
@@ -784,3 +784,78 @@ for (const [server, base] of [
     await expect(page.locator("main")).toContainText("Alex confirms your place");
   });
 }
+
+test.describe("RAENG website changes (2026-11-05)", () => {
+  for (const width of [320, 390, 768, 1440]) {
+    test(`"Book now" sits in the top-right of the header at ${width}px and opens the booking options`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/");
+      const book = page.getByRole("banner").getByRole("link", { name: "Book now" }).and(page.locator(":visible"));
+      await expect(book).toHaveCount(1);
+      await expect(book).toHaveAttribute("href", "/book");
+      const box = (await book.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      // It sits to the right of the logo, in the header's right-hand group.
+      const logo = (await page.getByRole("banner").getByRole("link").first().boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(logo.x + logo.width);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+      await book.click();
+      await expect(page).toHaveURL(/\/book$/);
+    });
+  }
+
+  test("/coaching has separate 1:1 and small group sections, each with its own content", async ({ page }) => {
+    await page.goto("/coaching");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.locator("main")).toContainText("Personalised, face-to-face kettlebell coaching designed around your goals, experience and ability.");
+
+    const one = page.locator("#one-to-one");
+    await expect(one.getByRole("heading", { level: 2, name: "Attention That Stays on You" })).toBeVisible();
+    await expect(one).toContainText("Whether you’re new to kettlebells or looking to take your training further");
+    for (const card of ["Strength", "Technique", "Movement"]) await expect(one.getByText(card, { exact: true }).first()).toBeVisible();
+    await expect(one.getByRole("heading", { name: "What's included" })).toBeVisible();
+    for (const box of ["Personalised coaching", "Technique and development", "Structured progression"]) await expect(one.getByRole("heading", { name: box })).toBeVisible();
+    await expect(one).toContainText("Single 1:1 session");
+    await expect(one).toContainText("£35");
+    await expect(one).toContainText("Monthly package");
+    await expect(one).toContainText("£130");
+    await expect(one).toContainText("Four personalised coaching sessions each month, providing consistency, structure and progression.");
+
+    const group = page.locator("#small-group");
+    await expect(group.getByRole("heading", { level: 2, name: "Train together. Progress individually." })).toBeVisible();
+    await expect(group).toContainText("Small group kettlebell coaching combining individual guidance");
+    for (const point of ["Small, focused training groups", "Coaching and technique feedback", "Structured strength and conditioning", "A supportive training environment"]) await expect(group).toContainText(point);
+    // No price has been supplied for small group coaching, so none is invented.
+    await expect(group).not.toContainText("£");
+    await expect(group).toContainText("Submitting an enquiry does not guarantee a place.");
+    await expect(group.getByRole("link", { name: /Enquire about availability/ })).toHaveAttribute("href", "/book/small-group");
+  });
+
+  test("the timetable shows the latest class names and times", async ({ page }) => {
+    await page.goto("/classes");
+    const times = page.locator("#timetable");
+    for (const [name, day, time] of [
+      ["KB HIIT", "Monday", "6:30 pm"],
+      ["Double KB", "Wednesday", "6:30 pm"],
+      ["KB Mix", "Saturday", "9:00 am"],
+    ]) {
+      const item = times.getByRole("listitem").filter({ hasText: name });
+      await expect(item).toContainText(day);
+      await expect(item).toContainText(time);
+    }
+    await expect(times).toContainText("Kettlebell conditioning and full-body training to build strength and fitness.");
+    await expect(times).not.toContainText("10:15");
+  });
+
+  test("About RAENG is about the brand: no portrait and no coach biography", async ({ page }) => {
+    await page.goto("/");
+    const about = page.locator("#about");
+    await expect(about.getByRole("heading", { level: 2 })).toHaveText(/strength, technique, confidence/i);
+    await expect(about).toContainText("RAENG is kettlebell coaching");
+    await expect(about.getByRole("img", { name: /Alex standing/ })).toHaveCount(0);
+    await expect(about).not.toContainText(/Alex Robertson|Coached by Alex|About Alex/);
+    expect((await page.request.get("/images/alex/about.jpg")).status()).toBe(404);
+  });
+});

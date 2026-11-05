@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { listAttendance, listClassSessions, listPackages, listPtSessions, classSessionsByIds } from "@/lib/coach/bookings";
-import { classOccurrences, defaultPrices, findSlot, slotLabel } from "@/lib/coach/classes";
+import { classCapacity, classOccurrences, defaultPrices, findSlot, slotLabel } from "@/lib/coach/classes";
 import { listClients } from "@/lib/coach/clients";
 import { portalContext } from "@/lib/coach/context";
 import { collect } from "@/lib/coach/db";
@@ -212,8 +212,8 @@ async function Decide({ request, today, known, possible }: { request: BookingReq
   const packages = known ? await listPackages(db, { clientId: known.id, activeOnly: true }) : { ok: true as const, data: [] };
   const usable = packages.ok ? packages.data.filter((k) => k.sessions_remaining > 0) : [];
   const requested = details.classDate && details.classSlot ? `${details.classDate}|${details.classSlot}` : "";
-  const isGroup = Boolean(requested) || /group/i.test(request.service);
-  const isPt = /one-to-one/i.test(request.service);
+  const isGroup = Boolean(requested) || /group class/i.test(request.service);
+  const isPt = /one-to-one|1:1/i.test(request.service);
   const defaultKind = request.kind === "online" ? "none" : isGroup ? "class" : isPt ? "pt" : "none";
 
   const clientOptions = [
@@ -223,8 +223,8 @@ async function Decide({ request, today, known, possible }: { request: BookingReq
   ];
   const classOptions = occurrences.map((o) => {
     const row = overview.ok ? overview.data.find((c) => c.slot === o.slot.id && c.class_date === o.date) : undefined;
-    const full = row?.capacity ? row.booked >= row.capacity : false;
-    const count = row ? ` · ${row.booked}${row.capacity ? `/${row.capacity}` : ""} booked` : "";
+    const full = (row?.booked ?? 0) >= classCapacity(row);
+    const count = ` · ${row?.booked ?? 0}/${classCapacity(row)} booked`;
     return { value: `${o.date}|${o.slot.id}`, label: `${formatDate(o.date)}, ${slotLabel(o.slot).split(" ").slice(1).join(" ")}${count}${full ? " · full" : ""}` };
   });
   const requestedValid = classOptions.some((o) => o.value === requested);

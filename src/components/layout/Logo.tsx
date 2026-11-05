@@ -72,7 +72,7 @@ export function Logo({ variant = "mark", tone = "dark", className, priority = fa
             className={cn("h-9 w-auto sm:h-10", tile)}
           />
           {/* Name beside the mark from 360px up; the narrowest phones show the mark alone. */}
-          <BrandText tone={tone} name={logo.wordmark} className="hidden 2xs:flex" />
+          <BrandText tone={tone} name={logo.wordmark} className="hidden sm:flex" />
         </>
       )}
     </Link>

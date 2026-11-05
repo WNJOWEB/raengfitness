@@ -51,6 +51,7 @@ export function Timetable({ tone = "paper", labelledBy, layout = "row" }: Timeta
               <p className="text-sm font-semibold tabular-nums">
                 <time dateTime={session.start}>{formatTime(session.start)}</time>
               </p>
+              {session.name ? <p className="mt-0.5 text-sm font-semibold">{session.name}</p> : null}
             </li>
           ))}
         </ul>
@@ -64,7 +65,10 @@ export function Timetable({ tone = "paper", labelledBy, layout = "row" }: Timeta
         <ul aria-labelledby={labelledBy}>
           {sessions.map((session) => (
             <li key={session.id} className={cn("flex items-baseline justify-between gap-4 border-t py-2.5", line)}>
-              <span className="font-semibold">{session.day}</span>
+              <span className="font-semibold">
+                {session.day}
+                {session.name ? <span className={cn("font-normal", muted)}> · {session.name}</span> : null}
+              </span>
               <span className="tabular-nums">
                 <span className="sr-only">{partOfDay(session.start)}, </span>
                 <time dateTime={session.start}>{formatTime(session.start)}</time>
@@ -109,8 +113,10 @@ export function Timetable({ tone = "paper", labelledBy, layout = "row" }: Timeta
                 </p>
               </div>
             )}
+            {session.name ? <p className="mt-3 text-lg font-bold">{session.name}</p> : null}
+            {session.description ? <p className={cn("mt-1 text-sm", muted)}>{session.description}</p> : null}
             {session.durationMinutes ? (
-              <p className={cn("mt-1 text-sm", muted)}>{session.durationMinutes} minutes</p>
+              <p className={cn("mt-2 text-sm", muted)}>{session.durationMinutes} minutes</p>
             ) : null}
           </li>
         ))}

@@ -25,28 +25,31 @@ export const services: Service[] = [
   },
   {
     id: "one-to-one",
-    name: "One-to-one coaching",
+    name: "1:1 personal coaching",
     shortName: "One-to-one",
     href: "/coaching#one-to-one",
     summary:
-      "Face-to-face kettlebell coaching, tailored to you as an individual.",
+      "Personalised, face-to-face kettlebell coaching, tailored to you as an individual.",
     points: [
       "Face-to-face sessions with Alex",
       "Coaching tailored to the individual",
     ],
+    // Single £35 and monthly £130 (4 sessions) restated by the owner
+    // 2026-11-05; the single session is now a flat £35, no longer "from".
     prices: [
       {
         status: "confirmed",
-        label: "Single session",
-        prefix: "From",
+        label: "Single 1:1 session",
         amountGbp: 35,
         unit: "per session",
+        description: "One personalised, face-to-face coaching session.",
       },
       {
         status: "confirmed",
-        label: "Four sessions",
+        label: "Monthly package",
         amountGbp: 130,
-        unit: "per month",
+        unit: "per month · 4 sessions",
+        description: "Four personalised coaching sessions each month, providing consistency, structure and progression.",
       },
     ],
   },

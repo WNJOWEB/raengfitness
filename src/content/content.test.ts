@@ -13,15 +13,20 @@ describe("content approval state", () => {
       .sort();
     expect(confirmed).toEqual([
       "group-classes:Per class:10:confirmed",
-      "one-to-one:Four sessions:130:confirmed",
-      "one-to-one:Single session:35:confirmed",
+      "one-to-one:Monthly package:130:confirmed",
+      "one-to-one:Single 1:1 session:35:confirmed",
       "online-coaching:Monthly:79:confirmed",
     ]);
   });
 
-  it("publishes the timetable confirmed on 2026-10-15", () => {
+  it("publishes the latest timetable with class names (Alex, 2026-11-05)", () => {
     expect(timetable.status).toBe("confirmed");
-    expect(timetable.sessions.map((s) => `${s.day} ${s.start}`)).toEqual(["Monday 18:30", "Wednesday 18:30", "Saturday 10:15"]);
+    expect(timetable.sessions.map((s) => `${s.day} ${s.start} ${s.name}`)).toEqual([
+      "Monday 18:30 KB HIIT",
+      "Wednesday 18:30 Double KB",
+      "Saturday 09:00 KB Mix",
+    ]);
+    expect(timetable.sessions.every((s) => s.description)).toBe(true);
     expect(timetable.sessions.every((s) => s.durationMinutes === 60)).toBe(true);
   });
 

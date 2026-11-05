@@ -1,7 +1,7 @@
 "use server";
 
 import { bookingMode } from "@/lib/booking";
-import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
+import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, ONE_TO_ONE_OPTIONS, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
 import {
   bookingEmail,
   describeWhen,
@@ -12,6 +12,8 @@ import {
   type FormState,
 } from "@/lib/booking-request";
 import { publishedClasses } from "@/lib/class-sessions";
+import { formatSpaces, isFull } from "@/lib/class-spaces";
+import { loadClassPlaces } from "@/lib/class-spaces-server";
 import { deliverRequest } from "@/lib/deliver-request";
 import { idempotencyKey } from "@/lib/send-email";
 
@@ -45,6 +47,20 @@ export async function submitBookingRequest(
   }
 
   const { data } = parsed;
+
+  // A class that has filled up since the page loaded can't be requested.
+  const chosen = data.session && data.classDate ? publishedClasses().find((c) => c.label === data.session) : undefined;
+  if (chosen && data.classDate) {
+    const places = await loadClassPlaces(data.classDate, chosen.id);
+    if (places && isFull(places)) {
+      return {
+        status: "error",
+        message: `That class is full (${formatSpaces(places)}). Please choose another date.`,
+        errors: { when: "That class is full. Please choose another date." },
+      };
+    }
+  }
+
   const key = await idempotencyKey([
     data.submissionId,
     data.service,
@@ -52,6 +68,7 @@ export async function submitBookingRequest(
     data.name,
     data.session,
     data.classDate,
+    data.option,
     data.days.join(","),
     data.times.join(","),
     data.message,
@@ -89,6 +106,7 @@ export async function submitBookingRequest(
  */
 function requestDetails(data: BookingRequest): Record<string, string> {
   const details: Record<string, string> = { experience: labelFor(BOOKING_EXPERIENCE, data.experience) };
+  if (data.option) details.option = labelFor(ONE_TO_ONE_OPTIONS, data.option);
   const slot = publishedClasses().find((c) => c.label === data.session);
   if (data.session && data.classDate && slot) {
     details.classDate = data.classDate;

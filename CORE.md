@@ -4,7 +4,7 @@ Source of truth for the business, goals, constraints and open decisions.
 Values that appear on the website live in code (`src/content/`) — this file
 records *status*, not duplicate values.
 
-Last reviewed: 2026-10-19
+Last reviewed: 2026-11-05
 
 ## Business
 
@@ -39,11 +39,14 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Brand name, descriptor, venue address | C | From brief |
 | Instagram URL | C | Tracking parameter removed. On 2026-10-18 the profile could not be read without logging in (login wall), so posts, captions and comments were not audited |
 | Facebook page | C | "Alex.kbells", Glasgow; supplied by the project owner 2026-10-18 as Alex's official profile. Share link resolves to page id 61589486540520, which links back to @alex.kbells. Public preview: 1,456 followers, 300 talking about this (2026-10-18). Posts, reviews and recommendations are behind a login wall and were not audited. Linked in the footer, About Alex, /contact and JSON-LD `sameAs` |
-| Class times Mon 18:30, Wed 18:30, Sat 10:15, each 60 minutes | C | Mon/Wed confirmed 2026-10-15; Saturday moved to 10:15–11:15 and the 60-minute length confirmed by the project owner 2026-10-17 (from Alex's own class listing). Shown across the site and as real dates in the booking calendar |
+| Class timetable: Mon 18:30 **KB HIIT**, Wed 18:30 **Double KB**, Sat 09:00 **KB Mix** | C | Names, descriptions and the new Saturday time (was 10:15) supplied by Alex in "RAENG Website Changes", 2026-11-05. The 60-minute length was confirmed for the earlier timetable (2026-10-17): **Alex to confirm it still applies**. Slot ids unchanged, so class dates already in the coach portal keep their bookings, but dates already created for Saturdays keep the old 10:15 start time |
+| Group class capacity 15 per class | P | From the example in Alex's changes ("10/15 spaces available", "15/15 Full"). Default for every class date; the coach can set a different capacity for one date. **Alex to confirm 15** |
+| Spaces remaining on the booking page | C | Shown as "10/15 spaces available" / "15/15 Full" (Alex's wording). Counts only confirmed places (a request isn't a place until Alex confirms it). Hidden when counts can't be read |
 | Group class: "Kettlebell Training", £10 per person, description from Alex's listing | C | Confirmed by the project owner 2026-10-17; shown on the homepage and /classes |
 | Class duration, capacity, equipment, booking requirement | U | Do not publish |
 | Cancellation / refund rules | U | Do not publish |
-| One-to-one from £35/session; 4 sessions £130/month | C | Confirmed by the project owner 2026-10-15 (figures from the original brief); shown on the site |
+| 1:1 coaching: Single 1:1 session £35; Monthly package £130 (4 sessions) | C | Figures confirmed 2026-10-15; restated by Alex 2026-11-05 as two options a customer chooses between when requesting 1:1 coaching (the single session is no longer shown as "from £35") |
+| Small group coaching | P | Copy supplied by Alex 2026-11-05 (screenshots). **No price, group size, times or duration supplied, so none is shown**: the section says pricing and availability are shared on enquiry. Enquiries only (`/book/small-group`), never a booking |
 | Online coaching £79/month | C | Confirmed by the project owner 2026-10-15; shown on the site |
 | Alex's journey (story, before/after photos) | C | Published 2026-10-15 at the owner's request: before/after photos replaced 2026-10-17 with photos supplied by the project owner as Alex's own (`assets/journey/`, cut by `scripts/supplied_photos.py`; no dates, timeframe or figures given, so none are shown), short text written from his reel motto ("1% everyday") and bio. Swap in Alex's own story when supplied |
 | Coach's name | C | Alex Robertson (Instagram profile, 2026-10-15) |
@@ -54,7 +57,8 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Membership | U | Under consideration; not on the site |
 | Email, phone | U | `site.contact` is null; not rendered |
 | Logo artwork | C | Supplied 2026-10-15 (`assets/brand/alexkbells-logo-source.jpg`). Monogram "AR" with kettlebell (confirmed intentional); wordmark ALEX.KBELLS; descriptor KETTLEBELL COACH. This JPG is the only version — no vector exists |
-| Photography of Alex / coaching | U | No stills supplied |
+| Photography of Alex / coaching | U | No stills supplied. Alex's portrait was removed from the About section 2026-11-05 at his request |
+| About section | C | Now "About RAENG" (brand, values), no coach biography or portrait (Alex, 2026-11-05). Wording drafted from how the site already describes the coaching: **Alex to review**. The brand is still "Alex K Bells" everywhere else (header, footer, metadata): confirm whether the whole site is moving to RAENG |
 | Training stills | C | Three frames from the same reel (`public/images/training/`), plus two header stills cut from the hero loop on 2026-10-16 (`double-swing.jpg`, `bell-hold.jpg`, `scripts/video_stills.py`); same permission caveat as the hero footage (the bell-hold frame shows another person in the background) |
 | Hero footage | C | Alex's own Instagram reel (supplied 2026-10-15), used for the homepage hero loop. Filmed at several gyms, some visibly not Media House (e.g. "APEX" signage), and shows other people training. Confirm Alex is happy for it to represent his coaching and that people shown are fine appearing on the website |
 | Bio, qualifications, history, testimonials | U | Do not invent |

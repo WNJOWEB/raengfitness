@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { coachLoginNav, mainNav, pageNav } from "@/content/site";
 import { cn } from "@/lib/cn";
-import type { CallToAction } from "@/lib/booking";
 
 /** Homepage sections linked from the menu ("/#ways-to-train" → "ways-to-train"). */
 const SECTION_IDS = mainNav.map((item) => item.href.slice(2));
@@ -90,7 +89,7 @@ export function DesktopNav() {
   );
 }
 
-export function MobileNav({ cta }: { cta: CallToAction }) {
+export function MobileNav() {
   const pathname = usePathname();
   const section = useCurrentSection(pathname);
   const [open, setOpen] = useState(false);
@@ -164,21 +163,11 @@ export function MobileNav({ cta }: { cta: CallToAction }) {
               );
             })}
           </ul>
-          {/* The original plain button (restored 2026-10-18 at the owner's request), not the split style used on the pages. */}
-          <Link
-            href={cta.href}
-            onClick={() => setOpen(false)}
-            {...(cta.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            className="mt-6 flex min-h-12 items-center justify-center bg-paper px-6 text-sm font-semibold uppercase tracking-[0.08em] text-ink transition-[background-color] duration-200 hover:bg-white focus-visible:outline-paper active:translate-y-px"
-          >
-            {cta.label}
-            {cta.external ? <span className="sr-only"> (opens in a new tab)</span> : null}
-          </Link>
           <Link
             href={coachLoginNav.href}
             onClick={() => setOpen(false)}
             aria-current={currentFor(pathname, null, coachLoginNav.href)}
-            className="mt-4 flex min-h-12 items-center justify-center border border-line-inverse px-6 text-sm font-semibold uppercase tracking-[0.08em] text-muted-inverse transition-colors hover:border-paper hover:text-paper"
+            className="mt-6 flex min-h-12 items-center justify-center border border-line-inverse px-6 text-sm font-semibold uppercase tracking-[0.08em] text-muted-inverse transition-colors hover:border-paper hover:text-paper"
           >
             {coachLoginNav.label}
           </Link>

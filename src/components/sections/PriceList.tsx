@@ -45,7 +45,7 @@ export function PriceList({ prices, tone = "paper", linkContact = true }: PriceL
     <Provisional status={status}>
       <dl className={cn("divide-y border-y", line)}>
         {visible.map((price) => (
-          <div key={price.label} className="flex items-baseline justify-between gap-4 py-4">
+          <div key={price.label} className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 py-4">
             <dt className={cn("text-sm", muted)}>{price.label}</dt>
             <dd className="text-right">
               {price.prefix ? (
@@ -54,6 +54,7 @@ export function PriceList({ prices, tone = "paper", linkContact = true }: PriceL
               <span className="text-2xl font-bold tabular-nums">{formatGbp(price.amountGbp)}</span>
               <span className={cn("ml-1.5 text-sm", muted)}>{price.unit}</span>
             </dd>
+            {price.description ? <dd className={cn("col-span-2 max-w-md text-sm", muted)}>{price.description}</dd> : null}
           </div>
         ))}
       </dl>

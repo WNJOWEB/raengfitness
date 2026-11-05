@@ -20,9 +20,9 @@ export function HowToBook() {
   const cta = getPrimaryCta();
 
   const steps = [
-    { title: "Choose how you train", body: "A group class or a one-to-one session." },
+    { title: "Choose how you train", body: "Group classes, 1:1 personal coaching, or a small group coaching enquiry." },
     cta.kind === "booking"
-      ? { title: "Send your request", body: "Pick a class date, or the days that suit you for one-to-one, and send it in a minute." }
+      ? { title: "Send your request", body: "Pick a class date, or the days and times that suit you for coaching, and send it in a minute." }
       : { title: "Get in touch", body: `Message Alex on Instagram (${site.social.instagram.handle}) with what you'd like to book.` },
     { title: "Alex confirms your place", body: `Then you come along to ${site.location.venue}.` },
   ];
@@ -62,7 +62,7 @@ export function HowToBook() {
                 </span>
               ))}
             </address>
-            <p className="mt-2 text-sm text-muted">Group classes and one-to-one sessions, just outside Glasgow.</p>
+            <p className="mt-2 text-sm text-muted">Group classes and coaching sessions, just outside Glasgow.</p>
             <ButtonLink href={mapsUrl()} external variant="secondary" className="mt-6">
               Get directions
             </ButtonLink>

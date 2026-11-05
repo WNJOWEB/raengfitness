@@ -67,6 +67,16 @@ export function classDurationMinutes(slot: ClassSession): number {
 
 export const CLASS_NAME = groupClass.name;
 
+/**
+ * Places on a class: its own capacity when the coach has set one, else the
+ * usual capacity from content/classes.ts (the same number the public booking
+ * page shows). The database only blocks a booking beyond a capacity that has
+ * been set on the class itself.
+ */
+export function classCapacity(row: { capacity: number | null } | undefined | null): number {
+  return row?.capacity ?? groupClass.capacity;
+}
+
 /** Default prices for the portal's forms, from the published prices (the coach can change them). */
 export function defaultPrices(): { classPence: number; ptPence: number; onlinePence: number; packagePence: number; packageSessions: number } {
   const price = (id: Parameters<typeof getService>[0], i = 0) => getService(id).prices[i]?.amountGbp ?? 0;
@@ -82,5 +92,5 @@ export function defaultPrices(): { classPence: number; ptPence: number; onlinePe
 
 /** Description used on a class place's charge. */
 export function classChargeDescription(date: DateKey, slot: ClassSession): string {
-  return `${CLASS_NAME}, ${formatDate(date)}, ${formatClock(slot.start)}`;
+  return `${slot.name ?? CLASS_NAME}, ${formatDate(date)}, ${formatClock(slot.start)}`;
 }

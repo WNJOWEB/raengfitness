@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listClassSessions } from "@/lib/coach/bookings";
-import { CLASS_NAME, classOccurrences, classSlots, slotLabel } from "@/lib/coach/classes";
+import { CLASS_NAME, classCapacity, classOccurrences, classSlots, slotLabel } from "@/lib/coach/classes";
 import { portalContext } from "@/lib/coach/context";
 import { collect } from "@/lib/coach/db";
 import { loadMessage } from "@/lib/coach/errors";
@@ -55,7 +55,7 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
           {upcoming.map((o) => {
             const row = rowFor(o.date, o.slot.id);
             const pending = pendingFor(o.date, o.slot.id);
-            const full = row?.capacity ? row.booked >= row.capacity : false;
+            const full = (row?.booked ?? 0) >= classCapacity(row);
             return (
               <li key={`${o.date}-${o.slot.id}`}>
                 <Link href={`/coach/classes/${o.date}/${o.slot.id}`} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-3 hover:bg-white">
@@ -66,7 +66,7 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
                   <span className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="tabular-nums">
                       {row?.booked ?? 0}
-                      {row?.capacity ? ` / ${row.capacity}` : ""} booked
+                      {` / ${classCapacity(row)}`} booked
                     </span>
                     {pending ? <Badge tone="strong">{pending} to confirm</Badge> : null}
                     {full ? <Badge>Full</Badge> : null}
@@ -76,7 +76,7 @@ async function Classes({ searchParams }: { searchParams: PageProps<"/coach/class
             );
           })}
         </ul>
-        <p className="mt-3 text-sm text-muted">A class shows as full only when you&apos;ve set a capacity for it and that many places are booked.</p>
+        <p className="mt-3 text-sm text-muted">A class shows as full when its places are all booked: 15 unless you&apos;ve set a different capacity for that date.</p>
       </Panel>
 
       <Panel

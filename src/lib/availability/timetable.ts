@@ -1,11 +1,13 @@
 import type { ClassSession, TimeOfDay, Weekday } from "@/content/types";
 import { addDays, fromDateKey, toDateKey, weekdayIndex, type DateKey } from "./dates";
+import { classSpacesKey, isFull, type ClassSpaces } from "../class-spaces";
 import type { AvailabilityWindow, DayAvailability } from "./types";
 
 /**
  * Real group class dates: every session in the confirmed weekly timetable
- * over the next four weeks. No capacity is known, so every date can be
- * requested and Alex confirms each place himself.
+ * over the next four weeks. Where places are known (class-spaces.ts) a full
+ * class can't be chosen; otherwise every date can be requested and Alex
+ * confirms each place himself.
  */
 
 export const CLASS_WINDOW_DAYS = 28;
@@ -13,25 +15,34 @@ export const CLASS_WINDOW_DAYS = 28;
 const WEEKDAYS: Weekday[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 /** Only the fields the browser needs. */
-export type ClassSlot = Pick<ClassSession, "day" | "start">;
+export type ClassSlot = Pick<ClassSession, "day" | "start" | "name"> & { id?: string };
 
 export function classSlotId(date: DateKey, time: TimeOfDay): string {
   return `class-${date}-${time}`;
 }
 
-export function classAvailability(sessions: readonly ClassSlot[], today: DateKey): AvailabilityWindow {
+export function classAvailability(sessions: readonly ClassSlot[], today: DateKey, spaces: ClassSpaces | null = null): AvailabilityWindow {
   const from = addDays(today, 1);
   const to = addDays(today, CLASS_WINDOW_DAYS);
   const days: DayAvailability[] = [];
   for (let i = 1; i <= CLASS_WINDOW_DAYS; i++) {
     const date = addDays(today, i);
     const day = WEEKDAYS[weekdayIndex(date)];
-    const times = sessions
-      .filter((s) => s.day === day)
-      .map((s) => s.start)
-      .sort();
-    if (times.length === 0) continue;
-    days.push({ date, slots: times.map((time) => ({ id: classSlotId(date, time), time, available: true })) });
+    const todays = sessions.filter((s) => s.day === day).sort((a, b) => a.start.localeCompare(b.start));
+    if (todays.length === 0) continue;
+    days.push({
+      date,
+      slots: todays.map((s) => {
+        const places = s.id ? spaces?.[classSpacesKey(date, s.id)] : undefined;
+        return {
+          id: classSlotId(date, s.start),
+          time: s.start,
+          available: places ? !isFull(places) : true,
+          ...(s.name ? { name: s.name } : {}),
+          ...(places ? { places } : {}),
+        };
+      }),
+    });
   }
   return { source: "live", from, to, days };
 }
