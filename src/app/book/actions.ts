@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { bookingMode } from "@/lib/booking";
 import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, ONE_TO_ONE_OPTIONS, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
 import {
@@ -19,7 +20,7 @@ import { londonToday } from "@/lib/coach/time";
 import { deliverRequest } from "@/lib/deliver-request";
 import { referenceFor } from "@/lib/reference";
 import { idempotencyKey } from "@/lib/send-email";
-import { recordWaiver, startClassCheckout } from "@/lib/class-checkout";
+import { notifyClassBookings, recordWaiver, startClassCheckout } from "@/lib/class-checkout";
 import { coachDb } from "@/lib/coach/db";
 import { onlineJoinEnabled } from "@/lib/membership-checkout";
 import { stripeConfig } from "@/lib/stripe/config";
@@ -94,6 +95,8 @@ export async function submitBookingRequest(
     if (checkout.ok) {
       // Keep the record of the ticked terms with the booking (best effort: the booking itself is already made).
       await recordWaiver(db, checkout.bookingId, data.waiver).catch(() => undefined);
+      // Booked straight away (free first class or a class credit): send the confirmation now, after the reply.
+      if (checkout.confirmed) after(() => notifyClassBookings(db, publishedClasses()).then(() => undefined).catch(() => undefined));
       redirect(checkout.url);
     }
     const whenError: Partial<Record<typeof checkout.reason, string>> = {

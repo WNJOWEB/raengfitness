@@ -1,3 +1,5 @@
+import { isPublishable } from "@/lib/publish";
+import { firstClassFree } from "@/content/offers";
 import Link from "next/link";
 import { BILLING_WEEKS, membershipPlans } from "@/content/memberships";
 import { getService } from "@/content/services";
@@ -112,6 +114,13 @@ export function PayAsYouGo({ className }: { className?: string }) {
         £{payg.amountGbp} <span className="text-base font-normal">a class</span>
       </p>
       <p className="mt-2">No membership required. Pay for each booking.</p>
+      {isPublishable(firstClassFree.status) ? (
+        <div className="mt-5 rounded-[1.25rem] bg-white px-5 py-4">
+          <p className="font-bold">{firstClassFree.headline}.</p>
+          <p className="mt-1">{firstClassFree.line}</p>
+          <p className="mt-2 text-sm">{firstClassFree.terms}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

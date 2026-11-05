@@ -224,6 +224,7 @@ export async function cancelClass(formData: FormData): Promise<void> {
   const outcome =
     result.data === true ? "cancelled_late"
     : result.data === false ? "cancelled"
+    : result.data.firstClassFree ? (result.data.freeClassBack ? "cancelled_free_back" : "cancelled_free_used")
     : result.data.credit ? "cancelled_credit"
     : result.data.refunded ? "cancelled_paid_refunded"
     : "cancelled_paid_late";

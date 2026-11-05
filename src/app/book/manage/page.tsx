@@ -59,7 +59,7 @@ export default async function BookManagePage({ searchParams }: { searchParams: P
             <h1 id="manage-heading" className={heading}>
               You&apos;re booked.
             </h1>
-            <CancelForm token={token} creditBack={booking.creditBack} refunded={booking.refunded} />
+            <CancelForm token={token} creditBack={booking.creditBack} refunded={booking.refunded} firstClassFree={booking.firstClassFree} inTime={booking.inTime} />
           </>
         ) : (
           <>

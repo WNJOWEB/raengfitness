@@ -32,8 +32,23 @@ async function emailsTo(request: APIRequestContext, to: string): Promise<Recorde
   return all.filter((e) => e.payload.to.includes(to));
 }
 
+/** Makes `email` a returning customer: one past class attended. */
+async function returning(request: APIRequestContext, email: string, name: string) {
+  const [client] = await sql(request, "insert into akb_clients (full_name, email) values ($1, lower($2)) on conflict do nothing returning id", [name, email]);
+  const id = client?.id ?? (await sql(request, "select id from akb_clients where lower(email) = lower($1)", [email]))[0].id;
+  const past = addDays(toDateKey(new Date()), -30);
+  const [ses] = await sql(
+    request,
+    "insert into akb_class_sessions (slot, class_date, starts_at, duration_minutes) values ('mon-evening', $1, $2, 60) on conflict (slot, class_date) do update set slot = excluded.slot returning id",
+    [past, `${past}T18:30:00Z`],
+  );
+  await sql(request, "insert into akb_class_attendance (class_session_id, client_id, status) values ($1, $2, 'attended') on conflict do nothing", [ses.id, id]);
+}
+
 /** The nth class date from 3 days on (so cancelling is 24 hours or more before), then details. */
 async function toDetails(page: Page, url: string, nth: number, name: string, email: string) {
+  // A returning customer (one class attended before), so the first-class-free offer doesn't apply and the class is paid.
+  await returning(page.request, email, name);
   await page.goto(url);
   await expect(page.getByRole("heading", { name: "Choose a class" })).toBeVisible();
   const days = classAvailability(timetable.sessions, toDateKey(new Date())).days;
@@ -45,9 +60,15 @@ async function toDetails(page: Page, url: string, nth: number, name: string, ema
   await expect(input).toBeChecked();
   await page.locator("#times label").first().click();
   await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill(name);
-  await page.getByRole("textbox", { name: "Email" }).fill(email);
-  await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
+  // Typing before the form has hydrated can be lost, so fill until the fields hold what was typed.
+  await expect(async () => {
+    await page.getByRole("textbox", { name: "Name" }).fill(name);
+    await page.getByRole("textbox", { name: "Email" }).fill(email);
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
+    await page.waitForTimeout(300);
+    await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue(name, { timeout: 100 });
+    await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue(email, { timeout: 100 });
+  }).toPass({ timeout: 10_000 });
   await page.getByLabel(/I've read and agree to the health and risk terms/).check();
   // The form's anti-spam check refuses anything sent within 3 seconds of opening it.
   await page.waitForTimeout(3100);
@@ -58,6 +79,40 @@ test.beforeAll(async ({ request }) => {
 });
 
 test.describe("booking a group class and paying online", () => {
+  test("first class free: a new customer books with nothing to pay and no Stripe page; the offer is shown before booking (Alex, 2026-11-05)", async ({ page, request }) => {
+    const email = `first-free-${Date.now()}@example.com`;
+    await page.goto(`${PAY}/book/group-class`);
+    await expect(page.getByText("Your first class with us is free", { exact: false })).toBeVisible();
+    const days = classAvailability(timetable.sessions, toDateKey(new Date())).days;
+    const day = days.filter((d) => d.date >= addDays(toDateKey(new Date()), 3))[6];
+    if (day.date.slice(0, 7) !== days[0].date.slice(0, 7)) await page.getByRole("button", { name: "Next month" }).click();
+    await page.locator("label").filter({ has: page.getByLabel(`${formatLongDate(day.date)}, available`) }).click();
+    await page.locator("#times label").first().click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("textbox", { name: "Name" }).fill("First Timer");
+    await page.getByRole("textbox", { name: "Email" }).fill(email);
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
+    await expect(page.getByText("£12, or free if it's your first class")).toBeVisible();
+    await page.waitForTimeout(3100);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    // Straight to the booked page: no Stripe.
+    await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked.");
+    await expect(page.locator("dl.cf-rise")).toContainText("Free: your first class");
+    const rows = await sql(request, "select b.status, b.charge_id, b.first_class_free from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email]);
+    expect(rows).toEqual([{ status: "confirmed", charge_id: null, first_class_free: true }]);
+    await expect.poll(async () => (await emailsTo(request, email)).map((e) => e.payload.text).join("\n")).toContain("(first class free)");
+  });
+
+  test("the classes page tells new customers their first class is free, with the terms", async ({ page }) => {
+    await page.goto(`${PAY}/classes`);
+    const payg = page.locator("#pay-as-you-go");
+    await expect(payg).toContainText("Your first class is free.");
+    await expect(payg).toContainText("New customers only: one free group class per person");
+    await expect(page.locator("#timetable")).toContainText("Your first class is free for new customers.");
+  });
+
   test("the class screen shows the price and what a membership would save before you continue", async ({ page }) => {
     await page.goto(`${PAY}/book/group-class`);
     await expect(page.getByRole("heading", { name: "Choose a class" })).toBeVisible();
@@ -85,7 +140,7 @@ test.describe("booking a group class and paying online", () => {
     // Owner's pick A (2026-11-03): the price is shown once as a total above the button, and the button says what happens next, not "Pay".
     await expect(page.getByText("Total", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Pay £/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
 
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Group class, /);
@@ -156,7 +211,7 @@ test.describe("booking a group class and paying online", () => {
     await page.getByRole("button", { name: "Book with your credit" }).click();
     await expect(page.getByText("This class credit has been used or has expired.").first()).toBeVisible();
     await page.getByRole("button", { name: "Pay £12 instead" }).click();
-    await expect(page.getByRole("button", { name: "Continue to payment" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
   });
 
   test("the health and risk tick comes before the total, and Continue explains what is missing (owner, 2026-11-04)", async ({ page }) => {
@@ -169,7 +224,7 @@ test.describe("booking a group class and paying online", () => {
 
     // Not ticked: Continue doesn't go to Stripe, and says why beside the button and at the box.
     await tick.uncheck();
-    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page.getByText("Tick the health and risk box above to continue.")).toBeVisible();
     await expect(tick).toBeFocused();
     await expect(page).not.toHaveURL(new RegExp(`^${STRIPE}`));
@@ -178,14 +233,14 @@ test.describe("booking a group class and paying online", () => {
     // Ticked: the message goes and Continue opens Stripe.
     await tick.check();
     await expect(page.getByText("Tick the health and risk box above to continue.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
   });
 
   test("leaving Stripe's page without paying books nothing, and the page says it's waiting", async ({ page, request }) => {
     const email = `class-leaver-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 3, "Not Paying", email);
-    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const [booking] = await sql(request, "select b.id from akb_class_bookings b join akb_clients c on c.id = b.client_id where c.email = $1", [email]);
     await page.goto(`${PAY}/book/done?booking=${booking.id}`);
@@ -197,7 +252,7 @@ test.describe("booking a group class and paying online", () => {
   test("Stripe's back arrow says the payment was cancelled (not 'waiting'), books nothing, and paying afterwards still works once", async ({ page, request }) => {
     const email = `class-backer-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 4, "Back Arrow", email);
-    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     await page.getByRole("link", { name: "Back" }).click();
     await expect(page).toHaveURL(new RegExp(`^${PAY}/book/done\\?booking=.*cancelled=1`));
@@ -223,7 +278,7 @@ test.describe("booking a group class and paying online", () => {
   test("a payment page that has been closed can't be paid, and a refresh of the result changes nothing", async ({ page, request }) => {
     const email = `class-closer-${Date.now()}@example.com`;
     await toDetails(page, `${PAY}/book/group-class`, 5, "Closed Page", email);
-    await page.getByRole("button", { name: "Continue to payment" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`^${STRIPE}/checkout/`));
     const session = page.url().split("/checkout/")[1];
     // Stripe closes it (as it does when the 30 minutes are up, or when the site replaces it).

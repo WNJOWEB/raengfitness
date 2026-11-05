@@ -1,3 +1,4 @@
+import { firstClassFree } from "@/content/offers";
 import { onlineClassBooking } from "@/content/classes";
 import { getService } from "@/content/services";
 import { site } from "@/content/site";
@@ -7,7 +8,7 @@ import { inList, insert, rpc, select, update, type Db, type DbError } from "./co
 import { formatLongDate, londonToUtc, toLondon, formatClock, type DateKey } from "./coach/time";
 import type { Env } from "./env";
 import { isToken, memberLinkOrigin, randomToken, sha256Hex, SIGN_IN_PATH } from "./member-auth";
-import { publishable } from "./publish";
+import { isPublishable, publishable } from "./publish";
 import { formatTime } from "./schedule";
 import { sendNotice } from "./notices";
 import { referenceFor } from "./reference";
@@ -31,7 +32,7 @@ export const BOOK_MANAGE_PATH = "/book/manage";
 export const CLASS_BOOK_PATH = "/book/group-class";
 
 export type ClassCheckoutResult =
-  | { ok: true; url: string; bookingId: string; confirmed: boolean }
+  | { ok: true; url: string; bookingId: string; confirmed: boolean; firstClassFree?: boolean }
   | { ok: false; reason: "class_full" | "class_cancelled" | "class_started" | "already_booked" | "credit_invalid" | "unavailable" };
 
 const RULES = new Set(["class_full", "class_cancelled", "class_started", "already_booked", "credit_invalid"]);
@@ -57,6 +58,28 @@ export async function startClassCheckout(
   const price = publishable(getService("group-classes").prices)[0];
   if (!price) return { ok: false, reason: "unavailable" };
   const credit = options.creditToken && isToken(options.creditToken) ? await sha256Hex(options.creditToken) : null;
+
+  // First class free (content/offers.ts): a new customer's first class is booked with nothing to pay.
+  if (!credit && isPublishable(firstClassFree.status, options.env)) {
+    const free = await rpc<{ eligible: boolean; booking_id?: string; status?: string }>(db, "akb_create_free_first_class_booking", {
+      p_name: booker.name,
+      p_email: booker.email,
+      p_phone: booker.phone,
+      p_slot: cls.id,
+      p_date: date,
+      p_starts_at: londonToUtc(date, cls.start),
+      p_duration: cls.durationMinutes ?? 60,
+      p_idempotency_key: options.idempotencyKey,
+    });
+    if (free.ok && free.data.eligible && free.data.booking_id) {
+      const done = `${memberLinkOrigin(options.env)}${BOOK_DONE_PATH}?booking=${free.data.booking_id}`;
+      return { ok: true, url: done, bookingId: free.data.booking_id, confirmed: true, firstClassFree: true };
+    }
+    // The class itself can't be booked (full, started, already booked…): say so, as a paid booking would.
+    if (!free.ok && free.error.kind === "rule" && free.error.rule && RULES.has(free.error.rule)) return { ok: false, reason: ruleReason(free.error) };
+    // Not new, or the offer isn't in the database yet (migration not applied): pay as usual.
+  }
+
   const created = await rpc<{ booking_id: string; charge_id: string | null; status: string }>(db, "akb_create_class_booking", {
     p_name: booker.name,
     p_email: booker.email,
@@ -104,6 +127,8 @@ interface BookingRow {
   client_id: string;
   attendance_id: string;
   charge_id: string | null;
+  /** Booked with the first-class-free offer (absent until 20261123000000 is applied). */
+  first_class_free?: boolean;
 }
 
 export interface ClassBookingStatus {
@@ -115,11 +140,13 @@ export interface ClassBookingStatus {
   pricePence: number;
   /** The short reference shown to the customer (from the booking's id). */
   reference: string;
+  /** Booked with the first-class-free offer. */
+  firstClassFree: boolean;
 }
 
 /** What the "after paying" page shows: the class and the state, no personal details. */
 export async function classBookingStatus(db: Db, bookingId: string, classes: PublishedClass[]): Promise<ClassBookingStatus | null> {
-  const rows = await select<BookingRow>(db, "akb_class_bookings", [["select", "id,status,client_id,attendance_id,charge_id"], ["id", `eq.${bookingId}`]]);
+  const rows = await select<BookingRow>(db, "akb_class_bookings", [["select", "*"], ["id", `eq.${bookingId}`]]);
   const row = rows.ok ? rows.data[0] : undefined;
   if (!row) return null;
   const when = await placeWhen(db, row.attendance_id, classes);
@@ -133,7 +160,7 @@ export async function classBookingStatus(db: Db, bookingId: string, classes: Pub
     const links = await select<{ url: string }>(db, "akb_square_payment_links", [["select", "url"], ["charge_id", `eq.${row.charge_id}`], ["status", "eq.open"]]);
     payUrl = links.ok ? (links.data[0]?.url ?? null) : null;
   }
-  return { status: row.status, when, payUrl, pricePence, reference: referenceFor(row.id) };
+  return { status: row.status, when, payUrl, pricePence, reference: referenceFor(row.id), firstClassFree: row.first_class_free === true };
 }
 
 export async function placeWhen(db: Db, attendanceId: string, classes: PublishedClass[]): Promise<string | null> {
@@ -158,7 +185,7 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
   const email = bookingDeliveryConfig(env);
   if (!email) return 0;
   const rows = await select<BookingRow>(db, "akb_class_bookings", [
-    ["select", "id,status,client_id,attendance_id,charge_id"],
+    ["select", "*"],
     ["status", "in.(confirmed,needs_attention)"],
     ["notified_at", "is.null"],
     ["order", "created_at.asc"],
@@ -175,7 +202,7 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
     const person = people.data.find((p) => p.id === row.client_id);
     if (!person) continue;
     const when = (await placeWhen(db, row.attendance_id, classes)) ?? "your class";
-    const paid = row.charge_id ? "paid online" : "with a class credit";
+    const paid = row.first_class_free ? "first class free" : row.charge_id ? "paid online" : "with a class credit";
     const toAlex = await sendEmail(
       email,
       {
@@ -214,7 +241,9 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
             "",
             "Need to cancel? Use this private link:",
             `${memberLinkOrigin(env)}${BOOK_MANAGE_PATH}?token=${token}`,
-            onlineClassBooking.cancel,
+            row.first_class_free
+              ? "Can't make it? Cancel at least 24 hours before and you can book your free class for another date. Cancelling later, or not turning up, uses it."
+              : onlineClassBooking.cancel,
             "",
             // The booking is the account (2026-10-28): sign in with this email, no password.
             "Your bookings and any class credits are also in your account. Sign in with this email address, no password needed.",
@@ -250,12 +279,16 @@ export interface ManagedBooking {
   /** The payment was refunded in full (in Stripe), so cancelling gives nothing more back. */
   refunded: boolean;
   classCancelled: boolean;
+  /** Booked with the first-class-free offer: no credit; cancelled in time, the free class can be booked again. */
+  firstClassFree: boolean;
+  /** 24 hours or more before the class. */
+  inTime: boolean;
 }
 
 /** The booking behind a private manage link, or null. */
 export async function bookingByToken(db: Db, token: string, classes: PublishedClass[]): Promise<ManagedBooking | null> {
   if (!isToken(token)) return null;
-  const r = await rpc<{ status: BookingRow["status"]; slot: string; class_date: string; starts_at: string; can_cancel: boolean; credit_back_if_cancelled: boolean; refunded?: boolean; class_cancelled: boolean } | null>(
+  const r = await rpc<{ status: BookingRow["status"]; slot: string; class_date: string; starts_at: string; can_cancel: boolean; credit_back_if_cancelled: boolean; refunded?: boolean; class_cancelled: boolean; first_class_free?: boolean } | null>(
     db,
     "akb_class_booking_by_token",
     { p_token_hash: await sha256Hex(token) },
@@ -270,6 +303,8 @@ export async function bookingByToken(db: Db, token: string, classes: PublishedCl
     creditBack: r.data.credit_back_if_cancelled,
     refunded: r.data.refunded === true,
     classCancelled: r.data.class_cancelled,
+    firstClassFree: r.data.first_class_free === true,
+    inTime: new Date(r.data.starts_at).getTime() - Date.now() >= 24 * 60 * 60 * 1000,
   };
 }
 
@@ -282,11 +317,11 @@ export async function cancelByToken(
   token: string,
   env: Env = process.env,
   fetchImpl: typeof fetch = fetch,
-): Promise<{ ok: true; creditLink: string | null; refunded: boolean } | { ok: false; reason: "not_found" | "not_booked" | "class_started" | "failed" }> {
+): Promise<{ ok: true; creditLink: string | null; refunded: boolean; freeClassBack?: boolean; firstClassFree?: boolean } | { ok: false; reason: "not_found" | "not_booked" | "class_started" | "failed" }> {
   if (!isToken(token)) return { ok: false, reason: "not_found" };
   const creditToken = randomToken();
   const hash = await sha256Hex(token);
-  const r = await rpc<{ credit: boolean; refunded?: boolean }>(db, "akb_cancel_class_booking", { p_token_hash: hash, p_credit_token_hash: await sha256Hex(creditToken) });
+  const r = await rpc<{ credit: boolean; refunded?: boolean; first_class_free?: boolean; free_class_back?: boolean }>(db, "akb_cancel_class_booking", { p_token_hash: hash, p_credit_token_hash: await sha256Hex(creditToken) });
   if (!r.ok) {
     const rule = r.error.kind === "rule" ? r.error.rule : null;
     return { ok: false, reason: rule === "not_found" || rule === "not_booked" || rule === "class_started" ? rule : "failed" };
@@ -302,7 +337,12 @@ export async function cancelByToken(
     const person = people.ok ? people.data[0] : undefined;
     if (person) {
       const when = (await placeWhen(db, booking.attendance_id, publishedClasses())) ?? "your class";
-      const outcome = creditLink
+      const free = r.data.first_class_free === true;
+      const outcome = free
+        ? r.data.free_class_back
+          ? `Your free first class is still yours: book it for another date here:\n${memberLinkOrigin(env)}${CLASS_BOOK_PATH}`
+          : "It was less than 24 hours before the class, so your free first class has been used."
+        : creditLink
         ? `Here's your credit for another group class within the next 4 weeks:\n${creditLink}\nIt works once. Nothing to pay when you book with it.`
         : refunded
           ? "Your payment for this class was already refunded, so there's no credit as well."
@@ -314,7 +354,7 @@ export async function cancelByToken(
           customer: { email: person.email, subject: creditLink ? "Your class credit" : `Cancelled: ${when}`, text: `Your booking for the group class on ${when} is cancelled.\n\n${outcome}` },
           alex: {
             subject: `Class cancelled: ${person.full_name}, ${when}`,
-            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${creditLink ? "They were given a class credit for another class within 4 weeks." : refunded ? "Their payment had already been refunded, so no credit was given and the class fee is cancelled." : "It was less than 24 hours before the class, so no credit was given."}`,
+            text: `${person.full_name} (${person.email}) cancelled their booking for the group class on ${when} using their private link.\n\n${free ? (r.data.free_class_back ? "It was their free first class, cancelled in time, so they can book it again." : "It was their free first class, cancelled less than 24 hours before, so it's used.") : creditLink ? "They were given a class credit for another class within 4 weeks." : refunded ? "Their payment had already been refunded, so no credit was given and the class fee is cancelled." : "It was less than 24 hours before the class, so no credit was given."}`,
           },
         },
         env,
@@ -322,7 +362,7 @@ export async function cancelByToken(
       );
     }
   }
-  return { ok: true, creditLink, refunded };
+  return { ok: true, creditLink, refunded, ...(r.data.first_class_free ? { firstClassFree: true, freeClassBack: r.data.free_class_back === true } : {}) };
 }
 
 /** Whether a credit link can still be used, and until when. */

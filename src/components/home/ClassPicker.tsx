@@ -1,3 +1,4 @@
+import { firstClassFree } from "@/content/offers";
 import { timetable } from "@/content/classes";
 import { faq } from "@/content/faq";
 import { firstClassSteps } from "@/content/home";
@@ -44,7 +45,7 @@ export function ClassPicker({ className, location = true, button = true }: { cla
         external={cta.external}
         classHrefBase={bookable ? `${cta.href}?class=` : null}
         showBook={button}
-        beginners={beginners && isPublishable(beginners.status) ? firstClassSteps.beginners : null}
+        beginners={isPublishable(firstClassFree.status) ? `${firstClassFree.headline} for new customers.` : beginners && isPublishable(beginners.status) ? firstClassSteps.beginners : null}
       />
       {location ? <StudioLocation /> : null}
     </div>

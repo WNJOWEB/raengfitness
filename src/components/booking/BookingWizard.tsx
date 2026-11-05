@@ -75,7 +75,8 @@ interface BookingWizardProps {
    * class price (e.g. "£12") and the hold and cancellation rules. Absent →
    * every booking is a request Alex confirms. One-to-one is always a request.
    */
-  pay?: { price: string; hold: string; cancel: string } | null;
+  /** `offer`: the first-class-free line (content/offers.ts), when the offer is on. */
+  pay?: { price: string; hold: string; cancel: string; offer?: string } | null;
   /** The published 1:1 prices, e.g. { single: "£35 per session", monthly: "£130 per month · 4 sessions" }. */
   optionPrices?: Partial<Record<OneToOneOption, string>>;
 }
@@ -459,7 +460,9 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                     : payNow
                       ? credit
                         ? "Pick a date. Your class credit pays for it."
-                        : `Pick a date. You pay ${pay?.price} online to book your place.`
+                        : pay?.offer
+                          ? `Pick a date. Your first class with us is free; after that it's ${pay.price}, paid online.`
+                          : `Pick a date. You pay ${pay?.price} online to book your place.`
                       : usesSessions
                       ? "Pick a date. Alex confirms every place personally."
                       : availabilityWording
@@ -737,9 +740,9 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                       <>
                         <p className="flex items-baseline justify-between gap-4 text-base font-semibold">
                           <span>Total</span>
-                          <span>{pay.price}</span>
+                          <span>{pay.offer ? `${pay.price}, or free if it's your first class` : pay.price}</span>
                         </p>
-                        <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>
+                        {pay.offer ? <p className="font-semibold">{pay.offer}</p> : <p>Next, you&apos;ll pay securely on Stripe&apos;s page.</p>}
                       </>
                     )}
                     <p className="text-muted">{pay.cancel}</p>
@@ -748,7 +751,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
-                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? "Opening Stripe…" : "Continue to payment") : enquiry ? "Send enquiry" : "Send request",
+                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? (pay?.offer ? "Booking…" : "Opening Stripe…") : pay?.offer ? "Continue" : "Continue to payment") : enquiry ? "Send enquiry" : "Send request",
                     type: "submit",
                     pending,
                   }}

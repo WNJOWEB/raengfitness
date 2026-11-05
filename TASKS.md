@@ -14,6 +14,15 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - Older unticked lines below are historic; the ones above are what matters.
 
 
+## First class free (2026-11-05)
+
+### Done
+- [x] Offer content (`content/offers.ts`), database rule and booking (`20261123000000_akb_first_class_free.sql`), booking form, timetable and Pay as you go wording, emails, booked page, cancel pages (link and account), unit tests on the real migrations, e2e
+
+### To do
+- [ ] **P0** Apply `20261123000000_akb_first_class_free.sql` to the live database (owner's approval), **then** deploy: until it's applied the site would advertise the offer but charge (it falls back to paying)
+- [ ] **P1** Alex to confirm the cancellation rule for the free class
+
 ## Alex's website changes (2026-11-05)
 
 ### Done

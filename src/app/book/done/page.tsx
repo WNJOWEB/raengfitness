@@ -58,7 +58,7 @@ const rows = (booking: ClassBookingStatus, how: string): [string, string][] => [
   ["Service", "Group class"],
   ...(booking.when ? ([["When", booking.when]] as [string, string][]) : []),
   ["Where", `${site.location.street}, ${site.location.town}`],
-  ["Price", booking.pricePence > 0 ? `${formatPence(booking.pricePence)}${how}` : "Paid with a class credit"],
+  ["Price", booking.firstClassFree ? "Free: your first class" : booking.pricePence > 0 ? `${formatPence(booking.pricePence)}${how}` : "Paid with a class credit"],
   ["Reference", booking.reference],
 ];
 

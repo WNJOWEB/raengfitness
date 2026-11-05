@@ -81,7 +81,12 @@ export function cancelSheet(p: MemberPlace, back: MembersView): SheetPayload {
     return { kind: "info", eyebrow: "Your booking", title: longWhen(p.starts_at), body: "To change this place, message Alex.", confirm: "", keep: "Close", fields: {} };
   }
   const membershipCredit = p.how === "credit";
-  const body = p.refunded
+  const freeInTime = new Date(p.starts_at).getTime() - Date.now() >= 24 * 60 * 60 * 1000;
+  const body = p.how === "free"
+    ? freeInTime
+      ? "This is your free first class. Cancel now and you can book it for another date."
+      : "This is your free first class. It's less than 24 hours before, so cancelling uses it."
+    : p.refunded
     ? "Your payment for this class has already been refunded, so cancelling gives no credit."
     : p.credit_back_if_cancelled
     ? membershipCredit
@@ -91,13 +96,13 @@ export function cancelSheet(p: MemberPlace, back: MembersView): SheetPayload {
       ? "It's less than 24 hours before the class, so the credit will be used."
       : "It's less than 24 hours before the class, so there's nothing back.";
   const fields: Record<string, string> = { place: p.id, back, at: `${p.class_date}.${p.slot}` };
-  if (p.how === "paid" || p.how === "class_credit") fields.paid = "yes";
+  if (p.how === "paid" || p.how === "class_credit" || p.how === "free") fields.paid = "yes";
   return {
     kind: "cancel",
     eyebrow: "Cancel booking",
     title: longWhen(p.starts_at),
     body,
-    confirm: p.credit_back_if_cancelled || p.refunded ? "Cancel booking" : "Cancel anyway",
+    confirm: p.credit_back_if_cancelled || p.refunded || (p.how === "free" && freeInTime) ? "Cancel booking" : "Cancel anyway",
     keep: "Keep it",
     fields,
   };
@@ -105,5 +110,5 @@ export function cancelSheet(p: MemberPlace, back: MembersView): SheetPayload {
 
 /** How a place was paid for, in a few words. */
 export function paidWith(p: MemberPlace): string {
-  return p.how === "credit" ? "Membership credit" : p.how === "paid" ? "Paid" : p.how === "class_credit" ? "Class credit" : "Arranged with Alex";
+  return p.how === "credit" ? "Membership credit" : p.how === "paid" ? "Paid" : p.how === "class_credit" ? "Class credit" : p.how === "free" ? "Free first class" : "Arranged with Alex";
 }

@@ -139,7 +139,7 @@ export interface MemberPlace {
   late_cancel: boolean;
   with_credit: boolean;
   /** How it was paid: membership credit, paid online, a class credit, or arranged with Alex. */
-  how: "credit" | "paid" | "class_credit" | "other";
+  how: "credit" | "paid" | "class_credit" | "free" | "other";
   class_cancelled: boolean;
   can_cancel: boolean;
   credit_back_if_cancelled: boolean;
@@ -199,13 +199,15 @@ export function cancelPlace(db: Db, clientId: string, attendanceId: string): Pro
  * hash of its link is stored), unless the payment was already refunded in
  * full. Returns whether a credit was given and whether it had been refunded.
  */
-export async function cancelPaidPlace(db: Db, clientId: string, attendanceId: string): Promise<DbResult<{ credit: boolean; refunded: boolean }>> {
-  const r = await rpc<{ credit: boolean; refunded?: boolean }>(db, "akb_member_cancel_booking", {
+export async function cancelPaidPlace(db: Db, clientId: string, attendanceId: string): Promise<DbResult<{ credit: boolean; refunded: boolean; firstClassFree?: boolean; freeClassBack?: boolean }>> {
+  const r = await rpc<{ credit: boolean; refunded?: boolean; first_class_free?: boolean; free_class_back?: boolean }>(db, "akb_member_cancel_booking", {
     p_client: clientId,
     p_attendance: attendanceId,
     p_credit_token_hash: await sha256Hex(randomToken()),
   });
-  return r.ok ? { ok: true, data: { credit: r.data.credit, refunded: r.data.refunded === true } } : r;
+  return r.ok
+    ? { ok: true, data: { credit: r.data.credit, refunded: r.data.refunded === true, ...(r.data.first_class_free ? { firstClassFree: true, freeClassBack: r.data.free_class_back === true } : {}) } }
+    : r;
 }
 
 /** Books a class with one of the customer's own class credits: confirmed at once, nothing to pay. */
