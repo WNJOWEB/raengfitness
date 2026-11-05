@@ -704,7 +704,8 @@ test.describe("memberships", () => {
     await expect(terms).toContainText("Unused credits expire at the end of each membership period and do not roll over.");
     const policy = page.locator("#cancellation");
     await expect(policy).toContainText("24 hours or more before class");
-    await expect(policy).toContainText("Your class credit will be forfeited.");
+    await expect(policy).toContainText("Your class credit, payment or free first class will be forfeited.");
+    await expect(policy).toContainText("If you paid for the class, your payment will be refunded in full.");
     await expect(policy).toContainText("No-shows");
     await expect(policy).toContainText("By booking a class, you agree to these cancellation terms.");
   });
