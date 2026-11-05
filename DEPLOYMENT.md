@@ -49,7 +49,7 @@ redeploy: pages, including `/book`, are prerendered at build time.
 | `CRON_SECRET` | random string, 32+ characters (e.g. `openssl rand -hex 32`) — needed with the Resend settings and for membership renewals | same, optional | Sensitive. Vercel Cron sends it as `Authorization: Bearer …` to `/api/cron/request-alerts` (resends failed alerts to Alex), `/api/cron/membership-renewals` and `/api/cron/stripe-reconcile`. Without it (or under 16 characters) the endpoint refuses every call |
 | `SUPABASE_URL` | `https://sqkpixwvugrxllrxlexs.supabase.co` — **set** | same — **set** | Project `Alexkbells` in the developer's Supabase organisation. Turns on booking requests (stored) and the coach login |
 | `SUPABASE_SECRET_KEY` | secret key (`sb_secret_...`) from the Supabase dashboard — **set 2026-10-17** | same — **set** | Sensitive. Bypasses RLS, so server code only. `SUPABASE_URL` also set for both, 2026-10-17 |
-| `COACH_EMAIL` | **set 2026-10-18** to the developer's account (Supabase user created the same day); change to Alex's email at handover (comma-separate to allow more than one) | same — **set** | Turns on `/coach/login` with the two Supabase settings. Only these addresses can sign in |
+| `COACH_EMAIL` | `alexkbells@outlook.com,hello@raengfitness.co.uk` (hello@ added 2026-11-05, owner's request; Supabase login for it to be created in Authentication → Users) | same — **set** | Turns on `/coach/login` with the two Supabase settings. Only these addresses can sign in (comma-separated) |
 
 "Book now" opens `/book` whenever booking works: on production that is the
 case as soon as `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are set (they are, since
