@@ -29,7 +29,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - [x] Only a paid membership blocks the offer (`20261125000000_akb_free_class_paid_membership.sql`); returning customers see "You've trained with RAENG before, so this class is £12." before Stripe opens; unit tests for brand-new, unpaid membership, paid membership, past class and free class already used; e2e
 
 ### To do
-- [ ] **P0** Apply `20261125000000_akb_free_class_paid_membership.sql` to the live database (owner's approval), then deploy
+- [x] Applied `20261125000000_akb_free_class_paid_membership.sql` to the live database, then deployed (2026-11-05, owner's approval)
 
 ## Cancelling with 24 hours' notice gives everything back (2026-11-05)
 
