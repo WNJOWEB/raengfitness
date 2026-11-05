@@ -280,7 +280,7 @@ test("contact tiles: a 2×2 grid on phones, one column under 360px, nothing over
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
-test("header: menu at the left, logo centred, nothing at the right, no overlap", async ({ page }) => {
+test("header: menu at the left, logo centred, Book now at the right, no overlap", async ({ page }) => {
   for (const width of [320, 360, 390, 768, 900, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
@@ -295,8 +295,12 @@ test("header: menu at the left, logo centred, nothing at the right, no overlap",
       return { left: Math.min(...rects.map((r) => r.left)), right: Math.max(...rects.map((r) => r.right)) };
     });
     expect(menu.right, `menu overlaps logo at ${width}px`).toBeLessThanOrEqual(logo.left);
-    // No Book now at the right (Alex, 2026-10-29): the logo is centred at every width.
-    expect(Math.abs((logo.left + logo.right) / 2 - width / 2), `logo is not centred at ${width}px`).toBeLessThan(2);
+    // "Book now" sits at the right (Alex, 2026-11-05). The logo stays centred wherever the side columns can hold the
+    // button (390px and up); on the narrowest phones it gives way by a few pixels rather than shrink.
+    expect(Math.abs((logo.left + logo.right) / 2 - width / 2), `logo is not centred at ${width}px`).toBeLessThan(width >= 390 ? 2 : 24);
+    const book = await box("header a[href='/book']");
+    expect(book.left, `Book now overlaps the logo at ${width}px`).toBeGreaterThanOrEqual(logo.right);
+    expect(book.right, `Book now past the edge at ${width}px`).toBeLessThanOrEqual(width);
   }
 });
 
@@ -452,7 +456,7 @@ for (const [server, base] of [
     await expect(page.locator("#main").getByRole("link", { name: /Book a class|View classes and book/ }).first()).toHaveAttribute("href", "/book/group-class");
 
     await page.goto(base + "/coaching");
-    await expect(page.locator("#main").getByRole("link", { name: /Book now/ }).first()).toHaveAttribute("href", "/book/one-to-one");
+    await expect(page.locator("#main").getByRole("link", { name: /Book now/ }).first()).toHaveAttribute("href", "/book");
 
     // Online coaching is off the site for now (Alex, 2026-10-29): its address goes to Coaching.
     await page.goto(base + "/online-coaching");
@@ -549,7 +553,7 @@ test("homepage: one idea per section, in order, and no testimonial is invented",
   const classes = page.locator("#classes");
   await expect(classes).toContainText("£12 a class");
   await expect(classes).toContainText("places max");
-  for (const name of ["HIIT", "Doubles Kettlebells", "Saturday Conditioning"]) await expect(classes).toContainText(name);
+  for (const name of ["KB HIIT", "Double KB", "KB Mix"]) await expect(classes).toContainText(name);
   await expect(classes.locator("#ct-venue")).toHaveText("1A Dunnswood Road");
   await expect(classes.getByText("Media House")).toHaveCount(0);
   // Alex's wording, exactly (audit of his chat, 2026-10-29): no "Media House" anywhere (the owner, 2026-10-29: not on the whole website), and the caption has no extra words.
@@ -564,7 +568,7 @@ test("homepage: one idea per section, in order, and no testimonial is invented",
   // Online coaching is off the site for now; small group coaching is named, with no price (Alex, 2026-10-29).
   await expect(more.getByRole("link", { name: /Small group coaching/ })).toHaveAttribute("href", "/coaching#small-group");
   await expect(more).not.toContainText(/online/i);
-  await expect(more).toContainText("From £35 per session");
+  await expect(more).toContainText("£35 per session");
   await expect(page.locator("blockquote")).toHaveCount(0);
   const coach = page.locator("#coach");
   await expect(coach.getByRole("link", { name: "About RAENG" })).toHaveCount(0); // removed (owner, 2026-10-30)
@@ -794,24 +798,36 @@ test("/online-coaching and its enquiry form are off the site for now and go to C
   await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("link", { name: /online/i })).toHaveCount(0);
 });
 
-test("/coaching: Alex's order and nothing else (2026-10-29)", async ({ page }) => {
+test("/coaching: Alex's intro, 1:1 personal coaching, then small group coaching, each its own section (2026-11-05)", async ({ page }) => {
   await page.goto("/coaching");
   const order = await page.locator("main > section, main > .section-rules > section").evaluateAll((els) => els.map((e) => e.id || e.getAttribute("aria-labelledby")));
-  expect(order).toEqual(["small-group", "who-for", "included", "pricing", "cta-heading"]);
+  expect(order).toEqual(["one-to-one", "small-group", "cta-heading"]);
+  await expect(page.locator("main")).toContainText("Personalised, face-to-face kettlebell coaching designed around your goals, experience and ability.");
   // No "how it works" steps and no group-classes link.
   await expect(page.locator("#how-it-works")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "See group classes" })).toHaveCount(0);
-  await expect(page.locator("#who-for h3")).toHaveText(["Strength", "Technique", "Movement"]);
-  const pricing = page.locator("#pricing");
-  await expect(pricing.locator("li h3")).toHaveText(["Single session", "Four sessions"]);
+
+  const one = page.locator("#one-to-one");
+  await expect(one.getByRole("heading", { level: 2 })).toHaveText("Attention That Stays on You.");
+  await expect(one).toContainText("Whether you’re new to kettlebells or looking to take your training further");
+  await expect(one.locator("li h3")).toHaveText(["Strength", "Technique", "Movement"]);
+  await expect(one.locator("#included h4")).toHaveText(["Personalised coaching", "Technique and development", "Structured progression"]);
+  const pricing = one.locator("#pricing");
+  await expect(pricing.locator("li h4")).toHaveText(["Single 1:1 session", "Monthly package"]);
   await expect(pricing).toContainText("£35");
-  await expect(pricing).toContainText("from, per session");
   await expect(pricing).toContainText("£130");
   await expect(pricing).toContainText("per month, £32.50 a session");
-  // Small group coaching is named, with no invented details (Alex, 2026-10-29).
+  await expect(pricing).toContainText("Four personalised coaching sessions each month, providing consistency, structure and progression.");
+
+  // Small group coaching: its own intro, benefits, what's included and information; an enquiry, no invented price.
   const small = page.locator("#small-group");
-  await expect(small.getByRole("heading", { level: 2 })).toHaveText("Small group coaching.");
-  await expect(small.getByRole("link", { name: "Ask about small group coaching" })).toHaveAttribute("href", "/contact");
+  await expect(small.getByRole("heading", { level: 2 })).toHaveText("Train together. Progress individually.");
+  await expect(small).toContainText("Small group kettlebell coaching combining individual guidance");
+  for (const point of ["Small, focused training groups", "Coaching and technique feedback", "Structured strength and conditioning", "A supportive training environment"]) await expect(small).toContainText(point);
+  await expect(small.getByRole("heading", { name: "Benefits" })).toBeVisible();
+  await expect(small).not.toContainText("£");
+  await expect(small).toContainText("Submitting an enquiry does not guarantee a place.");
+  await expect(small.getByRole("link", { name: /Enquire about availability/ })).toHaveAttribute("href", "/book/small-group");
 });
 
 test("Alex's layout: each page carries the parts his layout image lists (2026-10-29)", async ({ page }) => {
@@ -824,17 +840,16 @@ test("Alex's layout: each page carries the parts his layout image lists (2026-10
   await expect(page.getByRole("heading", { level: 2, name: "Questions." })).toBeVisible();
   // Coaching: 1:1 coaching, small group coaching (where online was), who it's for, what's included, pricing or enquiry.
   await page.goto("/coaching");
-  await expect(page.locator("#who-for")).toBeVisible();
-  await expect(page.locator("#included").getByRole("heading", { level: 2 })).toHaveText("What's included.");
-  await expect(page.locator("#included li")).toHaveText(["Face-to-face sessions with Alex", "Coaching tailored to the individual"]);
+  await expect(page.locator("#one-to-one")).toBeVisible();
+  await expect(page.locator("#included").getByRole("heading", { name: "What's included" })).toBeVisible();
   await expect(page.locator("#pricing")).toContainText("£35");
-  // About: his story, then RAENG's values and long-term vision.
+  // About: RAENG's philosophy and values (no section about Alex, 2026-11-05).
   await page.goto("/about");
   const order = await page.locator("main > section, main > .section-rules > section").evaluateAll((els) => els.map((e) => e.id || e.getAttribute("aria-labelledby")));
-  expect(order).toEqual(["coach", "philosophy", "values", "cta-heading"]);
+  expect(order).toEqual(["philosophy", "values", "cta-heading"]);
 });
 
-test("About: Alex's story, then the philosophy and values; no quote band (2026-10-29)", async ({ page }) => {
+test("About: the philosophy and values, focused on RAENG; no coach section or photo, no quote band", async ({ page }) => {
   await page.goto("/about");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("About RAENG.");
   // The philosophy as a dictionary entry (owner's design, 2026-10-28): tap a sense to read its line.
@@ -848,15 +863,14 @@ test("About: Alex's story, then the philosophy and values; no quote band (2026-1
   await expect(entry).toContainText("The reason you still turn up on the hard days.");
   // The "1% better, every day" chart is off About (owner, 2026-10-30).
   await expect(page.getByRole("slider", { name: "Day of the year" })).toHaveCount(0);
-  // Facebook is in the footer; Alex's section links Instagram only (2026-10-27).
+  // Facebook is in the footer. Alex's photograph and the section about him as the coach are gone (2026-11-05).
   const fb = page.getByRole("contentinfo").getByRole("link", { name: /Facebook/ });
   await expect(fb).toHaveAttribute("href", "https://www.facebook.com/profile.php?id=61589486540520");
   await expect(fb).toHaveAttribute("target", "_blank");
   await expect(fb).toHaveAttribute("rel", /noopener/);
-  const ig = page.locator("#coach").getByRole("link", { name: /Instagram/ });
-  await expect(ig).toHaveAttribute("target", "_blank");
-  await expect(ig).toHaveAttribute("rel", /noopener/);
-  await expect(page.locator("#coach").getByRole("link", { name: /Facebook/ })).toHaveCount(0);
+  await expect(page.locator("#coach")).toHaveCount(0);
+  await expect(page.locator("main img")).toHaveCount(0);
+  await expect(page.locator("main")).not.toContainText(/Alex's story|Meet your coach/i);
   // The quote band with the class facts is gone.
   await expect(page.locator("#story")).toHaveCount(0);
   await expect(page.locator("blockquote")).toHaveCount(0);
@@ -999,7 +1013,7 @@ test("footer groups collapse on phones and are open on desktop", async ({ page }
   await expect(footer.getByText("1A Dunnswood Road")).toBeVisible();
 });
 
-test("'Get in touch' only on Coaching's closing button (owner, 2026-10-29), and the header has no Book now", async ({ page }) => {
+test("'Get in touch' only on Coaching's closing button (owner, 2026-10-29), and the header has Book now (Alex, 2026-11-05)", async ({ page }) => {
   for (const route of ["/", "/classes", "/memberships", "/coaching", "/about", "/contact", "/privacy"]) {
     await page.goto(route);
     if (route === "/coaching") {
@@ -1008,7 +1022,7 @@ test("'Get in touch' only on Coaching's closing button (owner, 2026-10-29), and 
     } else {
       await expect(page.locator("body"), route).not.toContainText(/get in touch/i);
     }
-    await expect(page.locator("header").first().getByRole("link", { name: /book/i }), route).toHaveCount(0);
+    await expect(page.locator("header").first().getByRole("link", { name: "Book now" }), route).toHaveAttribute("href", "/book");
   }
   // The classes page hero says "Book a class", like the home page's.
   await page.goto("/classes");

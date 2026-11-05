@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { pillars } from "@/content/about";
-import { images } from "@/content/images";
 import { pageMetadata } from "@/lib/metadata";
 import { revealDelay } from "@/lib/reveal";
 import { Section, SectionHeading, type SectionTone } from "@/components/ui/Section";
-import { CoachStory } from "@/components/home/CoachStory";
 import { CtaBand } from "@/components/sections/CtaBand";
 import { PageHeader } from "@/components/sections/PageHeader";
 import { Philosophy } from "@/components/sections/Philosophy";
@@ -12,13 +10,14 @@ import { Philosophy } from "@/components/sections/Philosophy";
 export const metadata: Metadata = pageMetadata({
   title: "About RAENG",
   description:
-    "RAENG Fitness is a kettlebell club in Cumbernauld, Glasgow, built on strength, community and discipline. Meet the coach and see how we train.",
+    "RAENG Fitness is a kettlebell club in Cumbernauld, Glasgow, built on strength, community and discipline. See what we stand for and how we train.",
   path: "/about",
 });
 
 /**
- * About, in the order of Alex's layout (2026-10-29): his story, then RAENG's
- * values and long-term vision (the philosophy card and what we stand for).
+ * About, focused on RAENG as a brand (Alex, 2026-11-05): RAENG's philosophy
+ * and what we stand for. His photograph and the section about him as the
+ * coach were removed at his request (it had been his story, 2026-10-29).
  * "Coaching approach" has no text from Alex yet, so it is not on the page.
  * No quote band or class facts here.
  */
@@ -29,8 +28,6 @@ export default function AboutPage() {
   return (
     <div className="section-rules">
       <PageHeader eyebrow="About" title="About RAENG." />
-
-      <CoachStory showAboutLink={false} showPhotos={false} portrait={images.coach} tone={tone()} eyebrow="Alex's story" />
 
       <Philosophy asSection />
 

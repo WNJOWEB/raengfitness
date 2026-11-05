@@ -3,7 +3,7 @@ import type { Service } from "./types";
 /**
  * Coaching offers. Descriptions use only previously published wording.
  * Prices confirmed by the project owner on 2026-10-15 (the figures from the
- * original brief); the group class price (£10 per person) on 2026-10-17, raised to £12 per class by the owner on 2026-10-21 (memberships brief).
+ * original brief; restated 2026-11-05 as a single £35 session or a £130 monthly package of 4 sessions); the group class price (£10 per person) on 2026-10-17, raised to £12 per class by the owner on 2026-10-21 (memberships brief).
  */
 export const services: Service[] = [
   {
@@ -25,7 +25,7 @@ export const services: Service[] = [
   },
   {
     id: "one-to-one",
-    name: "1:1 coaching",
+    name: "1:1 personal coaching",
     shortName: "1:1",
     href: "/coaching",
     summary:
@@ -37,18 +37,19 @@ export const services: Service[] = [
     prices: [
       {
         status: "confirmed",
-        label: "Single session",
-        prefix: "From",
+        label: "Single 1:1 session",
         amountGbp: 35,
         unit: "per session",
         sessions: 1,
+        description: "One personalised, face-to-face coaching session.",
       },
       {
         status: "confirmed",
-        label: "Four sessions",
+        label: "Monthly package",
         amountGbp: 130,
         unit: "per month",
         sessions: 4,
+        description: "Four personalised coaching sessions each month, providing consistency, structure and progression.",
       },
     ],
   },

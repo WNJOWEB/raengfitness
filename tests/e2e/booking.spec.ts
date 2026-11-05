@@ -156,9 +156,9 @@ test.describe("booking prototype (demo availability)", () => {
     const summary = page.getByRole("complementary", { name: "Your selection (demonstration)" });
     await summary.getByRole("button", { name: "Change service" }).click();
     await expect(page.getByRole("heading", { name: "Choose a service" })).toBeFocused();
-    await choose(page, "One-to-one");
+    await choose(page, "1:1 personal coaching");
     await continueButton(page).click();
-    await expect(summary).toContainText("One-to-one");
+    await expect(summary).toContainText("1:1 personal coaching");
     await expect(summary.getByText("Not chosen yet")).toBeVisible();
 
     // Completed steps in the stepper can be revisited.
@@ -170,8 +170,8 @@ test.describe("booking prototype (demo availability)", () => {
     await page.goto("/book");
     await page.locator("#service").focus();
     await page.keyboard.press("ArrowDown");
-    await expect(page.getByRole("radio", { name: /One-to-one/ })).toBeChecked();
-    const tile = page.locator("label").filter({ has: page.getByRole("radio", { name: /One-to-one/ }) });
+    await expect(page.getByRole("radio", { name: /1:1 personal coaching/ })).toBeChecked();
+    const tile = page.locator("label").filter({ has: page.getByRole("radio", { name: /1:1 personal coaching/ }) });
     expect(await tile.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("solid");
     await continueButton(page).focus();
     await page.keyboard.press("Enter");
@@ -282,7 +282,7 @@ test.describe("production configuration", () => {
     await expect(page.locator('[data-status="available"], [data-status="full"]')).toHaveCount(shown.length);
     await pickDate(page, `${formatLongDate(day.date)}, available`);
     // How full the class is shows beside each time (owner, 2026-10-30).
-    await expect(page.locator("#times").getByText(/\d+ places? left/).first()).toBeVisible();
+    await expect(page.locator("#times").getByText(/\d+\/\d+ spaces available/).first()).toBeVisible();
     await page.locator("#times label").first().click();
 
     // The class is described like Alex's own listing.
@@ -319,10 +319,10 @@ test.describe("production configuration", () => {
     const year = new Date(`${day.date}T12:00:00`).getFullYear();
     const summary = `${formatLongDate(day.date)} ${year}`;
     const row = (await stored(request)).find((r) => r.name === "Prod Booker");
-    expect(row).toMatchObject({ kind: "booking", service: "Group class", email: "prod@example.com", details: { experience: "Advanced" } });
+    expect(row).toMatchObject({ kind: "booking", service: "Group classes", email: "prod@example.com", details: { experience: "Advanced" } });
     expect(row!.summary).toContain(summary);
 
-    const sent = (await emails(request)).find((e) => e.payload.subject === "Group class booking request: Prod Booker");
+    const sent = (await emails(request)).find((e) => e.payload.subject === "Group classes booking request: Prod Booker");
     expect(sent).toBeDefined();
     expect(sent!.payload.to).toEqual(["alex-e2e@example.com"]);
     expect(sent!.payload.text).toContain(`Class: ${summary}`);
@@ -347,9 +347,55 @@ test.describe("production configuration", () => {
     await expect(page.locator("dt", { hasText: "Email alert" }).locator("xpath=following-sibling::dd")).toContainText(/^Sent /);
   });
 
+  test("/book offers group classes, 1:1 personal coaching and a small group enquiry", async ({ page }) => {
+    await page.goto(`${PROD}/book`);
+    await expect(page.getByRole("radio")).toHaveCount(3);
+    await expect(page.getByRole("radio", { name: /^Group classes/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^1:1 personal coaching/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Small group coaching enquiry/ })).toBeVisible();
+  });
+
+  test("a 1:1 request picks the single session or the monthly package, shown with the published prices", async ({ page }) => {
+    await page.goto(`${PROD}/book/one-to-one`);
+    await choose(page, "Fri");
+    await expect(continueButton(page)).toBeDisabled();
+    await expect(page.getByText("Choose an option to continue.")).toBeVisible();
+    await expect(page.getByText("Select the days and times that work best for you.", { exact: false })).toContainText("does not guarantee a booking");
+    await expect(page.locator("label").filter({ has: page.getByRole("radio", { name: /^Single 1:1 session/ }) })).toContainText("£35 per session");
+    const monthly = page.locator("label").filter({ has: page.getByRole("radio", { name: /^Monthly package/ }) });
+    await expect(monthly).toContainText("£130 per month");
+    await monthly.click();
+    await expect(continueButton(page)).toBeEnabled();
+  });
+
+  test("a small group enquiry is stored and emailed as its own service, never as a booking", async ({ page, request }) => {
+    await page.goto(`${PROD}/book/small-group`);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(/small group coaching enquiry/i);
+    await expect(page.getByText("Please note that submitting a request does not guarantee a booking.")).toBeVisible();
+    await choose(page, "Sat");
+    await choose(page, "Morning");
+    await continueButton(page).click();
+    await choose(page, "Beginner");
+    await page.getByRole("textbox", { name: "Name" }).fill("Group Enquirer");
+    await page.getByRole("textbox", { name: "Email" }).fill("group-enquirer@example.com");
+    await page.getByRole("textbox", { name: "Phone" }).fill("07700 900123");
+    await page.getByLabel(/I've read and agree to the health and risk terms/).check();
+    await page.waitForTimeout(3100);
+    await page.getByRole("button", { name: "Send enquiry" }).click();
+    const status = page.getByRole("status");
+    await expect(status).toContainText("Enquiry sent");
+    await expect(status).toContainText("does not guarantee a place");
+    const row = (await stored(request)).find((r) => r.name === "Group Enquirer");
+    expect(row).toMatchObject({ kind: "booking", service: "Small group coaching enquiry" });
+    const mail = (await emails(request)).find((e) => e.payload.subject.includes("Group Enquirer"));
+    expect(mail?.payload.subject).toBe("Small group coaching enquiry from Group Enquirer");
+  });
+
   test("when the email provider is down, the request is still stored, flagged and retried without duplicates", async ({ page, request }) => {
     await page.goto(`${PROD}/book/one-to-one`);
     await choose(page, "Wed");
+    await expect(continueButton(page)).toBeDisabled(); // the 1:1 option is needed too
+    await choose(page, "Monthly package");
     await continueButton(page).click();
     await choose(page, "Intermediate");
     await page.getByRole("textbox", { name: "Name" }).fill("EMAIL-DOWN Booker");
@@ -363,8 +409,9 @@ test.describe("production configuration", () => {
     await expect(page.getByRole("status")).toContainText("booked once he confirms");
 
     const row = (await stored(request)).find((r) => r.name === "EMAIL-DOWN Booker") as (StoredRow & Record<string, unknown>) | undefined;
-    expect(row).toMatchObject({ kind: "booking", service: "One-to-one", alert_status: "failed", alert_attempts: 1, alert_error: "http-503" });
-    expect(String(row!.alert_subject)).toBe("One-to-one booking request: EMAIL-DOWN Booker");
+    expect(row).toMatchObject({ kind: "booking", service: "1:1 personal coaching", alert_status: "failed", alert_attempts: 1, alert_error: "http-503" });
+    expect(String(row!.alert_subject)).toBe("1:1 personal coaching booking request: EMAIL-DOWN Booker");
+    expect(row!.details).toMatchObject({ option: "Monthly package (4 sessions)" });
     // One quick retry, with the same idempotency key, and no email delivered.
     const refused = (await (await request.get(`${MOCK}/refused`)).json()) as { idempotencyKey: string; subject: string }[];
     const attempts = refused.filter((r) => r.subject.includes("EMAIL-DOWN Booker"));
@@ -401,7 +448,7 @@ test.describe("production configuration", () => {
     const row = (await stored(request)).find((r) => r.name === "Plan Chooser");
     expect(row).toMatchObject({ details: { plan: "regular", membership: "Regular membership (£65 every 4 weeks, 8 class credits)" } });
     expect(row!.summary).toContain("Regular membership");
-    const sent = (await emails(request)).find((e) => e.payload.subject === "Group class booking request: Plan Chooser");
+    const sent = (await emails(request)).find((e) => e.payload.subject === "Group classes booking request: Plan Chooser");
     expect(sent!.payload.text).toContain("Membership: Regular membership (£65 every 4 weeks, 8 class credits)");
   });
 
@@ -614,7 +661,8 @@ test.describe("production configuration", () => {
 
   test("when neither storage nor email accepts a request, it shows an error, not success", async ({ page }) => {
     await page.goto(`${PROD}/book/one-to-one`);
-    await choose(page, "Mon");
+    await choose(page, "Sun");
+    await choose(page, "Single 1:1 session");
     await continueButton(page).click();
     await choose(page, "Intermediate");
     await page.getByRole("textbox", { name: "Name" }).fill("FAIL-TEST Booker");
@@ -631,6 +679,7 @@ test.describe("production configuration", () => {
   test("a bot-speed submission is rejected without claiming success", async ({ page, request }) => {
     await page.goto(`${PROD}/book/one-to-one`);
     await choose(page, "Tue");
+    await choose(page, "Single 1:1 session");
     await continueButton(page).click();
     await choose(page, "Intermediate");
     await page.getByRole("textbox", { name: "Name" }).fill("Speedy Bot");
@@ -648,6 +697,7 @@ test.describe("production configuration", () => {
     // Posting a demo slot id through the real form must never become a request.
     await page.goto(`${PROD}/book/one-to-one`);
     await choose(page, "Thu");
+    await choose(page, "Single 1:1 session");
     await continueButton(page).click();
     await choose(page, "Intermediate");
     await page.getByRole("textbox", { name: "Name" }).fill("Slot Poster");

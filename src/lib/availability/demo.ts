@@ -19,6 +19,7 @@ export const DEMO_WINDOW_DAYS = 28;
 const PATTERNS: Record<BookableService, Partial<Record<number, TimeOfDay[]>>> = {
   "group-class": { 1: ["19:00"], 3: ["19:00"], 6: ["10:00"] },
   "one-to-one": { 0: ["07:00", "12:30", "17:30"], 2: ["07:00", "12:30", "17:30"], 4: ["07:00", "12:30"] },
+  "small-group": { 1: ["18:00"], 5: ["09:30"] },
 };
 
 /**

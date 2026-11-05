@@ -22,6 +22,7 @@ const form = (fields: Record<string, string | string[]>) => {
 };
 const valid = {
   service: "one-to-one",
+  option: "single",
   days: ["mon", "wed"],
   times: ["evening"],
   experience: "warrior",
@@ -157,12 +158,33 @@ describe("parseBookingRequest", () => {
   });
 });
 
+describe("1:1 option and small group enquiries", () => {
+  it("requires 1:1 requests to choose a single session or the monthly package", () => {
+    const missing = parseBookingRequest(form({ ...valid, option: "" }), { now: NOW });
+    expect(missing.kind === "invalid" && missing.errors.option).toBeTruthy();
+    const bogus = parseBookingRequest(form({ ...valid, option: "free" }), { now: NOW });
+    expect(bogus.kind === "invalid" && bogus.errors.option).toBeTruthy();
+    const monthly = parseBookingRequest(form({ ...valid, option: "monthly" }), { now: NOW });
+    expect(monthly.kind === "valid" && monthly.data.option).toBe("monthly");
+  });
+
+  it("accepts a small group enquiry as its own service, with no 1:1 option", () => {
+    const result = parseBookingRequest(form({ ...valid, service: "small-group", option: "monthly" }), { now: NOW });
+    if (result.kind !== "valid") throw new Error("expected valid");
+    expect(result.data).toMatchObject({ service: "small-group", option: "", days: ["mon", "wed"], session: "" });
+    const email = bookingEmail(result.data);
+    expect(email.subject).toBe("Small group coaching enquiry from Sam Example");
+    expect(email.text).not.toContain("Option:");
+  });
+});
+
 describe("bookingEmail", () => {
   it("is plain text, marked as a request, with every field", () => {
     const result = parseBookingRequest(form(valid), { now: NOW });
     if (result.kind !== "valid") throw new Error("expected valid");
     const email = bookingEmail(result.data);
-    expect(email.subject).toBe("One-to-one booking request: Sam Example");
+    expect(email.subject).toBe("1:1 personal coaching booking request: Sam Example");
+    expect(email.text).toContain("Option: Single 1:1 session");
     expect(email.text).toContain("Preferred: Mon and Wed · Evening");
     expect(email.text).toContain("Experience: Intermediate");
     expect(email.text).toContain("not a confirmed booking");

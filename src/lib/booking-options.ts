@@ -7,15 +7,21 @@
 export const BOOKABLE_SERVICES = [
   {
     value: "group-class",
-    label: "Group class",
-    detail: "Coached group kettlebell class",
+    label: "Group classes",
+    detail: "Coached group kettlebell classes",
     path: "/book/group-class",
   },
   {
     value: "one-to-one",
-    label: "One-to-one",
-    detail: "Individual coaching session with Alex",
+    label: "1:1 personal coaching",
+    detail: "Individual coaching with Alex: a single session or a monthly package",
     path: "/book/one-to-one",
+  },
+  {
+    value: "small-group",
+    label: "Small group coaching enquiry",
+    detail: "Ask about availability for small group kettlebell coaching",
+    path: "/book/small-group",
   },
 ] as const;
 export type BookableService = (typeof BOOKABLE_SERVICES)[number]["value"];
@@ -23,6 +29,15 @@ export type BookableService = (typeof BOOKABLE_SERVICES)[number]["value"];
 export function bookableService(value: string): (typeof BOOKABLE_SERVICES)[number] | undefined {
   return BOOKABLE_SERVICES.find((s) => s.value === value);
 }
+
+/**
+ * What a 1:1 request is for (Alex, 2026-11-05). Prices come from services.ts, not from here.
+ */
+export const ONE_TO_ONE_OPTIONS = [
+  { value: "single", label: "Single 1:1 session" },
+  { value: "monthly", label: "Monthly package (4 sessions)" },
+] as const;
+export type OneToOneOption = (typeof ONE_TO_ONE_OPTIONS)[number]["value"];
 
 /** "Your kettlebell experience" (2026-10-18). The first is selected by default. */
 /**

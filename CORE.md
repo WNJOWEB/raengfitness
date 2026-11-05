@@ -18,6 +18,18 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 | Membership sign-up, auto-renewal billing, credit accounts | C | **Built 2026-10-23, run by Alex in the coach portal** (applied to the live database). Joining has its own journey since 2026-10-26 (`/memberships/join`: plan → optional first class → details → the terms and cancellation policy, agreed with a required tick → send); the request carries the plan (and the first class, if chosen) and the time of agreement, and Alex starts the membership from it. **Changed 2026-10-26 (owner): members join and pay online with nothing for Alex to confirm** — built (`/memberships/join` → Stripe's page → membership starts when Stripe's verified payment is recorded; first class booked then; renewal pay link emailed each period, credits wait for payment), **live since 2026-11-02** (Stripe live, email on) (DEPLOYMENT.md → Joining and paying online). Until then joining stays a request Alex confirms. Member accounts built 2026-10-26 (sign in by emailed link; credits, renewal date, book and cancel with credits); live once the migration is applied and email is on (DEPLOYMENT.md). Each four-week period gets its credits and one charge automatically (daily renewal job); Alex records the payment (or sends a Stripe link). Credits pay for class places; cancelling 24 h or more before returns the credit, later or a no-show uses it, and Alex can give one back. Billing is **manual by the owner's decision (2026-10-24)**: each period's charge is owed in the portal and Alex records the payment or sends a Stripe link; since 2026-11-02 a member who pays online is charged automatically by their saved card (Stripe subscriptions not built) |
 | Hero film | C | Supplied 2026-10-21 (12 vertical phone clips, 464×832 or 576×1024). Used: one, cut to 8.8 s, silent (`public/media/hero.mp4/.webm`, poster `hero-poster.jpg`, `content/media.ts`). It shows a class swinging together; no signage in frame; people shown must be happy to appear. The other 11 are unused: most show another gym's APEX | FREQUENCY signage and are low-resolution |
 
+## Alex's website changes (2026-11-05)
+
+| Item | Status | Notes |
+|---|---|---|
+| "Book now" in the header, top right | C | Back at Alex's request (removed 2026-10-29); opens `/book`, the booking options |
+| Booking options | C | Three: Group classes, 1:1 personal coaching, Small group coaching enquiry (`/book/small-group`). Small group is an enquiry only |
+| 1:1 pricing | C | Single 1:1 session £35 and Monthly package £130 (4 sessions), as two options chosen when requesting 1:1 (stored with the request). The single session is no longer "from £35" |
+| Small group coaching | P | Copy from Alex. **No price, group size, times or duration supplied, so none is shown**; the page says they are shared on enquiry |
+| Timetable names | C | KB HIIT (Mon 6:30 pm), Double KB (Wed 6:30 pm), KB Mix (Sat 9:00 am) with Alex's descriptions |
+| Spaces remaining | C | Shown on each class date as "10/15 spaces available" / "15/15 Full" (Alex's wording); capacity 15 unless set per date in the coach portal |
+| About | C | Alex's photograph and the section about him as the coach removed from `/about`; the page is about RAENG (philosophy and values). The home page still has its "Meet your coach" section: confirm whether that should go too |
+
 ## Master redesign brief (2026-10-22)
 
 - Class schedule changed by the owner: **Monday 6:30 pm, Wednesday 6:30 pm, Saturday 9:00 am** (Saturday was 10:15). Single source: `content/classes.ts`.

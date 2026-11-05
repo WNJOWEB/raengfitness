@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { bookingMode } from "@/lib/booking";
-import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
+import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, ONE_TO_ONE_OPTIONS, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
 import {
   bookingEmail,
   describePlan,
@@ -76,6 +76,7 @@ export async function submitBookingRequest(
     data.name,
     data.session,
     data.classDate,
+    data.option,
     data.days.join(","),
     data.times.join(","),
     data.message,
@@ -143,6 +144,7 @@ export async function submitBookingRequest(
 function requestDetails(data: BookingRequest): Record<string, string> {
   const details: Record<string, string> = {
     experience: labelFor(BOOKING_EXPERIENCE, data.experience),
+    ...(data.option ? { option: labelFor(ONE_TO_ONE_OPTIONS, data.option) } : {}),
     waiver: `Agreed to the participation and risk terms (version ${data.waiver.version}) at ${data.waiver.at}`,
   };
   const slot = publishedClasses().find((c) => c.label === data.session);

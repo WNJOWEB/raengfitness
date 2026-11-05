@@ -12,6 +12,7 @@ export const publicRoutes = [
   "/book",
   "/book/group-class",
   "/book/one-to-one",
+  "/book/small-group",
 ] as const;
 
 /** Member sign-in (2026-10-26) and the waitlist page (2026-11-04, reached from a full class): linked from the site, never in the sitemap or indexed. */

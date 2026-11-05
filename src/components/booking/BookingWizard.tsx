@@ -8,11 +8,14 @@ import { submitBookingRequest } from "@/app/book/actions";
 import {
   BOOKABLE_SERVICES,
   BOOKING_EXPERIENCE,
+  ONE_TO_ONE_OPTIONS,
   PREFERRED_DAYS,
   PREFERRED_TIMES,
   labelFor,
   type BookableService,
+  type OneToOneOption,
 } from "@/lib/booking-options";
+import { availabilityWording } from "@/content/coaching";
 import { describePreferences, initialFormState, type BookingField, type FieldErrors, type FormState } from "@/lib/booking-request";
 import { emailError, messageError, nameError, phoneError } from "@/lib/form-validation";
 import { formatLongDate, formatShortDate, fromDateKey, toDateKey, weekdayIndex, type DateKey } from "@/lib/availability/dates";
@@ -73,6 +76,8 @@ interface BookingWizardProps {
    * every booking is a request Alex confirms. One-to-one is always a request.
    */
   pay?: { price: string; hold: string; cancel: string } | null;
+  /** The published 1:1 prices, e.g. { single: "£35 per session", monthly: "£130 per month · 4 sessions" }. */
+  optionPrices?: Partial<Record<OneToOneOption, string>>;
 }
 
 export interface ClassInfo {
@@ -100,7 +105,7 @@ const getCredit = () => {
   return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
 };
 
-export function BookingWizard({ mode, initialService, classes, classInfo, pay = null }: BookingWizardProps) {
+export function BookingWizard({ mode, initialService, classes, classInfo, pay = null, optionPrices = {} }: BookingWizardProps) {
   const demo = mode === "demo";
   const chosenPlan = useChosenPlan();
   const [full, setFull] = useState<{ full: string[]; cancelled: string[] }>({ full: [], cancelled: [] });
@@ -112,6 +117,8 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
   const [step, setStepState] = useState(initialStep);
   // The participation and risk terms, ticked just before booking (owner, 2026-10-30).
   const [waiver, setWaiver] = useState(false);
+  // 1:1 coaching: a single session or the monthly package (Alex, 2026-11-05).
+  const [option, setOption] = useState<OneToOneOption | "">("");
   // The first step appears without the fade; later steps fade in so the change is noticed.
   const [moved, setMoved] = useState(false);
   const router = useRouter();
@@ -306,7 +313,10 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
   const serviceLabel = service ? labelFor(BOOKABLE_SERVICES, service) : "";
   const noun = service === "group-class" ? "class" : "session";
 
-  const whenComplete = demo ? chosenSlot !== null : usesSessions ? chosenClass !== null : days.length > 0;
+  const needsOption = !demo && service === "one-to-one";
+  const optionLabel = option ? labelFor(ONE_TO_ONE_OPTIONS, option) : "";
+  const enquiry = service === "small-group";
+  const whenComplete = demo ? chosenSlot !== null : usesSessions ? chosenClass !== null : days.length > 0 && (!needsOption || option !== "");
   const whenText = calendar
     ? chosenSlot && date
       ? `${formatShortDate(date)} · ${formatTime(chosenSlot.time)}`
@@ -323,6 +333,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
 
   const chooseService = (value: string) => {
     void loadCalendar();
+    if (value !== service) setOption("");
     setService(value as BookableService);
     setDate(null);
     setSlotId(null);
@@ -371,6 +382,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
         email={demo ? details.email.trim() : serverState.message}
         plan={service === "group-class" && chosenPlan ? `${chosenPlan.name} membership` : ""}
         reference={demo ? "" : (serverState.reference ?? "")}
+        enquiry={enquiry}
         onRestart={reset}
       />
     );
@@ -385,6 +397,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
       pay={payNow}
       rows={[
         { label: "Service", value: serviceLabel, step: 0 },
+        ...(needsOption ? [{ label: "Option", value: optionLabel, step: 1 }] : []),
         { label: calendar ? "Date & time" : "When", value: whenText, step: 1 },
       ]}
       currentStep={step}
@@ -403,6 +416,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
               demo={demo}
               items={[
                 { label: "Service", value: serviceLabel, step: 0 },
+                ...(step > 1 && needsOption ? [{ label: "Option", value: optionLabel, step: 1 }] : []),
                 ...(step > 1 ? [{ label: calendar ? "Date & time" : "When", value: whenText, step: 1 }] : []),
               ]}
               onEdit={setStep}
@@ -448,7 +462,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                         : `Pick a date. You pay ${pay?.price} online to book your place.`
                       : usesSessions
                       ? "Pick a date. Alex confirms every place personally."
-                      : "Tell Alex when suits you and he'll reply with a confirmed time."
+                      : availabilityWording
                 }
               >
                 <span id="step-heading">
@@ -475,7 +489,8 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                         }
                         placesLeft={demoPay ? samplePlaces : service === "group-class" && places.size !== null ? (slot, day) => {
                               const id = classForSlot(classes, slot, day)?.id ?? "";
-                              return places.left[`${id}|${day}`] ?? places.sizes[id] ?? places.size ?? 0;
+                              const size = places.sizes[id] ?? places.size ?? 0;
+                              return { left: places.left[`${id}|${day}`] ?? size, size };
                             }
                           : undefined}
                         onDate={(d) => {
@@ -507,6 +522,21 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                   </>
                 ) : (
                   <>
+                    {needsOption ? (
+                      <ChoiceGroup
+                        type="radio"
+                        name="option"
+                        legend="Which option are you interested in?"
+                        options={ONE_TO_ONE_OPTIONS.map((o) => ({
+                          value: o.value,
+                          label: o.label,
+                          ...(optionPrices[o.value] ? { detail: optionPrices[o.value] } : {}),
+                        }))}
+                        value={option}
+                        onChange={(v) => setOption(v as OneToOneOption)}
+                        error={errors.option}
+                      />
+                    ) : null}
                     <ChoiceGroup
                       type="checkbox"
                       name="days"
@@ -542,7 +572,9 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                       ? date
                         ? "Choose a time to continue."
                         : "Choose a date to continue."
-                      : "Choose at least one day to continue."
+                      : needsOption && !option
+                        ? "Choose an option to continue."
+                        : "Choose at least one day to continue."
                 }
               />
             </section>
@@ -656,6 +688,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
 
                 {/* The visitor's choices from earlier steps travel with the details. */}
                 <input type="hidden" name="service" value={service} />
+                {needsOption && option ? <input type="hidden" name="option" value={option} /> : null}
                 {chosenClass && date ? (
                   <>
                     <input type="hidden" name="session" value={chosenClass.label} />
@@ -670,7 +703,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <SubmissionMeta meta={meta} />
 
                 {/* The health and risk terms and their tick come before the total and the button (owner, 2026-11-04): on a phone the total and "Continue" are what people see last, and a tick they hadn't met yet stopped them. */}
-                <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : "sending this request"} booking={payNow || demoPay} />
+                <PrivacyLine action={demo ? "continuing" : payNow ? "booking" : enquiry ? "sending this enquiry" : "sending this request"} booking={payNow || demoPay} />
                 <WaiverField
                   checked={waiver}
                   error={errors.waiver}
@@ -715,7 +748,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, pay = 
                 <ActionBar
                   onBack={() => setStep(1)}
                   next={{
-                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? "Opening Stripe…" : "Continue to payment") : "Send request",
+                    label: demoPay ? "Continue to payment (preview)" : demo ? "Finish demo" : payNow ? (credit ? "Book with your credit" : pending ? "Opening Stripe…" : "Continue to payment") : enquiry ? "Send enquiry" : "Send request",
                     type: "submit",
                     pending,
                   }}
@@ -755,10 +788,10 @@ function PayCard({ info, date, when, minutes, price, hold }: { info: ClassInfo; 
 }
 
 /** Sample "places left" for the paying preview only (labelled demo data): a steady number per class date, never real. */
-function samplePlaces(slotId: string, date: DateKey): number {
+function samplePlaces(slotId: string, date: DateKey): { left: number; size: number } {
   let h = 0;
   for (const c of `${slotId}${date}`) h = (h * 31 + c.charCodeAt(0)) % 997;
-  return 2 + (h % 12);
+  return { left: 2 + (h % 12), size: 15 };
 }
 
 /** Length of a group class, for the paying preview. */
@@ -840,6 +873,7 @@ function Outcome({
   email,
   plan,
   reference,
+  enquiry,
   onRestart,
 }: {
   demo: boolean;
@@ -847,6 +881,8 @@ function Outcome({
   reference: string;
   /** e.g. "Regular membership", when one was chosen on the plan list. */
   plan: string;
+  /** A small group coaching enquiry: nothing is booked or claimed. */
+  enquiry: boolean;
   headingRef: React.Ref<HTMLHeadingElement>;
   service: string;
   when: string;
@@ -857,16 +893,18 @@ function Outcome({
   return (
     <div className="animate-step-in" role="status">
       <div className="rounded-3xl bg-ink p-8 text-paper sm:p-12">
-        <p className="eyebrow text-white">{demo ? "Demonstration complete" : "Request sent"}</p>
+        <p className="eyebrow text-white">{demo ? "Demonstration complete" : enquiry ? "Enquiry sent" : "Request sent"}</p>
         <h2 ref={headingRef} tabIndex={-1} className="mt-4 font-display text-h2 text-balance focus:outline-none">
           {demo ? "No booking has been made" : "Thanks. Alex will reply to confirm"}
         </h2>
         <p className="mt-5 max-w-xl text-lede text-white">
           {demo
             ? `This was sample availability, so nothing was booked or sent. Once real availability is connected, this screen would confirm ${service.toLowerCase()} on ${longWhen}.`
-            : `Your request is with Alex. He'll reply to ${email} to confirm. Your place is booked once he confirms.`}
+            : enquiry
+              ? `Your enquiry is with Alex. He'll reply to ${email} to confirm availability. Sending an enquiry does not guarantee a place.`
+              : `Your request is with Alex. He'll reply to ${email} to confirm. Your place is booked once he confirms.`}
         </p>
-        {demo ? null : (
+        {demo || enquiry ? null : (
           <p className="mt-3 max-w-xl text-white">
             Nothing to pay now: Alex confirms your place first{plan ? ", sets up your membership" : ""} and tells you how to pay.
           </p>

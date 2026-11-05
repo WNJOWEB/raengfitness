@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { pageMetadata } from "@/lib/metadata";
 import { getService } from "@/content/services";
 import { smallGroupCoaching } from "@/content/smallGroup";
+import { coachingIntro, oneToOne } from "@/content/coaching";
 import { images } from "@/content/images";
-import { getPrimaryCtaFor } from "@/lib/booking";
+import { getPrimaryCta, getPrimaryCtaFor } from "@/lib/booking";
 import { StartTraining } from "@/components/ui/StartTraining";
 import { Section, SectionHeading } from "@/components/ui/Section";
 import { publishable } from "@/lib/publish";
@@ -16,101 +16,89 @@ import { PriceList } from "@/components/sections/PriceList";
 import { CtaBand } from "@/components/sections/CtaBand";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Kettlebell Coaching",
+  title: "1:1 Personal & Small Group Coaching",
   description:
-    "Face-to-face 1:1 kettlebell coaching and small group coaching in Cumbernauld, Glasgow, tailored to your goals, experience and development.",
+    "Personalised, face-to-face kettlebell coaching in Cumbernauld, Glasgow: 1:1 personal coaching and small group coaching, designed around your goals, experience and ability.",
   path: "/coaching",
 });
 
-// What individual coaching gives you. Descriptions of the approach, not promises of results.
-// Wording from the owner's design (2026-10-28).
-const focus = [
-  { title: "Strength", body: "Loads that suit you today, and a plan for what comes next." },
-  { title: "Technique", body: "Every rep watched, with feedback you can use straight away." },
-  { title: "Movement", body: "Better movement first, so harder training is safer and works better." },
-];
+const card = "rounded-[1.25rem] bg-white px-5 py-5";
 
-const linkClass = "font-semibold underline underline-offset-4 hover:no-underline";
+/** Numbered white boxes ("What's included", small group benefits). */
+function Boxes({ items, label }: { items: readonly { title: string; body: string }[]; label: string }) {
+  return (
+    <ol aria-label={label} className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {items.map((item, i) => (
+        <li key={item.title} data-reveal style={revealDelay(i)} className={card}>
+          <p className="eyebrow" aria-hidden="true">
+            {String(i + 1).padStart(2, "0")}
+          </p>
+          <h4 className="mt-3 font-bold">{item.title}</h4>
+          <p className="mt-2">{item.body}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 /**
- * Coaching, in the order of Alex's layout (2026-10-29): 1:1 coaching (the
- * opening, with the coach photo), small group coaching (where online coaching
- * used to be), who it's for, what's included, pricing or enquiry. No "how it
- * works" steps, no extra links. The closing band is the enquiry.
+ * Coaching, as Alex asked on 2026-11-05: Alex's intro, then two clearly
+ * separate sections, 1:1 Personal Coaching and Small Group Coaching, each with
+ * its own description, benefits, what's included and pricing or information.
+ * Small group has no price yet (none supplied), so it says so; its button is
+ * an enquiry, never a booking. The closing band is the 1:1 booking request.
  */
 export default function CoachingPage() {
   const service = getService("one-to-one");
-  const booking = getPrimaryCtaFor("one-to-one");
+  const booking = getPrimaryCta();
   const prices = publishable(service.prices);
+  const small = smallGroupCoaching;
+  const enquiry = getPrimaryCtaFor("small-group");
 
   return (
     <div className="section-rules">
       <PageHeader
         panel={<FocusFrame photo={images.coachHeader} />}
-        eyebrow="1:1 Coaching"
+        eyebrow="1:1 & small group coaching"
         title="Coaching built around you."
-        intro={<p>Face-to-face kettlebell coaching with Alex, shaped around your goals, your experience and how you progress.</p>}
+        intro={<p>{coachingIntro}</p>}
       >
-        <StartTraining href={booking.href} label={booking.label} srSuffix=" (1:1 coaching)" external={booking.external} className="w-full sm:w-[22rem]" />
+        <StartTraining href={booking.href} label={booking.label} external={booking.external} className="w-full sm:w-[22rem]" />
       </PageHeader>
 
-      <Section id="small-group" labelledBy="small-group-heading">
-        <SectionHeading id="small-group-heading" className="max-w-xl" eyebrow="Small group coaching" title={`${smallGroupCoaching.name}.`} intro={smallGroupCoaching.summary} />
-        <p className="mt-6">
-          <Link href={smallGroupCoaching.href} className={`inline-flex min-h-11 items-center ${linkClass}`}>
-            {smallGroupCoaching.askLabel}
-          </Link>
-        </p>
-      </Section>
-
-      <Section tone="white" id="who-for" labelledBy="who-heading">
+      <Section id="one-to-one" labelledBy="one-to-one-heading">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
-          <SectionHeading
-            id="who-heading"
-            className="lg:col-span-5"
-            eyebrow="Who it's for"
-            title="Attention that stays on you."
-            intro="For people who want training designed around them, not a group session."
-          />
-          {/* White cards, no icons (owner, 2026-10-30): the name beside its line, like "What we stand for" on About. */}
+          <SectionHeading id="one-to-one-heading" className="lg:col-span-5" eyebrow="1:1 Personal Coaching" title={`${oneToOne.heading}.`} intro={oneToOne.intro} />
+          {/* The three information cards: the name beside its line, like "What we stand for" on About. */}
           <ul className="mt-8 flex flex-col gap-3 lg:col-span-7 lg:mt-0">
-            {focus.map((f, i) => (
-              <li
-                key={f.title}
-                data-reveal
-                style={revealDelay(i)}
-                className="grid grid-cols-1 gap-1 rounded-[1.25rem] bg-white px-5 py-5 min-[421px]:grid-cols-[7.5rem_1fr] min-[421px]:gap-4"
-              >
+            {oneToOne.cards.map((f, i) => (
+              <li key={f.title} data-reveal style={revealDelay(i)} className="grid grid-cols-1 gap-1 rounded-[1.25rem] bg-white px-5 py-5 min-[421px]:grid-cols-[7.5rem_1fr] min-[421px]:gap-4">
                 <h3 className="font-bold">{f.title}</h3>
                 <p className="min-w-0">{f.body}</p>
               </li>
             ))}
           </ul>
         </div>
-      </Section>
 
-      {/* Alex's layout (2026-10-29): "What's included", from the confirmed points. */}
-      <Section id="included" labelledBy="included-heading">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
-          <SectionHeading id="included-heading" className="lg:col-span-5" eyebrow="1:1 coaching" title="What's included." />
-          <ul className="lined mt-8 lg:col-span-7 lg:mt-0">
-            {service.points.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
+        <div id="included" className="mt-14">
+          <h3 className="font-display text-h3">What&apos;s included</h3>
+          <div className="mt-6">
+            <Boxes items={oneToOne.included} label="What's included in 1:1 coaching" />
+          </div>
         </div>
-      </Section>
 
-      <Section tone="white" id="pricing" labelledBy="pricing-heading">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
-          <SectionHeading id="pricing-heading" className="lg:col-span-5" eyebrow="Pricing" title="Sessions and monthly coaching." />
+        <div id="pricing" className="mt-14 lg:grid lg:grid-cols-12 lg:gap-x-14">
+          <div className="lg:col-span-5">
+            <h3 className="font-display text-h3">Pricing</h3>
+            <p className="mt-3 max-w-md">{oneToOne.pricingIntro}</p>
+          </div>
           <div className="mt-8 lg:col-span-7 lg:mt-0">
             {prices.length > 0 && prices.every((p) => p.sessions) ? (
               // Boxes (owner's design): the bundle in ink, dots for its sessions.
               <ul className="grid grid-cols-1 gap-3 min-[361px]:grid-cols-2">
                 {prices.map((p, i) => {
                   const bundle = (p.sessions ?? 1) > 1;
-                  const note = bundle ? `${p.unit}, ${formatGbp(p.amountGbp / (p.sessions ?? 1))} a session` : `${p.prefix ? `${p.prefix.toLowerCase()}, ` : ""}${p.unit}`;
+                  const note = bundle ? `${p.unit}, ${formatGbp(p.amountGbp / (p.sessions ?? 1))} a session` : p.unit;
                   return (
                     <li
                       key={p.label}
@@ -118,9 +106,10 @@ export default function CoachingPage() {
                       style={revealDelay(i)}
                       className={`flex min-w-0 flex-col gap-2 rounded-[1.375rem] border-[1.5px] border-ink px-[1.125rem] py-[1.375rem] ${bundle ? "bg-ink text-paper" : ""}`}
                     >
-                      <h3 className="text-[0.8125rem] font-semibold tracking-[0.12em] uppercase">{p.label}</h3>
+                      <h4 className="text-[0.8125rem] font-semibold tracking-[0.12em] uppercase">{p.label}</h4>
                       <p className="font-display text-[clamp(2rem,9vw,2.75rem)] leading-none font-bold tracking-tight tabular-nums">{formatGbp(p.amountGbp)}</p>
                       <p>{note}</p>
+                      {p.description ? <p className="text-sm">{p.description}</p> : null}
                       <span aria-hidden="true" className="mt-1.5 flex gap-1.5">
                         {Array.from({ length: p.sessions ?? 1 }, (_, n) => (
                           <i key={n} className="size-2.5 rounded-full border-[1.5px] border-current bg-current" />
@@ -133,6 +122,37 @@ export default function CoachingPage() {
             ) : (
               <PriceList prices={service.prices} />
             )}
+          </div>
+        </div>
+      </Section>
+
+      <Section tone="white" id="small-group" labelledBy="small-group-heading">
+        <div className="lg:grid lg:grid-cols-12 lg:gap-x-14">
+          <div className="lg:col-span-5">
+            <SectionHeading id="small-group-heading" eyebrow="Small Group Coaching" title={small.heading} intro={small.summary} />
+            <StartTraining
+              href={enquiry.href}
+              label={enquiry.kind === "booking" ? small.askLabel : enquiry.label}
+              srSuffix=" (small group coaching)"
+              external={enquiry.external}
+              className="mt-8 w-full sm:w-[22rem]"
+            />
+          </div>
+          <div className="mt-10 lg:col-span-7 lg:mt-0">
+            <h3 className="eyebrow">What to expect</h3>
+            <ul className="lined mt-4">
+              {small.included.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+            <h3 className="eyebrow mt-10">Pricing and availability</h3>
+            <p className="mt-4">{small.pricing}</p>
+          </div>
+        </div>
+        <div className="mt-14">
+          <h3 className="font-display text-h3">Benefits</h3>
+          <div className="mt-6">
+            <Boxes items={small.benefits} label="Benefits of small group coaching" />
           </div>
         </div>
       </Section>

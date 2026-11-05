@@ -45,6 +45,8 @@ export interface Price {
   label: string;
   /** Sessions the price covers, where it's a bundle (shown as dots and a per-session figure). */
   sessions?: number;
+  /** A line under the price saying what it covers. */
+  description?: string;
 }
 
 export interface Service {

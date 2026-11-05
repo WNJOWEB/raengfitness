@@ -232,8 +232,8 @@ async function Decide({ request, today, known, possible }: { request: BookingReq
   const packages = known ? await listPackages(db, { clientId: known.id, activeOnly: true }) : { ok: true as const, data: [] };
   const usable = packages.ok ? packages.data.filter((k) => k.sessions_remaining > 0) : [];
   const requested = details.classDate && details.classSlot ? `${details.classDate}|${details.classSlot}` : "";
-  const isGroup = Boolean(requested) || /group/i.test(request.service);
-  const isPt = /one-to-one/i.test(request.service);
+  const isGroup = Boolean(requested) || /group class/i.test(request.service);
+  const isPt = /one-to-one|1:1/i.test(request.service);
   const defaultKind = request.kind === "online" ? "none" : isGroup ? "class" : isPt ? "pt" : "none";
 
   const clientOptions = [

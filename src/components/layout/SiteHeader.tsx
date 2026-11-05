@@ -1,13 +1,16 @@
+import Link from "next/link";
+import { getPrimaryCta } from "@/lib/booking";
 import { Logo } from "./Logo";
 import { MobileNav } from "./NavLinks";
 
 /**
- * The Menu dropdown at the left and the whole logo centred (tagline included,
+ * The Menu dropdown at the left, the whole logo centred (tagline included,
  * in the artwork's own proportions: owner, 2026-10-26), the same at every
- * width. No Book now at the right: Alex asked for it to go (via the owner,
- * 2026-10-29); booking is on the hero, the classes and the closing band.
+ * width, and "Book now" at the top right (Alex asked for it back, 2026-11-05;
+ * it had been removed 2026-10-29). It opens the booking options (/book).
  */
 export function SiteHeader() {
+  const cta = getPrimaryCta();
   return (
     <header className="sticky top-0 z-40 bg-paper text-ink">
       <div className="container-page grid h-[84px] grid-cols-[1fr_auto_1fr] items-center gap-2 sm:h-28 sm:gap-6">
@@ -15,7 +18,16 @@ export function SiteHeader() {
           <MobileNav />
         </div>
         <Logo priority />
-        <div aria-hidden="true" />
+        <div className="justify-self-end">
+          <Link
+            href={cta.href}
+            {...(cta.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full bg-ink px-4 text-xs font-semibold uppercase tracking-[0.08em] text-paper transition-colors duration-200 hover:opacity-85 focus-visible:outline-ink active:translate-y-px sm:px-6 sm:text-sm"
+          >
+            {cta.label}
+            {cta.external ? <span className="sr-only"> (opens in a new tab)</span> : null}
+          </Link>
+        </div>
       </div>
     </header>
   );

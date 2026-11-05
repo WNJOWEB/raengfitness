@@ -16,8 +16,8 @@ describe("content approval state", () => {
       .sort();
     expect(confirmed).toEqual([
       "group-classes:Per class:12:confirmed",
-      "one-to-one:Four sessions:130:confirmed",
-      "one-to-one:Single session:35:confirmed",
+      "one-to-one:Monthly package:130:confirmed",
+      "one-to-one:Single 1:1 session:35:confirmed",
       "online-coaching:Monthly:79:confirmed",
     ]);
   });

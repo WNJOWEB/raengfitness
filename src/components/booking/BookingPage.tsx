@@ -1,7 +1,7 @@
 import { formatAddressLines, mapsUrl, site } from "@/content/site";
 import { statement } from "@/lib/title";
 import { bookingMode, parseBookingUrl } from "@/lib/booking";
-import type { BookableService } from "@/lib/booking-options";
+import type { BookableService, OneToOneOption } from "@/lib/booking-options";
 import { groupClass, onlineClassBooking } from "@/content/classes";
 import { onlineJoinEnabled } from "@/lib/membership-checkout";
 import { getService } from "@/content/services";
@@ -18,7 +18,7 @@ interface BookingPageProps {
   initialService?: BookableService;
 }
 
-/** Shared by /book, /book/group-class and /book/one-to-one. */
+/** Shared by /book, /book/group-class, /book/one-to-one and /book/small-group. */
 export function BookingPage({ title, initialService }: BookingPageProps) {
   const mode = bookingMode();
   const external = mode === "external" ? parseBookingUrl(process.env.BOOKING_URL) : null;
@@ -29,6 +29,17 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
   // BOOKING_DEMO_PAY (previews only, with BOOKING_DEMO) shows the paying screens in the labelled demo, so they can be looked at before Stripe is on: nothing is charged, booked or sent.
   const showPay = (mode === "request" && onlineJoinEnabled()) || (mode === "demo" && process.env.BOOKING_DEMO_PAY === "true");
   const pay = showPay && price ? { price: formatGbp(price.amountGbp), ...onlineClassBooking } : null;
+
+  // The two 1:1 options with their published prices (services.ts), shown on the "when" step.
+  const oneToOnePrices = publishable(getService("one-to-one").prices);
+  const priceText = (i: number) => {
+    const p = oneToOnePrices[i];
+    return p ? `${formatGbp(p.amountGbp)} ${p.unit}` : undefined;
+  };
+  const optionPrices: Partial<Record<OneToOneOption, string>> = {
+    ...(priceText(0) ? { single: priceText(0) } : {}),
+    ...(priceText(1) ? { monthly: priceText(1) } : {}),
+  };
 
   const intro =
     mode === "demo"
@@ -41,7 +52,7 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
           ? "Choose a service, then when suits you. Group classes are booked and paid online; Alex confirms one-to-one sessions personally."
           : mode === "request"
             ? `${initialService ? "Choose when suits you." : "Choose a service, then when suits you."} Alex confirms every place personally.`
-            : "Group classes and one-to-one coaching in Cumbernauld.";
+            : "Group classes, 1:1 personal coaching and small group coaching in Cumbernauld.";
 
   return (
     <section aria-labelledby="book-heading" className="bg-paper">
@@ -53,7 +64,7 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
           </h1>
           <p className="mt-5 text-lede text-muted">{intro}</p>
         </header>
-        {initialService !== "one-to-one" ? <ChosenPlan /> : null}
+        {!initialService || initialService === "group-class" ? <ChosenPlan /> : null}
 
         {mode === "demo" ? (
           <div className="mt-5 max-w-2xl">
@@ -79,12 +90,12 @@ export function BookingPage({ title, initialService }: BookingPageProps) {
                   Booking needs JavaScript. You can also message Alex on Instagram ({site.social.instagram.handle}).
                 </p>
               </noscript>
-              <BookingWizard mode={mode} initialService={initialService} classes={publishedClasses()} classInfo={classInfo} pay={pay} />
+              <BookingWizard mode={mode} initialService={initialService} classes={publishedClasses()} classInfo={classInfo} pay={pay} optionPrices={optionPrices} />
             </>
           ) : (
             <div className="max-w-2xl">
               <InstagramFallback>
-                Online booking isn&apos;t open yet. To book a class or a one-to-one session, send Alex a message on
+                Online booking isn&apos;t open yet. To book a class, or ask about 1:1 or small group coaching, send Alex a message on
                 Instagram.
               </InstagramFallback>
             </div>

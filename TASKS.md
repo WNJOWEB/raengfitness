@@ -14,6 +14,16 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 - Older unticked lines below are historic; the ones above are what matters.
 
 
+## Alex's website changes (2026-11-05)
+
+### Done
+- [x] "Book now" top right of the header; three booking options (group classes, 1:1, small group enquiry); 1:1 single session £35 / monthly package £130 chosen on the request; "when suits you" wording; `/coaching` split into 1:1 and small group sections; timetable renamed (KB HIIT, Double KB, KB Mix); "N/15 spaces available" / "15/15 Full"; `/about` focused on RAENG (no photo or coach section)
+
+### To do
+- [ ] **P1** Alex: small group price, group size, days and times (none shown until supplied)
+- [ ] **P1** Alex: should the home page's "Meet your coach" section also go?
+- [ ] **P2** "Can I book with a friend?" FAQ: needs Alex's answer
+
 ## Phase 1 — Public website
 
 ### Done (2026-10-15)
