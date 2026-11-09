@@ -327,7 +327,7 @@ test("a usual class size for each class time: its own, else the size for every c
 
 test("a class's waitlist and a booking's details: who's waiting and removing them, a private note, and the credit adjuster (owner, 2026-11-04)", async ({ page, request }) => {
   // A Saturday no other test uses (and inside the new membership's first four weeks).
-  const date = next(5, 2);
+  const date = next(5, 3);
   const member = unique("Panel Member");
   const w1 = unique("Wait First");
   const w2 = unique("Wait Second");
