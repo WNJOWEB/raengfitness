@@ -13,7 +13,7 @@ export const timetable: Timetable = {
   sessions: [
     { id: "mon-evening", day: "Monday", start: "18:30", durationMinutes: 60, name: "KB HIIT", description: "Kettlebell conditioning and full-body training to build strength and fitness." },
     { id: "wed-evening", day: "Wednesday", start: "18:30", durationMinutes: 60, name: "Double KB", description: "Build strength, coordination and control using two kettlebells." },
-    { id: "sat-morning", day: "Saturday", start: "09:00", durationMinutes: 60, name: "KB Mix", description: "A varied session combining strength, conditioning and kettlebell skills." },
+    { id: "sat-morning", day: "Saturday", start: "08:30", durationMinutes: 60, name: "KB Mix", description: "A varied session combining strength, conditioning and kettlebell skills." },
   ],
 };
 

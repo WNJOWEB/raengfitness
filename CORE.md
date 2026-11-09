@@ -48,14 +48,14 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 | Booking options | C | Three: Group classes, 1:1 personal coaching, Small group coaching enquiry (`/book/small-group`). Small group is an enquiry only |
 | 1:1 pricing | C | Single 1:1 session £35 and Monthly package £130 (4 sessions), as two options chosen when requesting 1:1 (stored with the request). The single session is no longer "from £35" |
 | Small group coaching | P | Copy from Alex. **No price, group size, times or duration supplied, so none is shown**; the page says they are shared on enquiry |
-| Timetable names | C | KB HIIT (Mon 6:30 pm), Double KB (Wed 6:30 pm), KB Mix (Sat 9:00 am) with Alex's descriptions |
+| Timetable names | C | KB HIIT (Mon 6:30 pm), Double KB (Wed 6:30 pm), KB Mix (Sat 8:30 am) with Alex's descriptions |
 | Spaces remaining | C | Shown on each class date as "10/15 spaces available" / "15/15 Full" (Alex's wording); capacity 15 unless set per date in the coach portal |
 | FAQ | C | Alex's questions only (five): experience, what to bring, session length, where coaching takes place, 1:1 vs small group. "Can I book with a friend?" needs Alex's answer before it can go up |
 | About | C | Alex's photograph and the section about him as the coach removed from `/about`; the page is about RAENG (philosophy and values). The home page still has its "Meet your coach" section: confirm whether that should go too |
 
 ## Master redesign brief (2026-10-22)
 
-- Class schedule changed by the owner: **Monday 6:30 pm, Wednesday 6:30 pm, Saturday 9:00 am** (Saturday was 10:15). Single source: `content/classes.ts`.
+- Class schedule changed by the owner: **Monday 6:30 pm, Wednesday 6:30 pm, Saturday 8:30 am** (Saturday was 10:15, then 9:00 am; 2026-11-09 Alex moved it to 8:30 am, 60 minutes). Single source: `content/classes.ts`.
 - The brief is titled "Alex K Bells" and names the old Lovable site; the brand is **RAENG Fitness** (owner, 2026-11-03: "Raeng Fitness is the brand name"). The logo reads RAENG FITNESS and the home page title says "RAENG Fitness".
 - Regular's cost per class is £8.125; the site shows £8.13 (nearest penny), Dedicated £7.08.
 - Payments are on Stripe (live 2026-11-02): card payments with verified webhooks, memberships renewing by saved card, and Bacs Direct Debit once Stripe approves it. Nothing is faked: the site never shows a payment as received until Stripe's signed webhook has been verified and re-read from Stripe. Also built and tested: bookings as requests that Alex confirms (capacity enforced in the database when set per class), manual subscriptions and check-ins in the coach portal.
@@ -97,7 +97,7 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Brand name, descriptor, venue address | C | From brief |
 | Instagram URL | C | Tracking parameter removed. On 2026-10-18 the profile could not be read without logging in (login wall), so posts, captions and comments were not audited |
 | Facebook page | C | "Alex.kbells", Glasgow; supplied by the project owner 2026-10-18 as Alex's official profile. Share link resolves to page id 61589486540520, which links back to @alex.kbells. Public preview: 1,456 followers, 300 talking about this (2026-10-18). Posts, reviews and recommendations are behind a login wall and were not audited. Linked in the footer, About Alex, /contact and JSON-LD `sameAs` |
-| Class times Mon 18:30, Wed 18:30, Sat 10:15, each 60 minutes | C | Mon/Wed confirmed 2026-10-15; Saturday moved to 10:15–11:15 and the 60-minute length confirmed by the project owner 2026-10-17 (from Alex's own class listing). Shown across the site and as real dates in the booking calendar |
+| Class times Mon 18:30, Wed 18:30, Sat 08:30, each 60 minutes | C | Mon/Wed confirmed 2026-10-15; Saturday moved to 10:15–11:15 and the 60-minute length confirmed by the project owner 2026-10-17 (from Alex's own class listing). Shown across the site and as real dates in the booking calendar |
 | Group class: "Kettlebell Training", £10 per person, description from Alex's listing | C | Confirmed by the project owner 2026-10-17; shown on the homepage and /classes |
 | Class duration, capacity, equipment, booking requirement | U | Do not publish |
 | Cancellation / refund rules | C | Published (content/policy.ts; refunds option B, 2026-11-02; 24-hour rule for every cancellation, paid classes refunded in full, 2026-11-05) |

@@ -941,7 +941,7 @@ test("home: the class times as simple rows; a row and View classes and book open
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText("Mon");
   await expect(rows.nth(0)).toContainText("6:30 pm");
-  await expect(rows.nth(2)).toContainText("9:00 am");
+  await expect(rows.nth(2)).toContainText("8:30 am");
   // The next class is marked "Next up" (or "On now").
   await expect(section.getByText(/^(Next up|On now)$/)).toHaveCount(1);
   // A row opens the calendar on that class; Book now (always that label) opens the calendar.
