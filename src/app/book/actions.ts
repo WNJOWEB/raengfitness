@@ -3,7 +3,9 @@
 import { bookingMode } from "@/lib/booking";
 import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, ONE_TO_ONE_OPTIONS, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
 import {
+  bookingDeliveryConfig,
   bookingEmail,
+  clientAcknowledgementEmail,
   describeWhen,
   isBookingFormEnabled,
   parseBookingRequest,
@@ -15,7 +17,7 @@ import { publishedClasses } from "@/lib/class-sessions";
 import { formatSpaces, isFull } from "@/lib/class-spaces";
 import { loadClassPlaces } from "@/lib/class-spaces-server";
 import { deliverRequest } from "@/lib/deliver-request";
-import { idempotencyKey } from "@/lib/send-email";
+import { idempotencyKey, sendEmailWithRetry } from "@/lib/send-email";
 
 /**
  * Validates a booking request on the server and gets it to Alex: stored in
@@ -96,7 +98,26 @@ export async function submitBookingRequest(
     };
   }
 
+  await acknowledgeToClient(data, key);
   return { status: "success", message: data.email, errors: {} };
+}
+
+/**
+ * Best-effort "we've received your request" email to the visitor. Never
+ * affects the outcome: the request is already with Alex. Reply-To is Alex's
+ * inbox. The idempotency key derives from the request's, so a resubmission
+ * does not send a second copy. Logs hold no personal data.
+ */
+async function acknowledgeToClient(data: BookingRequest, requestKey: string): Promise<void> {
+  const mail = bookingDeliveryConfig();
+  if (!mail) return;
+  const result = await sendEmailWithRetry(mail, {
+    ...clientAcknowledgementEmail(data),
+    to: data.email,
+    replyTo: mail.to,
+    idempotencyKey: `${requestKey}/client`,
+  });
+  if (!result.ok) console.error("Emailing a booking acknowledgement to the visitor failed");
 }
 
 /**

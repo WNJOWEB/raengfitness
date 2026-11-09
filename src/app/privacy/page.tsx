@@ -57,7 +57,7 @@ const sections: { heading: string; body: React.ReactNode }[] = [
     body: (
       <p>
         What you send is stored in our database (Supabase, hosted in the EU, Ireland) so Alex can see
-        it in his password-protected coach area, and may also be sent to him by email using our email
+        it in his password-protected coach area, and may also be sent to him by email, and we email you an acknowledgement, using our email
         provider (Resend). These providers handle it on our behalf. The website is hosted by Vercel, which processes
         standard technical information such as IP addresses to deliver and protect the site. These
         providers may process data outside the UK under appropriate safeguards.

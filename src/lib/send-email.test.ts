@@ -22,6 +22,13 @@ describe("sendEmail", () => {
     });
   });
 
+  it("sends to the visitor when a recipient is given", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    await sendEmail(config, { ...email, to: "sam@example.com", replyTo: "alex@example.com" }, fetchImpl as unknown as typeof fetch);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ to: ["sam@example.com"], reply_to: "alex@example.com" });
+  });
+
   it("reports provider errors and network failures as failures", async () => {
     const rejected = vi.fn(async () => new Response("{}", { status: 422 }));
     expect(await sendEmail(config, email, rejected as unknown as typeof fetch)).toEqual({ ok: false, status: 422 });

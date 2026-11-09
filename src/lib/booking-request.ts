@@ -17,6 +17,7 @@ import { emailError, isValidEmail, messageError, nameError, phoneError, singleLi
 import { formatLongDate, fromDateKey, toDateKey, type DateKey } from "./availability/dates";
 import { isClassDate } from "./availability/timetable";
 import type { PublishedClass } from "./class-sessions";
+import { arriveEarlyNote } from "../content/classes";
 
 /**
  * Booking requests from /book: server-side validation, spam checks, the
@@ -197,6 +198,38 @@ export function bookingEmail(data: BookingRequest): { subject: string; text: str
     "Reply to this email to answer them directly. This is a request, not a confirmed booking.",
   ];
   return { subject: `${service} ${enquiry ? "from" : "booking request:"} ${data.name}`.slice(0, 150), text: lines.join("\n") };
+}
+
+/**
+ * The automatic acknowledgement the visitor receives. Plain text. It says the
+ * request has arrived and is NOT a confirmed booking: Alex confirms by hand.
+ * The arrive-early note is framed as applying once a class place is confirmed.
+ */
+export function clientAcknowledgementEmail(data: BookingRequest): { subject: string; text: string } {
+  const service = labelFor(BOOKABLE_SERVICES, data.service);
+  const enquiry = data.service === "small-group";
+  const classRequest = data.service === "group-class" && Boolean(data.session);
+  const lines = [
+    `Hi ${data.name},`,
+    "",
+    enquiry
+      ? "Thanks for your enquiry. This is an automatic message to say it has reached Alex."
+      : "Thanks for your request. This is an automatic message to say it has reached Alex.",
+    enquiry
+      ? "Alex will reply to this email address to confirm availability. Sending an enquiry does not guarantee a place."
+      : "It is not a confirmed booking yet: Alex will reply to this email address to confirm. Your place is booked once he confirms.",
+    "",
+    `Service: ${service}`,
+    ...(data.option ? [`Option: ${describeOption(data.option)}`] : []),
+    classRequest ? `Class: ${describeClass(data)}` : `Preferred: ${describePreferences(data.days, data.times)}`,
+    ...(classRequest ? ["", `Once your place is confirmed: ${arriveEarlyNote}`] : []),
+    "",
+    "If you didn't make this request, you can ignore this email.",
+    "",
+    "Alex K Bells",
+  ];
+  const subject = enquiry ? "We've received your enquiry" : "We've received your booking request";
+  return { subject, text: lines.join("\n") };
 }
 
 export interface BookingDeliveryConfig {

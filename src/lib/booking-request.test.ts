@@ -3,6 +3,7 @@ import {
   MIN_FILL_MS,
   bookingDeliveryConfig,
   bookingEmail,
+  clientAcknowledgementEmail,
   describePreferences,
   isBookingFormEnabled,
   parseBookingRequest,
@@ -168,6 +169,39 @@ describe("bookingEmail", () => {
     if (result.kind !== "valid") throw new Error("expected valid");
     const year = fromDateKey(saturday).getFullYear();
     expect(bookingEmail(result.data).text).toContain(`Class: ${formatLongDate(saturday)} ${year}, 10:15 am`);
+  });
+});
+
+describe("clientAcknowledgementEmail", () => {
+  it("says the request arrived, not that it is booked, and has no arrive-early note for 1:1", () => {
+    const result = parseBookingRequest(form(valid), { now: NOW });
+    if (result.kind !== "valid") throw new Error("expected valid");
+    const email = clientAcknowledgementEmail(result.data);
+    expect(email.subject).toBe("We've received your booking request");
+    expect(email.text).toContain("Hi Sam Example,");
+    expect(email.text).toContain("not a confirmed booking yet");
+    expect(email.text).toContain("Preferred: Mon and Wed · Evening");
+    expect(email.text).not.toMatch(/10 minutes early/);
+  });
+
+  it("asks class attendees to arrive 10 minutes early once confirmed", () => {
+    const saturday = nextDate(5);
+    const result = parseBookingRequest(
+      form({ ...valid, service: "group-class", option: "", session: "Saturday 10:15 am", classDate: saturday, days: [] }),
+      { now: NOW, classes: CLASSES },
+    );
+    if (result.kind !== "valid") throw new Error("expected valid");
+    const text = clientAcknowledgementEmail(result.data).text;
+    expect(text).toContain("Once your place is confirmed: Please arrive 10 minutes early");
+    expect(text).toContain("basic movements");
+  });
+
+  it("words a small group enquiry as an enquiry", () => {
+    const result = parseBookingRequest(form({ ...valid, service: "small-group", option: "" }), { now: NOW });
+    if (result.kind !== "valid") throw new Error("expected valid");
+    const email = clientAcknowledgementEmail(result.data);
+    expect(email.subject).toBe("We've received your enquiry");
+    expect(email.text).toContain("does not guarantee a place");
   });
 });
 
