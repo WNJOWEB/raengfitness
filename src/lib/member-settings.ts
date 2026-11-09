@@ -1,4 +1,4 @@
-import { groupClass } from "@/content/classes";
+import { arriveEarlyNote, groupClass } from "@/content/classes";
 import { formatAddressLines } from "@/content/site";
 import { publishedClasses } from "@/lib/class-sessions";
 import { formatTime } from "@/lib/schedule";
@@ -129,6 +129,8 @@ export function reminderEmail(r: DueReminder, env: Env = process.env, dayBefore 
       `A reminder that you're booked on ${slot?.name ?? groupClass.name} ${dayBefore ? "tomorrow" : "today"} at ${time}${slot?.durationMinutes ? ` (${slot.durationMinutes} minutes)` : ""}.`,
       "",
       `Where: ${formatAddressLines().join(", ")}`,
+      "",
+      arriveEarlyNote,
       "",
       `Your bookings: ${origin}${ACCOUNT_PATH}`,
       `Turn these reminders off any time: ${origin}${NOTIFICATIONS_PATH}`,

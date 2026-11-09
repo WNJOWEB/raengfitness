@@ -46,6 +46,10 @@ describe("the reminder email", () => {
     expect(email.text).toContain("today at 6:30 pm");
   });
 
+  it("asks them to arrive 10 minutes early", () => {
+    expect(email.text).toContain("Please arrive 10 minutes early so we can start on time.");
+  });
+
   it("links to the account and to turning reminders off, on the site's own address", () => {
     expect(email.text).toContain("https://raeng.example/account\n");
     expect(email.text).toContain("https://raeng.example/account/notifications");
