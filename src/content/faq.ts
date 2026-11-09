@@ -1,6 +1,6 @@
 import type { FaqItem } from "./types";
 import { site } from "./site";
-import { timetable } from "./classes";
+import { arriveEarlyNote, timetable } from "./classes";
 import { describeTimetable } from "@/lib/schedule";
 
 /**
@@ -43,6 +43,12 @@ export const faq: FaqItem[] = [
     question: "What should I bring?",
     answer:
       "Comfortable clothes you can move in, a water bottle and a small towel. Kettlebells are provided. Flat shoes or bare feet work best.",
+    status: "confirmed",
+  },
+  {
+    id: "arrive-early",
+    question: "When should I arrive for a class?",
+    answer: arriveEarlyNote,
     status: "confirmed",
   },
   {

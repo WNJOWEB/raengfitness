@@ -8,6 +8,14 @@ import type { Timetable } from "./types";
  * the coach portal still line up. The 60-minute length was confirmed for the
  * earlier timetable (2026-10-17); Alex to confirm it still applies. See CORE.md.
  */
+/**
+ * Asked for by Alex (2026-11-09): arrive 10 minutes early so classes start on
+ * time and beginners have time for the basic movements.
+ */
+export const arriveEarlyMinutes = 10;
+
+export const arriveEarlyNote = `Please arrive ${arriveEarlyMinutes} minutes early so we can start on time. If you're new, this gives Alex time to go over the basic movements with you.`;
+
 export const timetable: Timetable = {
   status: "confirmed",
   sessions: [

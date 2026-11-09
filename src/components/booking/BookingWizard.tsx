@@ -24,6 +24,7 @@ import { classAvailability } from "@/lib/availability/timetable";
 import type { ClassPlaces } from "@/lib/class-spaces";
 import type { AvailabilityWindow } from "@/lib/availability/types";
 import type { PublishedClass } from "@/lib/class-sessions";
+import { arriveEarlyNote } from "@/content/classes";
 import { addMinutes, formatTime } from "@/lib/schedule";
 import { cn } from "@/lib/cn";
 import {
@@ -290,6 +291,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, spaces
         longWhen={calendar && date && chosenSlot ? `${formatLongDate(date)} at ${formatTime(chosenSlot.time)}` : whenText}
         email={demo ? details.email.trim() : serverState.message}
         enquiry={enquiry}
+        showArriveEarly={service === "group-class"}
         onRestart={reset}
       />
     );
@@ -706,6 +708,7 @@ function Outcome({
   longWhen,
   email,
   enquiry,
+  showArriveEarly,
   onRestart,
 }: {
   demo: boolean;
@@ -715,6 +718,7 @@ function Outcome({
   longWhen: string;
   email: string;
   enquiry: boolean;
+  showArriveEarly: boolean;
   onRestart: () => void;
 }) {
   return (
@@ -741,6 +745,11 @@ function Outcome({
             <dd className="mt-1 font-semibold">{when}</dd>
           </div>
         </dl>
+        {!demo && showArriveEarly ? (
+          <p className="mt-2 max-w-xl border-t border-line-inverse pt-5 text-muted-inverse">
+            {arriveEarlyNote}
+          </p>
+        ) : null}
       </div>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
         {demo ? (
