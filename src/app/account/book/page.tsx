@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BOOKING_OPENS_ON } from "@/content/classes";
 import { getService } from "@/content/services";
 import { formatLongDate, type DateKey } from "@/lib/availability/dates";
 import { CLASS_WINDOW_DAYS } from "@/lib/availability/timetable";
@@ -42,7 +43,7 @@ export default async function AccountBookPage({ searchParams }: { searchParams: 
   const pauseInfo = o.membership?.status === "active" ? await memberPauseInfo(d.member.db, d.member.clientId) : null;
   const pause = pauseInfo?.ok && pauseInfo.data.state !== "none" && pauseInfo.data.pause_from && pauseInfo.data.pause_until ? { from: pauseInfo.data.pause_from, until: pauseInfo.data.pause_until } : null;
   // A class that has already gone and wasn't theirs is only noise: left out (their own attended and missed ones stay).
-  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due), waitlist: d.waitlist, pause })
+  const weeks = bookingWeeks(o, { today: d.today, now: d.now, classes: publishedClasses(), opensOn: BOOKING_OPENS_ON, windowDays: CLASS_WINDOW_DAYS, full: d.full, paymentDue: Boolean(d.due), waitlist: d.waitlist, pause })
     .map((w) => ({ ...w, slots: w.slots.filter((s) => s.state !== "past") }))
     .filter((w) => w.slots.length > 0);
   const payg = getService("group-classes").prices[0];
