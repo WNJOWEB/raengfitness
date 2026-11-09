@@ -291,7 +291,7 @@ export function BookingWizard({ mode, initialService, classes, classInfo, spaces
         longWhen={calendar && date && chosenSlot ? `${formatLongDate(date)} at ${formatTime(chosenSlot.time)}` : whenText}
         email={demo ? details.email.trim() : serverState.message}
         enquiry={enquiry}
-        showArriveEarly={service === "group-class"}
+        showArriveEarly={usesSessions}
         onRestart={reset}
       />
     );

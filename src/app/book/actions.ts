@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { bookingMode } from "@/lib/booking";
 import { BOOKABLE_SERVICES, BOOKING_EXPERIENCE, ONE_TO_ONE_OPTIONS, PREFERRED_DAYS, PREFERRED_TIMES, labelFor, listLabels } from "@/lib/booking-options";
 import {
@@ -98,7 +99,8 @@ export async function submitBookingRequest(
     };
   }
 
-  await acknowledgeToClient(data, key);
+  // After the response: the visitor is not kept waiting on the email provider.
+  after(() => acknowledgeToClient(data, key));
   return { status: "success", message: data.email, errors: {} };
 }
 

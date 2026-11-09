@@ -64,6 +64,7 @@ Legend: **C** confirmed · **P** provisional (needs client approval) · **U** un
 | Bio, qualifications, history, testimonials | U | Do not invent |
 | Bookings | C | Live on production from 2026-10-18 at the owner's request: "Book now" opens /book. Group classes: real dates from the timetable; one-to-one: preferred days. Each is a **request** stored in Supabase (`akb_booking_requests`) and listed in the coach area; Alex confirms. Payment: bank transfer or cash (Alex's listing, 2026-10-17); no online payment |
 | Live availability: capacity, one-to-one slots | U | Class dates come from the confirmed timetable; capacity is unknown, so no date shows as full. Nothing invented |
+| Arrive 10 minutes early for classes | C | Alex's request (2026-11-09): shown on the confirmation screen, in the FAQ and in the client acknowledgement email. Wording in `src/content/classes.ts` |
 | Booking-request inbox / Resend account | U | Needed to switch on `/book`; must be Alex's own |
 | Privacy notice | P | `/privacy` drafted 2026-10-15 for booking requests and online enquiries; Alex to review |
 | Square | P | Account created; owner says Square is the payment provider (2026-10-21). Rate quoted as 1.4% + 25p per online card payment — unverified. Enabled products unknown. Payment links per charge built in the portal (not live, not yet tested in Square Sandbox) |

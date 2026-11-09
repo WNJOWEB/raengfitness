@@ -54,6 +54,7 @@ Priority: P0 blocks launch · P1 before/at launch · P2 later.
 
 ### To launch — owner decisions (Alex)
 - [x] On-site booking request form (`/book`) emailing Alex via Resend; privacy notice (`/privacy`); e2e against a mock email API
+- [x] Client acknowledgement email on each booking request (2026-11-09), with the arrive-10-minutes-early note for classes; FAQ entry and confirmation-screen note
 - [x] Premium UX pass: larger hero video (edge to edge on phones, up to half the grid on desktop); guided booking (service → when → details) with per-service entry points, summary, back/edit, disabled-until-ready Continue; demo availability calendar for previews (labelled, never on production, never sent); online coaching onboarding (`/online-coaching`)
 - [x] Prices confirmed (2026-10-15) and published
 - [x] "Alex's journey" section built with slots for his story and before/after photos
