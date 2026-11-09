@@ -147,7 +147,7 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                 className={cn(
                   "flex min-h-12 rounded-xl border px-4 text-sm font-semibold transition-colors duration-150",
                   // With a places-left line the time and the line stack (two columns of tiles on a phone are narrow).
-                  placesLeft && slot.available ? "flex-col justify-center py-2" : "items-center justify-between gap-2",
+                  placesLeft && slot.available ? "min-h-14 flex-col justify-center gap-0.5 py-3" : "items-center justify-between gap-2",
                   slot.available
                     ? "cursor-pointer border-line hover:border-ink has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-paper"
                     : "cursor-not-allowed border-dashed border-line text-muted",
@@ -163,11 +163,11 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                   onChange={() => onSlot(slot.id)}
                   className="sr-only"
                 />
-                <span>{formatTime(slot.time)}</span>
+                <span className={placesLeft && slot.available ? "text-base" : undefined}>{formatTime(slot.time)}</span>
                 {!slot.available ? (
                   <span className="text-xs font-normal">{placesLeft && date ? spacesLabel(placesLeft(slot.id, date), false) : "Full"}</span>
                 ) : placesLeft && date ? (
-                  <span className="text-xs font-normal">{spacesLabel(placesLeft(slot.id, date), true)}</span>
+                  <span className="text-sm font-normal">{spacesLabel(placesLeft(slot.id, date), true)}</span>
                 ) : null}
               </label>
               {!slot.available && waitlistHref && date ? (
