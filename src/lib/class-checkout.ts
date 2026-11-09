@@ -1,5 +1,5 @@
 import { firstClassFree } from "@/content/offers";
-import { onlineClassBooking } from "@/content/classes";
+import { arriveEarlyNote, onlineClassBooking } from "@/content/classes";
 import { getService } from "@/content/services";
 import { site } from "@/content/site";
 import { bookingDeliveryConfig } from "./booking-request";
@@ -247,6 +247,8 @@ export async function notifyClassBookings(db: Db, classes: PublishedClass[], env
             `Your place on the group class on ${when} is confirmed (${paid}).`,
             `Reference: ${referenceFor(row.id)}`,
             `Where: ${site.location.street}, ${site.location.town}, ${site.location.postcode}`,
+            "",
+            arriveEarlyNote,
             "",
             "Need to cancel? Use this private link:",
             `${memberLinkOrigin(env)}${BOOK_MANAGE_PATH}?token=${token}`,

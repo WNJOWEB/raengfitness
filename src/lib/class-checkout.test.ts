@@ -159,6 +159,7 @@ describe("booking a group class and paying online", () => {
     const mine = api.emails.find((m) => m.to.includes(booker.email));
     expect(mine?.subject).toMatch(/^You're booked: /);
     expect(mine?.text).toContain("Cancel at least 24 hours before");
+    expect(mine?.text).toContain("Please arrive 10 minutes early so we can start on time.");
     const manage = tokenFrom(mine?.text ?? "", "https://raeng.example/book/manage");
     expect(manage).toHaveLength(43);
 

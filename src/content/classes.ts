@@ -57,3 +57,12 @@ export const onlineClassBooking = {
   cancelCredit:
     "Cancel at least 24 hours before and you'll get your class credit back. Later than that, or if you don't turn up, the credit is used.",
 } as const;
+
+/**
+ * Asked for by Alex (2026-11-09): arrive 10 minutes early so classes start on
+ * time and beginners have time to go over the basic movements. Used in the
+ * group class confirmations (pay-online and member credit bookings).
+ */
+export const arriveEarlyMinutes = 10;
+
+export const arriveEarlyNote = `Please arrive ${arriveEarlyMinutes} minutes early so we can start on time. If you're new, this gives Alex time to go over the basic movements with you.`;

@@ -1,5 +1,6 @@
 "use server";
 
+import { arriveEarlyNote } from "@/content/classes";
 import { formatAddressLines } from "@/content/site";
 import { cookies, headers } from "next/headers";
 import { after } from "next/server";
@@ -197,7 +198,7 @@ export async function bookClass(formData: FormData): Promise<void> {
       await sendNotice({
         label: "member-book",
         key: `member-book/${result.data}`,
-        customer: { email: who.email, subject: `You're booked: ${when}`, text: `Your place on the group class on ${when} is confirmed (one membership credit used).\nWhere: ${formatAddressLines().join(", ")}\n\nYou can see or cancel it in your account: ${memberLinkOrigin()}${ACCOUNT_PATH}` },
+        customer: { email: who.email, subject: `You're booked: ${when}`, text: `Your place on the group class on ${when} is confirmed (one membership credit used).\nWhere: ${formatAddressLines().join(", ")}\n\n${arriveEarlyNote}\n\nYou can see or cancel it in your account: ${memberLinkOrigin()}${ACCOUNT_PATH}` },
         alex: { subject: `Class booked: ${who.name}, ${when}`, text: `${who.name} (${who.email}) booked the group class on ${when} with a membership credit. Their place is confirmed; nothing to confirm.` },
       });
     }
