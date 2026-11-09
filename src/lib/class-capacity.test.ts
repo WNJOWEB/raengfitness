@@ -114,13 +114,13 @@ describe("full classes", () => {
     ] as const;
     const w = classAvailability(
       sessions,
-      "2026-10-30",
-      new Set([fullKey("mon-evening", "2026-11-02")]),
+      "2026-11-16",
+      new Set([fullKey("mon-evening", "2026-11-23")]),
     );
     const slot = (date: string) =>
       w.days.find((d) => d.date === date)?.slots[0];
-    expect(slot("2026-11-02")?.available).toBe(false);
-    expect(slot("2026-11-09")?.available).toBe(true);
+    expect(slot("2026-11-23")?.available).toBe(false);
+    expect(slot("2026-11-30")?.available).toBe(true);
   });
 
   it("leaves a cancelled class out of the calendar", () => {
@@ -129,11 +129,11 @@ describe("full classes", () => {
     ] as const;
     const w = classAvailability(
       sessions,
-      "2026-10-30",
+      "2026-11-16",
       new Set(),
-      new Set([fullKey("mon-evening", "2026-11-02")]),
+      new Set([fullKey("mon-evening", "2026-11-23")]),
     );
-    expect(w.days.map((d) => d.date)).not.toContain("2026-11-02");
-    expect(w.days.map((d) => d.date)).toContain("2026-11-09");
+    expect(w.days.map((d) => d.date)).not.toContain("2026-11-23");
+    expect(w.days.map((d) => d.date)).toContain("2026-11-30");
   });
 });
