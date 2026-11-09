@@ -94,15 +94,6 @@ describe("bookingWeeks for a member", () => {
     expect(states["wed-evening|2026-11-25"]).toBe("next-period");
   });
 
-  it("offers nothing before booking opens, but keeps a place the member already has", () => {
-    const early = { ...args, today: "2026-11-09", opensOn: "2026-11-21" };
-    const s = bookingWeeks(member(), early).flatMap((w) => w.slots);
-    expect(s.some((x) => x.date < "2026-11-21")).toBe(false);
-    expect(s.some((x) => x.date >= "2026-11-21")).toBe(true);
-    const kept = bookingWeeks(member({ places: [{ id: "p", slot: "mon-evening", class_date: "2026-11-16", starts_at: "2026-11-16T18:30:00Z", status: "booked" } as never] }), early).flatMap((w) => w.slots);
-    expect(kept.find((x) => x.date === "2026-11-16")?.state).toBe("booked");
-  });
-
   it("marks the days inside a pause the member booked as paused (owner, 2026-11-04)", () => {
     const s = bookingWeeks(member(), { ...args, pause: { from: "2026-11-25", until: "2026-12-23" } }).flatMap((w) => w.slots);
     expect(s.find((x) => x.date === "2026-11-25")?.state).toBe("paused");

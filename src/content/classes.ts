@@ -8,12 +8,6 @@ import type { Timetable } from "./types";
  * 9:00 am by the owner on 2026-10-22, then to 8:30 am on 2026-11-09 (Alex). See CORE.md.
  * Class names, taglines and descriptions: as shown in Alex's mockup, checked against it 2026-11-09 (Single KB, Double KB, KB Mix).
  */
-/**
- * Group class booking opens on this date (owner, 2026-11-09). No class date
- * before it can be shown or requested. Format: YYYY-MM-DD, London time.
- */
-export const BOOKING_OPENS_ON = "2026-11-21";
-
 export const timetable: Timetable = {
   status: "confirmed",
   sessions: [

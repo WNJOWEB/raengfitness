@@ -141,7 +141,7 @@ function weekRange(dates: DateKey[]): string {
  */
 export function bookingWeeks(
   o: MemberOverview,
-  args: { today: DateKey; now: Date; classes: PublishedClass[]; windowDays: number; full: FullClasses; paymentDue: boolean; waitlist?: readonly WaitlistEntry[]; pause?: { from: string; until: string } | null; /** No class date before this is offered to book (the booking opening date). */ opensOn?: DateKey },
+  args: { today: DateKey; now: Date; classes: PublishedClass[]; windowDays: number; full: FullClasses; paymentDue: boolean; waitlist?: readonly WaitlistEntry[]; pause?: { from: string; until: string } | null },
 ): Week[] {
   const { today, now, classes, windowDays, full, paymentDue } = args;
   const onWaitlist = new Map((args.waitlist ?? []).map((w) => [fullKey(w.slot, w.class_date), w]));
@@ -160,8 +160,6 @@ export function bookingWeeks(
         if (WEEKDAYS[weekdayIndex(date)] !== c.day) continue;
         const startsAt = londonToUtc(date, c.start);
         const place = places.get(`${c.id}|${date}`) ?? null;
-        // Nothing before booking opens is offered; a place they already have still shows.
-        if (args.opensOn && date < args.opensOn && !place) continue;
         const key = fullKey(c.id, date);
         let state: SlotState;
         if (Date.parse(startsAt) <= now.getTime()) state = place ? (place.status === "no_show" ? "missed" : "attended") : "past";

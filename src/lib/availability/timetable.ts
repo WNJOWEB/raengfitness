@@ -1,4 +1,3 @@
-import { BOOKING_OPENS_ON } from "../../content/classes";
 import type { ClassSession, TimeOfDay, Weekday } from "@/content/types";
 import { addDays, fromDateKey, toDateKey, weekdayIndex, type DateKey } from "./dates";
 import type { AvailabilityWindow, DayAvailability } from "./types";
@@ -42,8 +41,6 @@ export function classAvailability(sessions: readonly ClassSlot[], today: DateKey
   const days: DayAvailability[] = [];
   for (let i = 1; i <= CLASS_WINDOW_DAYS; i++) {
     const date = addDays(today, i);
-    // Nothing before the opening date is shown or can be requested.
-    if (date < BOOKING_OPENS_ON) continue;
     const day = WEEKDAYS[weekdayIndex(date)];
     const todays = sessions.filter((s) => s.day === day && !(s.id && cancelled.has(`${s.id}|${date}`))).sort((a, b) => a.start.localeCompare(b.start));
     if (todays.length === 0) continue;
@@ -56,6 +53,5 @@ export function classAvailability(sessions: readonly ClassSlot[], today: DateKey
 export function isClassDate(date: string, session: ClassSlot, today: DateKey): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || toDateKey(fromDateKey(date)) !== date) return false;
   if (date < addDays(today, 0) || date > addDays(today, CLASS_WINDOW_DAYS + 1)) return false;
-  if (date < BOOKING_OPENS_ON) return false;
   return WEEKDAYS[weekdayIndex(date)] === session.day;
 }
