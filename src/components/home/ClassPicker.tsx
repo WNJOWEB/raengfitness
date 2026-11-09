@@ -32,7 +32,7 @@ export function ClassPicker({ className, location = true, button = true }: { cla
   const minutes = sessions[0]?.durationMinutes;
   const classes: WeekClass[] = sessions.map((s) => {
     const [hours, m] = s.start.split(":").map(Number);
-    return { id: s.id, day: s.day, dayIndex: DAYS.indexOf(s.day), start: hours * 60 + m, time: formatTime(s.start), startTime: s.start, durationMinutes: s.durationMinutes ?? 60, name: s.name ?? null, description: s.description ?? null };
+    return { id: s.id, day: s.day, dayIndex: DAYS.indexOf(s.day), start: hours * 60 + m, time: formatTime(s.start), startTime: s.start, durationMinutes: s.durationMinutes ?? 60, name: s.name ?? null, tagline: s.tagline ?? null, description: s.description ?? null };
   });
   const bookable = cta.kind === "booking" && !cta.external;
   return (

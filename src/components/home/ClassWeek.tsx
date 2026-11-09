@@ -22,6 +22,7 @@ export interface WeekClass {
   durationMinutes: number;
   /** "HIIT" and its one line, from Alex's mockup; null where not given. */
   name: string | null;
+  tagline: string | null;
   description: string | null;
 }
 
@@ -134,6 +135,7 @@ export function ClassWeek({
                 {c.name ? (
                   <span className="mt-1">
                     <span className="block font-semibold">{c.name}</span>
+                    {c.tagline ? <span className="block text-[0.9375rem] font-semibold">{c.tagline}</span> : null}
                     {c.description ? <span className="block text-[0.9375rem]">{c.description}</span> : null}
                   </span>
                 ) : null}

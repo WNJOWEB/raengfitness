@@ -57,7 +57,7 @@ export const WAITLIST_MESSAGES: Record<WaitlistReason, string> = {
 };
 
 /** "Monday 9 November, 6:30 pm" for a timetable slot on a date. */
-/** The class's own name from the timetable (e.g. "KB HIIT"), else the general class name. */
+/** The class's own name from the timetable (e.g. "Single KB"), else the general class name. */
 export function classNameFor(slot: string): string {
   return publishedClasses().find((c) => c.id === slot)?.name ?? groupClass.name;
 }

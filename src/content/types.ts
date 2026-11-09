@@ -26,6 +26,8 @@ export interface ClassSession {
   durationMinutes?: number;
   /** The class's name and one line about it, as Alex's mockup shows them (2026-10-29). */
   name?: string;
+  /** A short line under the name, e.g. "Full-body strength & conditioning.". */
+  tagline?: string;
   description?: string;
 }
 

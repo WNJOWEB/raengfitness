@@ -554,7 +554,7 @@ test("homepage: one idea per section, in order, and no testimonial is invented",
   const classes = page.locator("#classes");
   await expect(classes).toContainText("£12 a class");
   await expect(classes).toContainText("places max");
-  for (const name of ["KB HIIT", "Double KB", "KB Mix"]) await expect(classes).toContainText(name);
+  for (const name of ["Single KB", "Double KB", "KB Mix"]) await expect(classes).toContainText(name);
   await expect(classes.locator("#ct-venue")).toHaveText("1A Dunnswood Road");
   await expect(classes.getByText("Media House")).toHaveCount(0);
   // Alex's wording, exactly (audit of his chat, 2026-10-29): no "Media House" anywhere (the owner, 2026-10-29: not on the whole website), and the caption has no extra words.
