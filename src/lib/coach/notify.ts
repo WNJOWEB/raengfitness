@@ -1,4 +1,4 @@
-import { groupClass } from "@/content/classes";
+import { arriveEarlyNote, groupClass } from "@/content/classes";
 import { formatAddressLines } from "@/content/site";
 import type { BookingRequest } from "./types";
 
@@ -18,6 +18,7 @@ export function decisionMessage(request: Pick<BookingRequest, "name" | "status" 
       booked ? `You're booked in: ${booked}.` : `Your ${request.service.toLowerCase()} request is confirmed.`,
       booked ? `Where: ${venue}.` : "",
       booked && request.service.toLowerCase().includes("group") ? groupClass.payment : "",
+      booked && request.service.toLowerCase().includes("group") ? arriveEarlyNote : "",
       request.decision_note,
     ].filter(Boolean);
     return { subject: `Booked: ${request.service}`, body: [greeting, "", ...content, "", "See you there."].join("\n") };
