@@ -34,7 +34,7 @@ export const site = {
   },
 
   location: {
-    street: "1A Dunnswood Road",
+    street: "1A Dunns Wood Road",
     town: "Cumbernauld",
     city: "Glasgow",
     postcode: "G67 3EN",

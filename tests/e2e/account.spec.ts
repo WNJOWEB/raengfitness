@@ -190,7 +190,7 @@ test.describe("member accounts", () => {
     await expect(next.getByRole("link", { name: /^Directions/ })).toHaveAttribute("href", /google\.com\/maps/);
     const ics = await page.request.get(PROD + (await next.getByRole("link", { name: "Add to calendar" }).getAttribute("href"))!);
     expect(ics.headers()["content-type"]).toContain("text/calendar");
-    expect(await ics.text()).toMatch(/BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T\d{6}Z[\s\S]*LOCATION:1A Dunnswood Road/);
+    expect(await ics.text()).toMatch(/BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T\d{6}Z[\s\S]*LOCATION:1A Dunns Wood Road/);
     expect((await request.get(`${PROD}/account/calendar?place=00000000-0000-0000-0000-000000000000`, { maxRedirects: 0 })).status()).toBe(307);
 
     // The members menu and the account menu.

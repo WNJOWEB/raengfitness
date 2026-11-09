@@ -71,7 +71,7 @@ The business is now **RAENG** (brand themes STRENGTH · COMMUNITY · DISCIPLINE;
 | Brand | Alex K Bells (logo wordmark: ALEX.KBELLS) |
 | Descriptor | Kettlebell Coach |
 | Services | Group classes, one-to-one coaching, online coaching |
-| Address | 1A Dunnswood Road, Cumbernauld, Glasgow, G67 3EN, Scotland (no venue name anywhere on the site: owner, 2026-10-29) | Street spelled "Dunnswood" (owner, 2026-11-04, matching Google).
+| Address | 1A Dunns Wood Road, Cumbernauld, Glasgow, G67 3EN, Scotland (no venue name anywhere on the site: owner, 2026-10-29) | Street spelled "Dunns Wood" to match Alex's Instagram post (owner, 2026-11-09). Previously "Dunnswood" (owner, 2026-11-04, matching Google).
 | Instagram | https://www.instagram.com/alex.kbells/ |
 | Previous site | https://alexkbells-coaching.lovable.app (reference only) |
 | Project terms | Free build for the client; client pays hosting and running costs. Portfolio case study. |
