@@ -97,10 +97,8 @@ test.describe("booking a group class and paying online", () => {
     const email = `first-free-${Date.now()}@example.com`;
     await page.goto(`${PAY}/book/group-class`);
     await expect(page.getByText("Your first class with us is free", { exact: false })).toBeVisible();
-    const days = classAvailability(timetable.sessions, toDateKey(new Date())).days;
-    const day = days.filter((d) => d.date >= addDays(toDateKey(new Date()), 3))[6];
-    if (day.date.slice(0, 7) !== days[0].date.slice(0, 7)) await page.getByRole("button", { name: "Next month" }).click();
-    await page.locator("label").filter({ has: page.getByLabel(`${formatLongDate(day.date)}, available`) }).click();
+    // Pick the first date the calendar shows as open: other tests book classes, so a fixed date can be full.
+    await page.locator("label").filter({ has: page.getByLabel(/, available$/) }).first().click();
     await page.locator("#times label").first().click();
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByRole("textbox", { name: "Name" }).fill("First Timer");
