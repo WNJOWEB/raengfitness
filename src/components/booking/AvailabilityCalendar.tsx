@@ -16,7 +16,7 @@ interface Props {
   onSlot: (slotId: string) => void;
   /** e.g. "class" or "session", for the times heading. */
   noun: string;
-  /** Places still free on a class date and the class size (group classes, when the count is known); shown beside each time as "10/15 spaces available" or "15/15 Full". */
+  /** Places still free on a class date and the class size (group classes, when the count is known); shown beside each time as "14 spaces remaining", "1 space remaining" or "Full". */
   placesLeft?: (slotId: string, date: DateKey) => { left: number; size: number };
   /** Where to join the waitlist for a full time (group classes; owner, 2026-11-04). Without it a full time just says Full. */
   waitlistHref?: (slotId: string, date: DateKey) => string;
@@ -200,7 +200,8 @@ function MonthButton({ direction, disabled, onClick }: { direction: "previous" |
   );
 }
 
-/** Alex's wording (2026-11-05): "10/15 spaces available", and "15/15 Full" when none are left. */
+/** Places left only, never the booked count: "14 spaces remaining", "1 space remaining", or "Full". */
 function spacesLabel({ left, size }: { left: number; size: number }, open: boolean): string {
-  return open && left > 0 ? `${left}/${size} spaces available` : `${size}/${size} Full`;
+  if (!open || left <= 0) return "Full";
+  return `${left} ${left === 1 ? "space" : "spaces"} remaining`;
 }
