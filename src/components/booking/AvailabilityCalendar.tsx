@@ -167,7 +167,7 @@ export function AvailabilityCalendar({ window: avail, date, slotId, onDate, onSl
                 {!slot.available ? (
                   <span className="text-xs font-normal">{placesLeft && date ? spacesLabel(placesLeft(slot.id, date), false) : "Full"}</span>
                 ) : placesLeft && date ? (
-                  <span className="text-base font-normal">{spacesLabel(placesLeft(slot.id, date), true)}</span>
+                  <span className="text-sm font-normal">{spacesLabel(placesLeft(slot.id, date), true)}</span>
                 ) : null}
               </label>
               {!slot.available && waitlistHref && date ? (
