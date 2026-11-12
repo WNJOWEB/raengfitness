@@ -49,7 +49,7 @@ export const groupClass = {
   payment: "Pay by bank transfer or cash.",
   /**
    * Places per class (15, from Alex's website changes; Alex to confirm).
-   * Shown to visitors as "N Spaces Remaining" or "Full", never as booked/capacity. The coach can set a
+   * Shown to visitors as "N spaces remaining" or "Full", never as booked/capacity. The coach can set a
    * different capacity for a single date in the portal.
    */
   capacity: 15,
