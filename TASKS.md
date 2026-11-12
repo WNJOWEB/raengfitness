@@ -42,6 +42,7 @@ Live on raengfitness.co.uk: Stripe card payments, saved-card renewals, Direct De
 ## Alex's website changes (2026-11-05)
 
 ### Done
+- [x] Spaces remaining on each class date: "14 spaces remaining" / "1 space remaining" / "Full", booked counts not shown (Alex's request, 2026-11-12); full e2e suite passed 374/374 on the live branch
 - [x] "Book now" top right of the header; three booking options (group classes, 1:1, small group enquiry); 1:1 single session £35 / monthly package £130 chosen on the request; "when suits you" wording; 1:1 Personal Coaching and Small Group Coaching are their own pages (`/coaching/one-to-one`, `/coaching/small-group`), each its own menu entry, with `/coaching` as an overview outside the menu; FAQ trimmed to Alex's questions; timetable renamed (KB HIIT, Double KB, KB Mix); "N spaces remaining" / "Full"; `/about` focused on RAENG (no photo or coach section)
 
 ### To do
