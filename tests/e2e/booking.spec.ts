@@ -282,7 +282,7 @@ test.describe("production configuration", () => {
     await expect(page.locator('[data-status="available"], [data-status="full"]')).toHaveCount(shown.length);
     await pickDate(page, `${formatLongDate(day.date)}, available`);
     // How full the class is shows beside each time (owner, 2026-10-30).
-    await expect(page.locator("#times").getByText(/\d+ spaces? remaining|Full/).first()).toBeVisible();
+    await expect(page.locator("#times").getByText(/\d+ spaces? remaining/).first()).toBeVisible();
     await page.locator("#times label").first().click();
 
     // The class is described like Alex's own listing.

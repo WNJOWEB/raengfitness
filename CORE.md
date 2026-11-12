@@ -49,7 +49,7 @@ New logo supplied (`assets/brand/raeng-logo-source.jpg`: R monogram with kettleb
 | 1:1 pricing | C | Single 1:1 session £35 and Monthly package £130 (4 sessions), as two options chosen when requesting 1:1 (stored with the request). The single session is no longer "from £35" |
 | Small group coaching | P | Copy from Alex. **No price, group size, times or duration supplied, so none is shown**; the page says they are shared on enquiry |
 | Timetable names | C | Single KB (Mon 6:30 pm), Double KB (Wed 6:30 pm), KB Mix (Sat 8:30 am), each with Alex's tagline and description (checked against his mockup 2026-11-09) |
-| Spaces remaining | C | Shown on each class date as "10/15 spaces available" / "15/15 Full" (Alex's wording); capacity 15 unless set per date in the coach portal |
+| Spaces remaining | C | Shown on each class date as "14 spaces remaining" / "1 space remaining" / "Full" (booked counts deliberately not shown; Alex's request, 2026-11-12); capacity 15 unless set per date in the coach portal |
 | FAQ | C | Alex's questions only (five): experience, what to bring, session length, where coaching takes place, 1:1 vs small group. "Can I book with a friend?" needs Alex's answer before it can go up |
 | About | C | Alex's photograph and the section about him as the coach removed from `/about`; the page is about RAENG (philosophy and values). The home page still has its "Meet your coach" section: confirm whether that should go too |
 
