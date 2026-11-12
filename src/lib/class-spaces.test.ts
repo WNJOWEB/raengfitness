@@ -5,14 +5,15 @@ import { loadClassSpaces } from "./class-spaces-server";
 
 describe("formatSpaces", () => {
   it("shows places left in Alex's wording", () => {
-    expect(formatSpaces({ capacity: 15, booked: 5 })).toBe("10/15 spaces available");
-    expect(formatSpaces({ capacity: 15, booked: 14 })).toBe("1/15 spaces available");
-    expect(formatSpaces({ capacity: 15, booked: 0 })).toBe("15/15 spaces available");
+    expect(formatSpaces({ capacity: 15, booked: 5 })).toBe("10 spaces remaining");
+    expect(formatSpaces({ capacity: 15, booked: 14 })).toBe("1 space remaining");
+    expect(formatSpaces({ capacity: 15, booked: 1 })).toBe("14 spaces remaining");
+    expect(formatSpaces({ capacity: 15, booked: 0 })).toBe("15 spaces remaining");
   });
 
   it("says Full when none are left, even if over-booked", () => {
-    expect(formatSpaces({ capacity: 15, booked: 15 })).toBe("15/15 Full");
-    expect(formatSpaces({ capacity: 15, booked: 17 })).toBe("15/15 Full");
+    expect(formatSpaces({ capacity: 15, booked: 15 })).toBe("Full");
+    expect(formatSpaces({ capacity: 15, booked: 17 })).toBe("Full");
     expect(isFull({ capacity: 15, booked: 17 })).toBe(true);
     expect(spacesRemaining({ capacity: 15, booked: 17 })).toBe(0);
   });

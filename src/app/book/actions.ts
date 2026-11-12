@@ -12,7 +12,7 @@ import {
   type FormState,
 } from "@/lib/booking-request";
 import { publishedClasses } from "@/lib/class-sessions";
-import { formatSpaces, isFull } from "@/lib/class-spaces";
+import { isFull } from "@/lib/class-spaces";
 import { loadClassPlaces } from "@/lib/class-spaces-server";
 import { deliverRequest } from "@/lib/deliver-request";
 import { idempotencyKey } from "@/lib/send-email";
@@ -55,7 +55,7 @@ export async function submitBookingRequest(
     if (places && isFull(places)) {
       return {
         status: "error",
-        message: `That class is full (${formatSpaces(places)}). Please choose another date.`,
+        message: "That class is full. Please choose another date.",
         errors: { when: "That class is full. Please choose another date." },
       };
     }

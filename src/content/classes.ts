@@ -48,8 +48,8 @@ export const groupClass = {
     "A 60-minute kettlebell training session designed to build strength, conditioning and movement quality. Suitable for all experience levels, with exercises scaled to your ability.",
   payment: "Pay by bank transfer or cash.",
   /**
-   * Places per class. From the example in Alex's website changes ("10/15
-   * spaces available", "15/15 Full"); Alex to confirm. The coach can set a
+   * Places per class (15, from Alex's website changes; Alex to confirm).
+   * Shown to visitors as "N spaces remaining" or "Full", never as booked/capacity. The coach can set a
    * different capacity for a single date in the portal.
    */
   capacity: 15,
