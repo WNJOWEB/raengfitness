@@ -28,9 +28,9 @@ export function isFull(places: ClassPlaces): boolean {
   return spacesRemaining(places) === 0;
 }
 
-/** "14 spaces remaining", "1 space remaining" or "Full". Never shows how many are booked. */
+/** "14 Spaces Remaining", "1 Space Remaining" or "Full". Never shows how many are booked. */
 export function formatSpaces(places: ClassPlaces): string {
   const left = spacesRemaining(places);
   if (left === 0) return "Full";
-  return `${left} ${left === 1 ? "space" : "spaces"} remaining`;
+  return `${left} ${left === 1 ? "Space" : "Spaces"} Remaining`;
 }

@@ -152,7 +152,7 @@ See Coach portal below.
 - [x] 1:1 requests must choose Single 1:1 session (£35) or Monthly package (£130, 4 sessions); stored with the request and shown in Alex's email and the coach portal
 - [x] "When suits you?" wording replaced with Alex's text for 1:1 and small group
 - [x] Timetable: KB HIIT (Mon 18:30), Double KB (Wed 18:30), KB Mix (Sat 09:00) with descriptions, everywhere the timetable shows
-- [x] Spaces remaining on each class date ("14 spaces remaining" / "Full"; booked counts are not shown); full classes can't be chosen, and the server re-checks on submit
+- [x] Spaces remaining on each class date ("14 Spaces Remaining" / "Full"; booked counts are not shown); full classes can't be chosen, and the server re-checks on submit
 - [x] About: Alex's portrait and coach section removed; "About RAENG" focused on the brand
 - [x] FAQ: 1:1 vs small group; 1:1 answer updated
 

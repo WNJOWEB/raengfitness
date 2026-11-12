@@ -437,12 +437,12 @@ test.describe("production configuration", () => {
     // An untouched date: all 15 places.
     const first = window.days[0];
     await pickDate(page, `${formatLongDate(first.date)}, available`);
-    await expect(page.locator("#times")).toContainText("15 spaces remaining");
+    await expect(page.locator("#times")).toContainText("15 Spaces Remaining");
     await expect(page.locator("#times")).toContainText(first.slots[0].name!);
     // The date with one place taken.
     if (last.date.slice(0, 7) !== first.date.slice(0, 7)) await page.getByRole("button", { name: "Next month" }).click();
     await pickDate(page, `${formatLongDate(last.date)}, available`);
-    await expect(page.locator("#times")).toContainText("14 spaces remaining");
+    await expect(page.locator("#times")).toContainText("14 Spaces Remaining");
   });
 
   test("when the email provider is down, the request is still stored, flagged and retried without duplicates", async ({ page, request }) => {
